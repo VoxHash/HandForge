@@ -1,0 +1,22 @@
+[MASTER]
+ignore=venv,.venv,build,dist,.eggs,*.egg-info
+py-version=3.9
+
+[MESSAGES CONTROL]
+disable=
+    missing-docstring,
+    too-few-public-methods,
+    too-many-arguments,
+    too-many-instance-attributes,
+    too-many-locals,
+    too-many-branches,
+    too-many-statements,
+    import-error,
+    no-member
+
+[FORMAT]
+max-line-length=127
+
+[TYPECHECK]
+ignored-modules=PyQt6
+

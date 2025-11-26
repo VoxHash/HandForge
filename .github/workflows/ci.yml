@@ -1,0 +1,129 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: Test Python ${{ matrix.python-version }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ['3.9', '3.10', '3.11', '3.12']
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+    
+    - name: Install system dependencies (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg
+    
+    - name: Install system dependencies (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        choco install ffmpeg -y || echo "FFmpeg installation skipped (may need manual setup)"
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-cov pytest-qt black flake8 mypy
+    
+    - name: Check code formatting with black
+      run: |
+        black --check handforge/ || true
+    
+    - name: Lint with flake8
+      run: |
+        flake8 handforge/ --count --select=E9,F63,F7,F82 --show-source --statistics || true
+        flake8 handforge/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics || true
+    
+    - name: Type check with mypy
+      run: |
+        mypy handforge/ --ignore-missing-imports || true
+    
+    - name: Test import
+      run: |
+        python -c "import handforge; print('Import successful')"
+    
+    - name: Check FFmpeg availability
+      run: |
+        ffmpeg -version || echo "FFmpeg not found in PATH"
+
+  lint:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+    
+    - name: Install linting tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install black flake8 mypy pylint
+    
+    - name: Run black (check formatting)
+      run: |
+        black --check handforge/ || echo "Formatting issues found"
+    
+    - name: Run flake8
+      run: |
+        flake8 handforge/ --count --select=E9,F63,F7,F82 --show-source --statistics || echo "Critical errors found"
+        flake8 handforge/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    
+    - name: Run pylint
+      run: |
+        pylint handforge/ --disable=all --enable=E,F || echo "Pylint issues found"
+      continue-on-error: true
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+    
+    - name: Install security tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install safety bandit
+    
+    - name: Run Safety check
+      run: |
+        safety check --json || echo "Security vulnerabilities found"
+      continue-on-error: true
+    
+    - name: Run Bandit security linter
+      run: |
+        bandit -r handforge/ -f json -o bandit-report.json || true
+        bandit -r handforge/ || echo "Security issues found"
+      continue-on-error: true
+
