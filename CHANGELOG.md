@@ -7,15 +7,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Added
-- **macOS Support**: Full macOS compatibility with Apple Silicon and Intel support
-  - Added macOS-specific FFmpeg path detection (`/opt/homebrew/bin` for Apple Silicon, `/usr/local/opt/ffmpeg/bin` for Intel)
-  - Added macOS to CI/CD testing matrix
-  - Updated all documentation to include macOS alongside Windows and Linux
+- 
 
 ### Changed
-- Updated platform badge and descriptions to include macOS
-- Updated CI/CD workflow to test on macOS (ubuntu-latest, windows-latest, macos-latest)
-- Updated all documentation files to mention macOS support
+- 
+
+### Fixed
+- 
+
+## [1.3.1] - 2026-03-12
 
 ### Fixed
 - **CRITICAL**: Fixed video stream loss in video-to-video conversions (MKV to MP4, size reduction)
@@ -23,16 +23,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - Added safety check to never extract audio when `reduce_size` is enabled
   - Improved destination format detection to check format extension if path doesn't exist
   - Explicitly ensure `extract_audio_only` is False for video-to-video conversions
+  - Added video stream verification using ffprobe to detect missing video streams
 - Fixed `speed_str` undefined variable error in orchestrator
 - Fixed duplicate `checkbox_two_pass` widget addition
 - Fixed duplicate `is_failed` variable definition
 - Fixed variable name collision for `remaining` in progress tracking
 - Fixed undefined `elapsed` variable in some code paths
 - Fixed completion message showing "successful" even when conversions failed
-- Added video stream verification to detect missing video streams in output files
 - Improved output file size validation (100KB minimum for video files vs 1KB for audio)
 
 ## [1.3.0] - 2026-03-12
+
+### Added
+- **macOS Support**: Full macOS compatibility with Apple Silicon and Intel support
+  - Added macOS-specific FFmpeg path detection (`/opt/homebrew/bin` for Apple Silicon, `/usr/local/opt/ffmpeg/bin` for Intel)
+  - Added macOS to CI/CD testing matrix
+  - Updated all documentation to include macOS alongside Windows and Linux
 
 ### Added
 - **Multi-Language Support (i18n)**: Full internationalization with 11 languages
