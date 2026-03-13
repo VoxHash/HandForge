@@ -227,11 +227,19 @@ def build_ffmpeg_cmd(
     
     # Determine if source is video
     src_is_video = is_video_file(src)
+    # Determine if destination is video
     # For null device outputs (NUL, /dev/null), check source type instead
     if dst in ["NUL", "/dev/null"]:
         dst_is_video = src_is_video
     else:
+        # Check destination path first, then fall back to format extension
         dst_is_video = is_video_file(dst)
+        # If dst path doesn't exist yet, check format extension
+        if not dst_is_video:
+            # Check format directly from fmt parameter
+            video_formats = ["mp4", "mkv", "avi", "mov", "wmv", "flv", "webm", "m4v", 
+                           "3gp", "ogv", "mts", "m2ts", "ts"]
+            dst_is_video = fmt.lower() in video_formats
     
     # Video trimming (must be before -i for faster seeking)
     cmd = [ffmpeg]
@@ -247,8 +255,25 @@ def build_ffmpeg_cmd(
         cmd.extend(["-t", str(video_trim_end)])
     
     # Extract audio only from video
-    if extract_audio_only or (src_is_video and not dst_is_video):
-        # Video to audio extraction
+    # CRITICAL: Only add -vn if:
+    # 1. Explicitly extracting audio only, AND
+    # 2. Source is video but destination is NOT video (video-to-audio conversion)
+    # NEVER add -vn if both source and destination are video (video-to-video conversion)
+    # NEVER add -vn if reduce_size is True (we're compressing video, not extracting audio)
+    should_extract_audio = False
+    if extract_audio_only:
+        # Explicitly requested audio extraction
+        should_extract_audio = True
+    elif src_is_video and not dst_is_video:
+        # Video to audio conversion (destination format is audio)
+        should_extract_audio = True
+    
+    # Safety check: Never extract audio if reduce_size is enabled (video compression)
+    if reduce_size:
+        should_extract_audio = False
+    
+    if should_extract_audio:
+        # Video to audio extraction - no video stream
         cmd.extend(["-vn"])  # No video
         
         # Audio codec
@@ -363,7 +388,8 @@ def build_ffmpeg_cmd(
         if audio_track is not None and audio_track >= 0:
             audio_map = f"0:a:{audio_track}"
         
-        # Subtitle handling - map streams first
+        # Subtitle handling - map streams explicitly to ensure video is included
+        # CRITICAL: Always explicitly map video stream for video-to-video conversion
         if subtitle_track is not None and subtitle_track >= 0:
             # Include specific subtitle track (subtitle_track is the actual stream index)
             # Map by stream index directly using 0:index format
@@ -379,7 +405,8 @@ def build_ffmpeg_cmd(
                 # For other formats, try mov_text or copy
                 cmd.extend(["-c:s", "mov_text"])
         else:
-            # Default: map video and audio only (no subtitles)
+            # Default: explicitly map video and audio streams (no subtitles)
+            # This ensures video stream is always included in video-to-video conversion
             cmd.extend(["-map", "0:v:0", "-map", audio_map])
         
         # Smart compression settings for size reduction

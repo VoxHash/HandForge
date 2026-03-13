@@ -8,7 +8,7 @@ import platform
 from typing import List, Optional, Dict, Any
 from PyQt6.QtCore import QObject, QThread, pyqtSignal, QMutex, QWaitCondition
 from .models import Job
-from ..util.ffmpeg import build_ffmpeg_cmd, run_ffmpeg, out_path
+from ..util.ffmpeg import build_ffmpeg_cmd, run_ffmpeg, out_path, is_video_file
 
 # Platform-specific imports for non-blocking I/O
 if platform.system() == "Windows":
@@ -479,14 +479,48 @@ class Worker(QThread):
                     self.sig_done.emit(self.wid, False, f"Conversion completed but output file not found: {dst}", "")
                     return
                 
-                # Check if output file has reasonable size (at least 1KB)
+                # Check if output file has reasonable size
+                # For video files, check if video stream exists
                 try:
                     output_size = os.path.getsize(dst)
-                    if output_size < 1024:  # Less than 1KB is suspicious
+                    # For video files, check minimum size (video files should be larger)
+                    if self.job.reduce_size or (is_video_file(self.job.src) and is_video_file(dst)):
+                        # Video files should be at least 100KB (very small videos)
+                        min_size = 100 * 1024
+                        if output_size < min_size:
+                            self.sig_done.emit(self.wid, False, f"Output file is too small ({output_size} bytes) - video stream may be missing", dst)
+                            return
+                    elif output_size < 1024:  # Audio files: at least 1KB
                         self.sig_done.emit(self.wid, False, f"Output file is too small ({output_size} bytes) - conversion may have failed", dst)
                         return
-                except:
-                    pass
+                    
+                    # Additional check: verify video stream exists for video-to-video conversions
+                    if is_video_file(self.job.src) and is_video_file(dst):
+                        from ..util.ffmpeg import find_ffprobe
+                        ffprobe = find_ffprobe()
+                        if ffprobe:
+                            import json
+                            check_cmd = [
+                                ffprobe,
+                                "-v", "quiet",
+                                "-print_format", "json",
+                                "-show_streams",
+                                "-select_streams", "v",  # Only video streams
+                                dst
+                            ]
+                            try:
+                                result = subprocess.run(check_cmd, capture_output=True, text=True, timeout=5)
+                                if result.returncode == 0:
+                                    data = json.loads(result.stdout)
+                                    video_streams = [s for s in data.get("streams", []) if s.get("codec_type") == "video"]
+                                    if not video_streams:
+                                        self.sig_done.emit(self.wid, False, "Conversion completed but output file has no video stream - video was not included", dst)
+                                        return
+                            except:
+                                pass  # If check fails, assume it's OK
+                except Exception as e:
+                    # If size check fails, log but don't fail the conversion
+                    self.sig_log.emit(self.wid, f"Warning: Could not verify output file size: {e}")
                 
                 # Delete original file if requested
                 if self.job.delete_original and os.path.exists(self.job.src):

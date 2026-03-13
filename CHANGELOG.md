@@ -24,7 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Fixed variable name collision for `remaining` in progress tracking
 - Fixed undefined `elapsed` variable in some code paths
 
-## [1.3.0] - 2025-01-XX
+## [1.3.0] - 2026-03-12
 
 ### Added
 - **Multi-Language Support (i18n)**: Full internationalization with 11 languages

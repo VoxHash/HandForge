@@ -809,6 +809,8 @@ class MainWindow(QMainWindow):
                     job.size_reduction_factor = self.combo_reduction.currentData()
                     job.use_hevc = True  # Use H.265/HEVC for better compression
                     job.two_pass = self.checkbox_two_pass.isChecked()
+                # CRITICAL: Ensure extract_audio_only is False for video-to-video conversion
+                job.extract_audio_only = False
             elif src_is_video and not dst_is_video:
                 # Video to audio extraction
                 job.extract_audio_only = True
@@ -927,17 +929,33 @@ class MainWindow(QMainWindow):
         
         t = self.translator
         if not self.orchestrator.workers and not self.orchestrator.job_queue:
-            self.statusBar().showMessage(t.tr("msg_all_complete"))
+            # Check if there are any failed conversions
+            failed_count = sum(1 for data in self.workers_data.values() if data.get("status") == "Failed")
+            total_count = len(self.workers_data)
+            
+            if failed_count > 0:
+                # Some conversions failed
+                self.statusBar().showMessage(f"⚠️ Completed: {total_count - failed_count} succeeded, {failed_count} failed")
+                if self.tray_icon:
+                    self.tray_icon.showMessage(
+                        "Conversions Complete",
+                        f"{total_count - failed_count} succeeded, {failed_count} failed",
+                        QSystemTrayIcon.MessageIcon.Warning,
+                        5000
+                    )
+            else:
+                # All succeeded
+                self.statusBar().showMessage(t.tr("msg_all_complete"))
+                if self.tray_icon:
+                    self.tray_icon.showMessage(
+                        "All Conversions Complete",
+                        "All files have been converted successfully",
+                        QSystemTrayIcon.MessageIcon.Information,
+                        5000
+                    )
+            
             self.btn_start.setEnabled(True)
             self.btn_stop.setEnabled(False)
-            # System tray notification for all done
-            if self.tray_icon:
-                self.tray_icon.showMessage(
-                    "All Conversions Complete",
-                    "All files have been converted successfully",
-                    QSystemTrayIcon.MessageIcon.Information,
-                    5000
-                )
     
     def _on_tray_activated(self, reason):
         """Handle system tray icon activation."""
