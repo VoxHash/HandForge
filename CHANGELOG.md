@@ -18,11 +18,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Updated all documentation files to mention macOS support
 
 ### Fixed
+- **CRITICAL**: Fixed video stream loss in video-to-video conversions (MKV to MP4, size reduction)
+  - Prevented `-vn` flag from being added when converting video to video
+  - Added safety check to never extract audio when `reduce_size` is enabled
+  - Improved destination format detection to check format extension if path doesn't exist
+  - Explicitly ensure `extract_audio_only` is False for video-to-video conversions
 - Fixed `speed_str` undefined variable error in orchestrator
 - Fixed duplicate `checkbox_two_pass` widget addition
 - Fixed duplicate `is_failed` variable definition
 - Fixed variable name collision for `remaining` in progress tracking
 - Fixed undefined `elapsed` variable in some code paths
+- Fixed completion message showing "successful" even when conversions failed
+- Added video stream verification to detect missing video streams in output files
+- Improved output file size validation (100KB minimum for video files vs 1KB for audio)
 
 ## [1.3.0] - 2026-03-12
 
