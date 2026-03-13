@@ -7,10 +7,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Added
-- 
+- **macOS Support**: Full macOS compatibility with Apple Silicon and Intel support
+  - Added macOS-specific FFmpeg path detection (`/opt/homebrew/bin` for Apple Silicon, `/usr/local/opt/ffmpeg/bin` for Intel)
+  - Added macOS to CI/CD testing matrix
+  - Updated all documentation to include macOS alongside Windows and Linux
 
 ### Changed
-- 
+- Updated platform badge and descriptions to include macOS
+- Updated CI/CD workflow to test on macOS (ubuntu-latest, windows-latest, macos-latest)
+- Updated all documentation files to mention macOS support
 
 ### Fixed
 - Fixed `speed_str` undefined variable error in orchestrator
