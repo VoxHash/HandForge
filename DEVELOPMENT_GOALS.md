@@ -44,7 +44,7 @@ This document outlines short-term and mid-term technical goals for HandForge.
 ## Long-Term Vision (2027+)
 
 ### Platform Expansion
-- **macOS Support**: Full macOS compatibility
+- **macOS Enhancements**: Additional macOS-specific optimizations and features
 - **Mobile Apps**: Companion mobile apps for remote control
 - **Web Interface**: Optional web-based interface
 

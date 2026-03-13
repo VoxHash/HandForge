@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ['3.9', '3.10', '3.11', '3.12']
     
     steps:
@@ -36,6 +36,11 @@ jobs:
       if: matrix.os == 'windows-latest'
       run: |
         choco install ffmpeg -y || echo "FFmpeg installation skipped (may need manual setup)"
+    
+    - name: Install system dependencies (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew install ffmpeg || echo "FFmpeg installation skipped (may need manual setup)"
     
     - name: Install dependencies
       run: |

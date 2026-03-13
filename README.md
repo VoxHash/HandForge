@@ -3,9 +3,9 @@
 [![CodeQL Analysis](https://github.com/VoxHash/HandForge/actions/workflows/codeql.yml/badge.svg)](https://github.com/VoxHash/HandForge/actions/workflows/codeql.yml)
 [![Python Version](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey.svg)]()
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 
-> A cross-platform audio and video converter GUI (Windows/Linux) built with PyQt6 + FFmpeg. Features a modern Glassmorphism UI design.
+> A cross-platform audio and video converter GUI (Windows/Linux/macOS) built with PyQt6 + FFmpeg. Features a modern Glassmorphism UI design.
 
 ## ✨ Features
 

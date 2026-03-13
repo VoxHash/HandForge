@@ -28,7 +28,7 @@ python -m handforge.app
 
 Currently, HandForge is primarily tested manually. When contributing:
 
-- Test your changes on both Windows and Linux if possible
+- Test your changes on Windows, Linux, and macOS if possible
 - Test with various audio and video formats
 - Verify UI changes work correctly
 - Check for any regressions

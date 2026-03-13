@@ -19,6 +19,8 @@ def find_ffmpeg() -> Optional[str]:
         "C:\\Program Files\\ffmpeg\\bin\\ffmpeg.exe",
         "/usr/bin/ffmpeg",
         "/usr/local/bin/ffmpeg",
+        "/opt/homebrew/bin/ffmpeg",  # macOS (Apple Silicon)
+        "/usr/local/opt/ffmpeg/bin/ffmpeg",  # macOS (Intel via Homebrew)
     ]
     
     for path in common_paths:
@@ -40,6 +42,8 @@ def find_ffprobe() -> Optional[str]:
         "C:\\Program Files\\ffmpeg\\bin\\ffprobe.exe",
         "/usr/bin/ffprobe",
         "/usr/local/bin/ffprobe",
+        "/opt/homebrew/bin/ffprobe",  # macOS (Apple Silicon)
+        "/usr/local/opt/ffmpeg/bin/ffprobe",  # macOS (Intel via Homebrew)
     ]
     
     for path in common_paths:

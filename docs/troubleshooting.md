@@ -13,6 +13,7 @@ Common issues and solutions when using HandForge.
 2. Ensure FFmpeg is in your system PATH
 3. Restart terminal/command prompt after installing FFmpeg
 4. On Windows, restart the computer if PATH changes don't take effect
+5. On macOS, ensure Homebrew paths are in PATH: `echo $PATH | grep -q /opt/homebrew/bin || export PATH="/opt/homebrew/bin:$PATH"`
 
 ### PyQt6 Installation Fails
 

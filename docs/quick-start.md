@@ -11,6 +11,7 @@ pip install -r requirements.txt
 # Ensure FFmpeg is installed
 # Windows: winget install ffmpeg
 # Linux: sudo apt install ffmpeg
+# macOS: brew install ffmpeg
 ```
 
 ## Run

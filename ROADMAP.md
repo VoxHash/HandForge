@@ -25,7 +25,7 @@ High-level milestones and planned features for HandForge.
 - Plugin system architecture for extensibility
 
 ### Platform & Integration
-- macOS support
+- Enhanced macOS compatibility and testing
 - Cloud storage integration
 - Distributed processing capabilities
 - Performance analytics and monitoring
@@ -33,7 +33,7 @@ High-level milestones and planned features for HandForge.
 ## Future (2027+)
 
 ### Platform Expansion
-- Full macOS compatibility
+- Enhanced macOS features and optimizations
 - Companion mobile apps
 - Optional web-based interface
 
