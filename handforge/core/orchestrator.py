@@ -74,7 +74,17 @@ class Worker(QThread):
                 return
             
             # Build output path
-            dst = out_path(self.job.dst_dir, self.job.src, self.job.format)
+            try:
+                dst = out_path(self.job.dst_dir, self.job.src, self.job.format)
+            except PermissionError as e:
+                self.sig_done.emit(self.wid, False, f"Permission error: {str(e)}", "")
+                return
+            
+            # Verify output directory is writable before proceeding
+            output_dir = os.path.dirname(dst)
+            if not os.access(output_dir, os.W_OK):
+                self.sig_done.emit(self.wid, False, f"Output directory is not writable: {output_dir}. Please check permissions or choose a different output directory.", "")
+                return
             
             # Check if output exists
             if os.path.exists(dst):
@@ -88,6 +98,15 @@ class Worker(QThread):
                     while os.path.exists(dst):
                         dst = f"{base} ({counter}){ext}"
                         counter += 1
+                elif on_exists == "overwrite":
+                    # Try to make existing file writable if we're overwriting
+                    try:
+                        import stat
+                        current_mode = os.stat(dst).st_mode
+                        os.chmod(dst, current_mode | stat.S_IWUSR)
+                    except (PermissionError, OSError):
+                        # If we can't fix permissions, FFmpeg will fail with a clear error
+                        pass
             
             # For two-pass encoding, first pass outputs to null device
             first_pass_dst = dst
@@ -149,6 +168,22 @@ class Worker(QThread):
             
             # Run FFmpeg
             start_time = time.time()
+            
+            # Verify we can write to the output location before starting FFmpeg
+            output_dir = os.path.dirname(dst)
+            try:
+                # Test write permission by trying to create a temporary file
+                import tempfile
+                test_file = os.path.join(output_dir, f".handforge_test_{os.getpid()}")
+                try:
+                    with open(test_file, 'w') as f:
+                        f.write('test')
+                    os.remove(test_file)
+                except (PermissionError, OSError) as e:
+                    self.sig_done.emit(self.wid, False, f"Cannot write to output directory '{output_dir}': {e}. Please check permissions or choose a different output directory.", "")
+                    return
+            except Exception as e:
+                self.sig_log.emit(self.wid, f"Warning: Could not verify write permissions: {e}")
             
             # Log command details for debugging
             self.sig_log.emit(self.wid, f"Starting conversion: {os.path.basename(self.job.src)}")

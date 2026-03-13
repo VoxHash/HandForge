@@ -810,8 +810,28 @@ def out_path(dst_dir: str, src: str, fmt: str) -> str:
     # Expand user directory
     dst_dir = os.path.expanduser(dst_dir)
     
-    # Create directory if it doesn't exist
-    os.makedirs(dst_dir, exist_ok=True)
+    # Create directory if it doesn't exist with proper permissions
+    try:
+        os.makedirs(dst_dir, mode=0o755, exist_ok=True)
+    except PermissionError:
+        # If permission denied, try with default mode
+        try:
+            os.makedirs(dst_dir, exist_ok=True)
+        except PermissionError as e:
+            raise PermissionError(f"Cannot create output directory '{dst_dir}': {e}. Please check permissions or choose a different output directory.")
+    
+    # Verify directory is writable
+    if not os.access(dst_dir, os.W_OK):
+        # Try to fix permissions if possible
+        try:
+            import stat
+            current_mode = os.stat(dst_dir).st_mode
+            # Add write permission for owner
+            os.chmod(dst_dir, current_mode | stat.S_IWUSR)
+            if not os.access(dst_dir, os.W_OK):
+                raise PermissionError(f"Output directory '{dst_dir}' is not writable. Please check permissions or choose a different output directory.")
+        except (PermissionError, OSError) as e:
+            raise PermissionError(f"Output directory '{dst_dir}' is not writable: {e}. Please check permissions or choose a different output directory.")
     
     # Get source filename without extension
     src_basename = os.path.basename(src)
@@ -853,4 +873,17 @@ def out_path(dst_dir: str, src: str, fmt: str) -> str:
     }
     
     ext = ext_map.get(fmt.lower(), f".{fmt}")
-    return os.path.join(dst_dir, f"{src_name}{ext}")
+    output_file = os.path.join(dst_dir, f"{src_name}{ext}")
+    
+    # Check if output file exists and has wrong permissions
+    if os.path.exists(output_file):
+        try:
+            # Try to make file writable if it exists
+            import stat
+            current_mode = os.stat(output_file).st_mode
+            os.chmod(output_file, current_mode | stat.S_IWUSR)
+        except (PermissionError, OSError):
+            # If we can't fix permissions, that's okay - FFmpeg will handle overwrite
+            pass
+    
+    return output_file

@@ -281,6 +281,10 @@ class MainWindow(QMainWindow):
         # Connect cell clicked signal for View Log button
         self.workers_table.cellClicked.connect(self._on_workers_table_cell_clicked)
         
+        # Enable context menu for Active Conversions table
+        self.workers_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.workers_table.customContextMenuRequested.connect(self.show_workers_context_menu)
+        
         splitter.addWidget(workers_group)
         splitter.setSizes([450, 750])
         
@@ -900,6 +904,12 @@ class MainWindow(QMainWindow):
             self.workers_data[wid]["status"] = "Done" if success else "Failed"
             self.workers_data[wid]["message"] = message
             self.workers_data[wid]["output_path"] = output_path
+            # Update file name to show output filename with new extension
+            if output_path and os.path.exists(output_path):
+                self.workers_data[wid]["file"] = os.path.basename(output_path)
+            elif output_path:
+                # Even if file doesn't exist (failed), show intended output filename
+                self.workers_data[wid]["file"] = os.path.basename(output_path)
             self.update_workers_table()
             
             # Show notification with file location if successful
@@ -967,9 +977,11 @@ class MainWindow(QMainWindow):
     
     def _on_worker_started(self, wid: int, file_path: str):
         """Handle worker started - initialize worker data with file name."""
+        # Store input file path for reference
         file_name = os.path.basename(file_path)
         self.workers_data[wid] = {
-                "file": file_name,
+                "file": file_name,  # Will be updated to output filename when conversion completes
+                "input_path": file_path,  # Store input path
                 "elapsed": 0,
                 "eta": 0,
                 "speed": "0.0x",
@@ -985,12 +997,15 @@ class MainWindow(QMainWindow):
         if wid not in self.workers_data:
             # Get file name from orchestrator if available
             file_name = ""
+            input_path = ""
             if wid in self.orchestrator.workers:
                 worker = self.orchestrator.workers[wid]
-                file_name = os.path.basename(worker.job.src)
+                input_path = worker.job.src
+                file_name = os.path.basename(input_path)
             
             self.workers_data[wid] = {
                 "file": file_name,
+                "input_path": input_path,
                 "elapsed": 0,
                 "eta": 0,
                 "speed": "",
@@ -1012,6 +1027,7 @@ class MainWindow(QMainWindow):
         if wid not in self.workers_data:
             self.workers_data[wid] = {
                 "file": "",
+                "input_path": "",
                 "elapsed": 0,
                 "eta": 0,
                 "speed": "",
@@ -1023,6 +1039,28 @@ class MainWindow(QMainWindow):
         self.workers_data[wid]["log"].append(log_line)
         if len(self.workers_data[wid]["log"]) > 100:
             self.workers_data[wid]["log"].pop(0)
+        
+        # Try to extract output path from log if available
+        if "Output:" in log_line and not self.workers_data[wid].get("output_path"):
+            try:
+                output_path = log_line.split("Output:", 1)[1].strip()
+                if output_path:
+                    self.workers_data[wid]["output_path"] = output_path
+                    # Update file name to output filename if file exists
+                    if os.path.exists(output_path):
+                        self.workers_data[wid]["file"] = os.path.basename(output_path)
+            except:
+                pass
+        
+        # Try to extract output path from log if available
+        if "Output:" in log_line and not self.workers_data[wid].get("output_path"):
+            try:
+                output_path = log_line.split("Output:", 1)[1].strip()
+                if output_path and os.path.exists(output_path):
+                    self.workers_data[wid]["output_path"] = output_path
+                    self.workers_data[wid]["file"] = os.path.basename(output_path)
+            except:
+                pass
     
     def update_workers_table(self):
         """Update the workers table."""
@@ -1379,6 +1417,86 @@ class MainWindow(QMainWindow):
         
         self.update_queue_table()
         self.update_queue_count()
+    
+    def show_workers_context_menu(self, position):
+        """Show context menu for Active Conversions table."""
+        menu = QMenu(self)
+        
+        # Get selected rows
+        selected_rows = self.workers_table.selectionModel().selectedRows()
+        if not selected_rows:
+            menu.exec(self.workers_table.viewport().mapToGlobal(position))
+            return
+        
+        # Get the first selected row's worker data
+        row = selected_rows[0].row()
+        wid_item = self.workers_table.item(row, 0)
+        if not wid_item:
+            menu.exec(self.workers_table.viewport().mapToGlobal(position))
+            return
+        
+        wid = int(wid_item.text())
+        if wid not in self.workers_data:
+            menu.exec(self.workers_table.viewport().mapToGlobal(position))
+            return
+        
+        data = self.workers_data[wid]
+        output_path = data.get("output_path", "")
+        status = data.get("status", "")
+        
+        # Only show menu options for completed conversions with valid output
+        if status == "Done" and output_path and os.path.exists(output_path):
+            menu.addAction("▶️ Play Media", lambda: self.play_media(output_path))
+            menu.addSeparator()
+            menu.addAction("📁 Open Output Folder", lambda: self.open_output_folder(output_path))
+        elif output_path:
+            # Even if failed, allow opening the folder
+            menu.addAction("📁 Open Output Folder", lambda: self.open_output_folder(output_path))
+        else:
+            menu.addAction("No output file available")
+        
+        menu.exec(self.workers_table.viewport().mapToGlobal(position))
+    
+    def play_media(self, file_path: str):
+        """Open media file with default system player."""
+        import subprocess
+        import platform
+        
+        if not os.path.exists(file_path):
+            QMessageBox.warning(self, "File Not Found", f"The file does not exist:\n{file_path}")
+            return
+        
+        try:
+            system = platform.system()
+            if system == "Windows":
+                os.startfile(file_path)
+            elif system == "Darwin":  # macOS
+                subprocess.run(["open", file_path], check=True)
+            else:  # Linux and others
+                subprocess.run(["xdg-open", file_path], check=True)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to open media file:\n{str(e)}")
+    
+    def open_output_folder(self, file_path: str):
+        """Open the folder containing the output file."""
+        import subprocess
+        import platform
+        
+        folder_path = os.path.dirname(file_path)
+        if not os.path.exists(folder_path):
+            QMessageBox.warning(self, "Folder Not Found", f"The folder does not exist:\n{folder_path}")
+            return
+        
+        try:
+            system = platform.system()
+            if system == "Windows":
+                os.startfile(folder_path)
+            elif system == "Darwin":  # macOS
+                subprocess.run(["open", folder_path], check=True)
+            else:  # Linux and others
+                subprocess.run(["xdg-open", folder_path], check=True)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to open folder:\n{str(e)}")
     
     def clear_completed_workers(self):
         """Clear completed and failed workers from the Active Conversions table."""
