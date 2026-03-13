@@ -1,96 +1,75 @@
-# HandForge Roadmap
+# Roadmap — HandForge
 
-This document outlines the planned features and improvements for HandForge.
+High-level milestones and planned features for HandForge.
 
-## Current Version: 1.3.0
+## Q2 2026
 
-## Planned Features
+### Performance & Stability
+- Improve progress tracking accuracy
+- Memory optimization for large batch conversions
+- Enhanced error recovery and timeout handling
+- Comprehensive unit and integration tests
 
-### Completed (v1.1.0 - v1.2.0)
+### User Experience
+- Command-line interface (CLI) for batch processing
+- Preset template library
+- Improved error messages with actionable solutions
+- Keyboard shortcuts for common actions
 
-#### Audio Features
-- [x] Audio trimming (start/end time)
-- [x] Sample rate conversion options
-- [x] Channel configuration (mono, stereo, 5.1, 7.1)
-- [x] Batch metadata editing (via existing metadata dialog)
-- [x] Audio effects (normalize, fade in/out)
-- [x] Audio quality analysis (via get_media_info and analyze_audio_quality functions)
+## Q3-Q4 2026
 
-#### Video Features
-- [x] Video format conversion (MP4, MKV, AVI, MOV, WebM, etc.)
-- [x] Per-file subtitle selection
-- [x] Smart video compression (H.265/HEVC)
-- [x] Two-pass encoding
-- [x] Video trimming (start/end time)
-- [x] Video cropping (select region)
-- [x] Resolution scaling options
-- [x] Frame rate conversion
-- [x] Video quality presets (low, medium, high, ultra)
-- [x] Multiple audio track handling
+### Advanced Features
+- Hardware acceleration support (NVENC, QuickSync, VAAPI)
+- Advanced audio filters (EQ, compressor, limiter, noise reduction)
+- Video filters (brightness, contrast, saturation, stabilization)
+- Plugin system architecture for extensibility
 
-#### General Features
-- [x] Progress notifications
-- [x] System tray integration
-- [x] Better progress parsing from FFmpeg output
-- [x] Preferences dialog with comprehensive settings
-- [x] Multi-language support (i18n) with 11 languages
+### Platform & Integration
+- macOS support
+- Cloud storage integration
+- Distributed processing capabilities
+- Performance analytics and monitoring
 
-### Medium Term (v1.3.0)
+## Future (2027+)
 
-#### Audio Features
-- [ ] Advanced audio filters (EQ, compressor, limiter)
-- [ ] Audio format-specific advanced options
-- [ ] Batch processing from playlists
-- [ ] Audio analysis tools (spectrum analyzer, waveform)
+### Platform Expansion
+- Full macOS compatibility
+- Companion mobile apps
+- Optional web-based interface
 
-#### Video Features
-- [ ] Video filters (brightness, contrast, saturation)
-- [ ] Video stabilization
-- [ ] Deinterlacing options
-- [ ] Hardware acceleration support (NVENC, QuickSync, VAAPI)
-- [ ] Video quality metrics (SSIM, PSNR)
-- [ ] Multiple video codec options (AV1, VP9, H.265 variants)
-- [ ] Video thumbnail generation
-- [ ] Chapter markers support
+### Advanced Capabilities
+- AI-powered quality enhancement
+- Real-time preview of conversions
+- Collaborative features (preset sharing)
+- Advanced analytics and reporting
 
-#### General Features
-- [ ] Preset templates library (audio and video)
-- [ ] Command-line interface (CLI)
-- [ ] Plugin system for custom codecs
-- [ ] Advanced batch operations
+## Completed Milestones
 
-### Long Term (v2.0.0)
+### v1.3.0 (Q1 2026)
+- ✅ Multi-language support (11 languages)
+- ✅ Enhanced error handling and display
+- ✅ Progress bar improvements
 
-#### Audio Features
-- [ ] Advanced metadata editing with cover art editor
-- [ ] Audio fingerprinting and identification
-- [ ] Real-time audio preview
+### v1.2.0 (2025)
+- ✅ Preferences dialog with comprehensive settings
+- ✅ Audio/video trimming and effects
+- ✅ System tray integration
+- ✅ Audio quality analysis
 
-#### Video Features
-- [ ] Video preview window
-- [ ] Video editing timeline
-- [ ] Multiple video/audio stream selection
-- [ ] Video chapter creation
-- [ ] Advanced video filters library
-- [ ] Video format conversion with quality preservation
-- [ ] Batch video processing with templates
+### v1.1.0 (2025)
+- ✅ Video conversion support
+- ✅ Smart video compression
+- ✅ Two-pass encoding
+- ✅ PyQt6 migration
 
-#### General Features
-- [ ] Cloud storage integration
-- [ ] Remote processing
-- [ ] Distributed processing
-- [ ] Advanced scheduling system
-- [ ] Integration with media libraries
+### v1.0.0 (2025)
+- ✅ Initial release
+- ✅ Batch audio conversion
+- ✅ Preset system
+- ✅ Metadata management
 
-## Known Issues
+---
 
-See [GitHub Issues](https://github.com/VoxHash/HandForge/issues) for current known issues and bug reports.
+For detailed feature planning, see [DEVELOPMENT_GOALS.md](DEVELOPMENT_GOALS.md).
 
-## Contributing
-
-If you'd like to contribute to any of these features, please see [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Feedback
-
-We welcome feedback and suggestions! Please open an issue or contact contact@voxhash.dev.
-
+For current issues and feature requests, see [GitHub Issues](https://github.com/VoxHash/HandForge/issues).

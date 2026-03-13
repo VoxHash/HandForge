@@ -39,5 +39,5 @@ Welcome to the HandForge documentation! HandForge is a cross-platform audio and 
 ---
 
 **HandForge Documentation**  
-© 2025 VoxHash Technologies
+© 2026 VoxHash Technologies
 

@@ -201,7 +201,6 @@ class MainWindow(QMainWindow):
         self.checkbox_two_pass = QCheckBox("🔄 Two-Pass Encoding")
         self.checkbox_two_pass.setToolTip("Slower but provides optimal quality/size ratio (recommended for best results)")
         self.checkbox_two_pass.setChecked(False)
-        video_options.addWidget(self.checkbox_two_pass)
         self.checkbox_two_pass.setEnabled(False)
         video_options.addWidget(self.checkbox_two_pass)
         
@@ -1100,9 +1099,6 @@ class MainWindow(QMainWindow):
             # Determine progress bar color based on status
             is_failed = (status == "Failed")
             
-            # Determine progress bar color based on status
-            is_failed = (status == "Failed")
-            
             # Check if progress bar widget already exists
             existing_widget = self.workers_table.cellWidget(row, 6)
             if existing_widget:
@@ -1111,20 +1107,6 @@ class MainWindow(QMainWindow):
                 if progress_bar:
                     progress_bar.setValue(int(progress))
                     progress_bar.setFormat(progress_text)
-                    # Update color if failed
-                    if is_failed:
-                        progress_bar.setStyleSheet("""
-                            QProgressBar {
-                                border: 1px solid rgba(255, 100, 100, 0.5);
-                                border-radius: 4px;
-                                text-align: center;
-                                background-color: rgba(0, 0, 0, 0.3);
-                            }
-                            QProgressBar::chunk {
-                                background-color: rgba(255, 100, 100, 0.8);
-                                border-radius: 3px;
-                            }
-                        """)
                     # Update color if failed
                     if is_failed:
                         progress_bar.setStyleSheet("""

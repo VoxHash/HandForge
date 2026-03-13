@@ -195,6 +195,8 @@ class Worker(QThread):
             last_time = start_time
             peak = ""
             true_peak = ""
+            speed_str = "1.0x"  # Default speed string
+            elapsed = 0.0  # Track elapsed time
             
             # Use threading to read stderr without blocking
             import threading
@@ -204,9 +206,7 @@ class Worker(QThread):
             def read_stderr():
                 """Read stderr in background thread and parse FFmpeg progress."""
                 import re
-                import select
-                import msvcrt
-                import platform
+                nonlocal speed_str, elapsed
                 try:
                     duration_seconds = None
                     last_progress_time = start_time
@@ -259,14 +259,14 @@ class Worker(QThread):
                                         progress = min(99.0, (current_seconds / duration_seconds) * 100.0)
                                         # Update progress immediately
                                         elapsed = time.time() - start_time
-                                        remaining = (duration_seconds - current_seconds) if current_seconds < duration_seconds else 0
+                                        eta_remaining = (duration_seconds - current_seconds) if current_seconds < duration_seconds else 0
                                         
                                         # Parse speed if available
                                         speed_match = re.search(r'speed=\s*([\d.]+)x', line_str)
                                         speed_str = speed_match.group(1) + "x" if speed_match else "1.0x"
                                         
                                         self.sig_progress.emit(
-                                            self.wid, progress, elapsed, remaining, speed_str, peak, true_peak
+                                            self.wid, progress, elapsed, eta_remaining, speed_str, peak, true_peak
                                         )
                                 # Also try to parse frame count for progress estimation
                                 elif "frame=" in line_str and duration_seconds is None:
@@ -277,11 +277,11 @@ class Worker(QThread):
                         else:
                             time.sleep(0.1)
                     
-                    # Read remaining
+                    # Read remaining stderr output
                     try:
-                        remaining = proc.stderr.read()
-                        if remaining:
-                            for line in remaining.decode("utf-8", errors="ignore").splitlines():
+                        remaining_stderr = proc.stderr.read()
+                        if remaining_stderr:
+                            for line in remaining_stderr.decode("utf-8", errors="ignore").splitlines():
                                 line_str = line.strip()
                                 if line_str:
                                     stderr_buffer.append(line_str)
@@ -324,6 +324,7 @@ class Worker(QThread):
                         self.wid, 0.1, elapsed, 0.0, "?", peak, true_peak
                     )
                     last_check_time = current_time
+                    speed_str = "?"  # Update speed_str for consistency
                 
                 # Progress is now parsed from FFmpeg stderr in read_stderr thread
                 # Just check process status periodically
@@ -426,6 +427,8 @@ class Worker(QThread):
                         # Emit final 100% progress for second pass
                         current_time = time.time()
                         elapsed = current_time - start_time
+                        if not speed_str:
+                            speed_str = "1.0x"
                         self.sig_progress.emit(
                             self.wid, 100.0, elapsed, 0.0, speed_str, peak, true_peak
                         )
@@ -462,6 +465,11 @@ class Worker(QThread):
             
             if return_code == 0:
                 # Emit final 100% progress before completion
+                # Ensure elapsed and speed_str are defined
+                if elapsed == 0.0:
+                    elapsed = time.time() - start_time
+                if not speed_str:
+                    speed_str = "1.0x"
                 self.sig_progress.emit(
                     self.wid, 100.0, elapsed, 0.0, speed_str, peak, true_peak
                 )
