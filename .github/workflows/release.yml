@@ -30,22 +30,41 @@ jobs:
       run: |
         TAG_VERSION=${{ steps.tag.outputs.version }}
         VERSION_NUMBER=${TAG_VERSION#v}
-        
-        # Extract changelog section for this version
-        awk "/^## \[$VERSION_NUMBER\]/,/^## \[/" CHANGELOG.md | sed '$d' > release_notes.md || \
-        awk "/^## \[$VERSION_NUMBER\]/,/^---$/" CHANGELOG.md | sed '$d' > release_notes.md || \
-        echo "## HandForge $TAG_VERSION" > release_notes.md
-        
-        # If file is empty or too short, use a default message
-        if [ ! -s release_notes.md ] || [ $(wc -l < release_notes.md) -lt 3 ]; then
+
+        # Keep a Changelog: ## [1.3.2] - YYYY-MM-DD
+        # Do NOT use awk range /^## \[ver\]/,/^## \[/ — the end pattern also
+        # matches the start line, so only the heading is captured (then often
+        # stripped), and the workflow falls back to generic notes.
+        awk -v ver="$VERSION_NUMBER" '
+          $0 ~ ("^## \\[" ver "\\]") { found = 1; print; next }
+          found && /^## \[/ { exit }
+          found { print }
+        ' CHANGELOG.md > release_notes.md
+
+        # Drop trailing blank lines
+        if [ -s release_notes.md ]; then
+          awk '
+            { lines[NR] = $0 }
+            END {
+              end = NR
+              while (end > 0 && lines[end] ~ /^[[:space:]]*$/) end--
+              for (i = 1; i <= end; i++) print lines[i]
+            }
+          ' release_notes.md > release_notes.tmp && mv release_notes.tmp release_notes.md
+        fi
+
+        # Fallback only when the version section is missing or empty
+        if [ ! -s release_notes.md ] || [ "$(wc -l < release_notes.md)" -lt 2 ]; then
           echo "## HandForge $TAG_VERSION" > release_notes.md
           echo "" >> release_notes.md
           echo "See [CHANGELOG.md](CHANGELOG.md) for details." >> release_notes.md
         fi
-        
-        echo "notes<<EOF" >> $GITHUB_OUTPUT
-        cat release_notes.md >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
+
+        {
+          echo "notes<<EOF"
+          cat release_notes.md
+          echo "EOF"
+        } >> "$GITHUB_OUTPUT"
     
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
