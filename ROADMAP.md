@@ -2,21 +2,20 @@
 
 High-level milestones and planned features for HandForge.
 
-## Q2 2026
+## Q4 2026
 
 ### Performance & Stability
-- Improve progress tracking accuracy
+- Improve progress tracking accuracy under heavy parallel load
 - Memory optimization for large batch conversions
-- Enhanced error recovery and timeout handling
-- Comprehensive unit and integration tests
+- Comprehensive unit and integration tests (CI matrix already covers import checks on Windows, Linux, and macOS)
 
 ### User Experience
-- Command-line interface (CLI) for batch processing
+- Command-line interface (CLI) for headless batch processing — see [docs/cli.md](docs/cli.md) for current scope
 - Preset template library
 - Improved error messages with actionable solutions
 - Keyboard shortcuts for common actions
 
-## Q3-Q4 2026
+## 2027
 
 ### Advanced Features
 - Hardware acceleration support (NVENC, QuickSync, VAAPI)
@@ -25,30 +24,35 @@ High-level milestones and planned features for HandForge.
 - Plugin system architecture for extensibility
 
 ### Platform & Integration
-- Enhanced macOS compatibility and testing
-- Cloud storage integration
-- Distributed processing capabilities
-- Performance analytics and monitoring
+- Cloud storage integration (pick up / save to remote folders)
+- Optional performance analytics for long batch jobs
 
-## Future (2027+)
+## Future
 
 ### Platform Expansion
-- Enhanced macOS features and optimizations
-- Companion mobile apps
-- Optional web-based interface
+- Companion mobile apps (remote queue monitoring)
+- Optional web-based interface for shared workstations
 
 ### Advanced Capabilities
-- AI-powered quality enhancement
 - Real-time preview of conversions
 - Collaborative features (preset sharing)
 - Advanced analytics and reporting
 
 ## Completed Milestones
 
+### v1.3.2 (Q4 2026)
+- ✅ Permission-aware output directory handling and pre-conversion write checks
+- ✅ Active Conversions context menu (play output, open folder)
+- ✅ Output filename display in Active Conversions table
+
+### v1.3.1 (Q1 2026)
+- ✅ Critical video stream preservation in video-to-video conversions
+- ✅ Orchestrator and progress UI bug fixes
+
 ### v1.3.0 (Q1 2026)
+- ✅ macOS support (Apple Silicon and Intel)
 - ✅ Multi-language support (11 languages)
-- ✅ Enhanced error handling and display
-- ✅ Progress bar improvements
+- ✅ Enhanced error handling and progress bar styling
 
 ### v1.2.0 (2025)
 - ✅ Preferences dialog with comprehensive settings
@@ -69,7 +73,5 @@ High-level milestones and planned features for HandForge.
 - ✅ Metadata management
 
 ---
-
-For detailed feature planning, see [DEVELOPMENT_GOALS.md](DEVELOPMENT_GOALS.md).
 
 For current issues and feature requests, see [GitHub Issues](https://github.com/VoxHash/HandForge/issues).

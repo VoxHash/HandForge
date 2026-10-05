@@ -1,63 +1,33 @@
-# Dependencies
-node_modules/
-.pnp
-.pnp.js
-.yarn/cache
-.yarn/unplugged
-.yarn/build-state.yml
-.yarn/install-state.gz
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv/
+*.egg-info/
+dist/
+build/
+*.egg
 
-# Testing
+# Testing / coverage
 /coverage
 *.lcov
 .nyc_output
-
-# Next.js
-/.next/
-/out/
-/build
-.next
-out
-build
-
-# Production
-dist/
-*.tsbuildinfo
-
-# Misc
-.DS_Store
-*.pem
-Thumbs.db
-desktop.ini
-
-# Debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
 # Local env files
 .env
 .env*.local
-.env.development.local
-.env.test.local
-.env.production.local
-# Note: .env.example should be committed (it's a template)
-
-# Vercel
-.vercel
-
-# TypeScript
-*.tsbuildinfo
-next-env.d.ts
-
-# Prisma
-prisma/migrations/
 
 # IDE
 .vscode/
-.idea
+.idea/
 *.swp
 *.swo
 *~
@@ -70,43 +40,50 @@ prisma/migrations/
 .Trashes
 ehthumbs.db
 Thumbs.db
+desktop.ini
 
 # Logs
-logs
+logs/
 *.log
 
 # Temporary files
 *.tmp
 *.temp
-.cache
-.turbo
+.cache/
 
-# Configuration files
-.editorconfig
-.npmrc
-.nvmrc
-.specstory
+# Cursor / local tooling
+.specstory/
 .cursorignore
 .cursorindexingignore
 
-# AI-generated documentation
+# AI-generated local artifacts
 AI_M/
-
-# AI-generated temporary scripts
 AI_S/
 
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-ENV/
-.venv
+# HandForge runtime data (user config & output)
+settings.json
+presets.json
+patterns.json
+autoretry.json
+seen_files.json
+AudioForge_Output/
+HandForge_Output/
+output/
 
-# Temporary scripts
+# FFmpeg two-pass logs
+*.ffmpeg2pass*
+*.ffmpeg2pass-*.log
+NUL.ffmpeg2pass-0.log
+
+# Backup / distribution archives
+*.bak
+*.backup
+*.old
+*.tar.gz
+*.zip
+*.rar
+
+# Ad-hoc local scripts (not part of the repo)
 create-env-example.sh
 create-env-example.py
 fix-*.sh
@@ -116,41 +93,3 @@ reset-git-history.sh
 setup-github-auth.sh
 push-updates-final.sh
 push-all.sh
-
-# HandForge specific files
-# Settings and configuration
-settings.json
-presets.json
-patterns.json
-autoretry.json
-seen_files.json
-
-# Output directory
-AudioForge_Output/
-HandForge_Output/
-output/
-
-# FFmpeg log files
-*.ffmpeg2pass*
-*.ffmpeg2pass-*.log
-NUL.ffmpeg2pass-0.log
-
-# Test files
-test_*.py
-*_test.py
-tests/
-
-# Backup files
-*.bak
-*.backup
-*.old
-
-# Compiled files
-*.pyc
-*.pyo
-*.pyd
-
-# Distribution files
-*.tar.gz
-*.zip
-*.rar

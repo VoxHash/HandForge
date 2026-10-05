@@ -15,6 +15,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Fixed
 - 
 
+## [1.3.2] - 2026-10-05
+
+### Added
+- Right-click context menu on Active Conversions: **Play Media** and **Open Output Folder** ([68ee076](https://github.com/VoxHash/HandForge/commit/68ee076257effa747bbb8b1b0195f94ecd7155f3))
+
+### Changed
+- Active Conversions **File** column shows output filename with the target extension
+- Output directories created with explicit `0o755` permissions when missing
+
+### Fixed
+- Permission denied errors when writing to the output directory (pre-conversion checks, test writes, and automatic permission repair when possible) ([68ee076](https://github.com/VoxHash/HandForge/commit/68ee076257effa747bbb8b1b0195f94ecd7155f3))
+- Safer overwrite handling when the destination file already exists
+
+### Removed
+- Removed obsolete `DEVELOPMENT_GOALS.md` (planning tracked in ROADMAP and GitHub Issues)
+
 ## [1.3.1] - 2026-03-12
 
 ### Fixed
