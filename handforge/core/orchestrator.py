@@ -172,9 +172,10 @@ class Worker(QThread):
             # Verify we can write to the output location before starting FFmpeg
             output_dir = os.path.dirname(dst)
             try:
-                # Test write permission by trying to create a temporary file
-                import tempfile
-                test_file = os.path.join(output_dir, f".handforge_test_{os.getpid()}")
+                # Test write permission by trying to create a temporary file.
+                # Include wid (not just pid): QThreads share one process, so parallel
+                # workers must not collide on the same test path (ENOENT on remove).
+                test_file = os.path.join(output_dir, f".handforge_test_{os.getpid()}_{self.wid}")
                 try:
                     with open(test_file, 'w') as f:
                         f.write('test')
@@ -202,10 +203,12 @@ class Worker(QThread):
                 return
             
             # Verify process started successfully
-            # Give it a moment to start, then check if it's still running
+            # Give it a moment to start, then check if it's still running.
+            # Short/trimmed jobs often finish in <0.1s — only fail when exit code != 0.
             time.sleep(0.1)
-            if proc.poll() is not None:
-                # Process finished immediately - likely an error
+            early_rc = proc.poll()
+            if early_rc is not None and early_rc != 0:
+                # Process finished immediately with a failure exit code
                 try:
                     stderr_output = proc.stderr.read()
                     error_msg = "FFmpeg process exited immediately"

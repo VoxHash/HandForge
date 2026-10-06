@@ -13,7 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - 
 
 ### Fixed
-- 
+- Parallel workers no longer collide on the shared `.handforge_test_<pid>` write-permission probe (include worker id)
+- Short/fast FFmpeg jobs that finish within 0.1s are no longer treated as immediate failures when exit code is 0
 
 ## [1.3.2] - 2026-10-05
 
