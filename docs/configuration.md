@@ -229,7 +229,7 @@ Thread count per codec:
 
 ### EWMA Smoothing
 
-Exponential Weighted Moving Average for ETA smoothing:
+Exponential Weighted Moving Average for per-worker progress percent and ETA under parallel load (Preferences → Progress Smoothing α). Lower α = smoother / less jitter; higher α = more responsive.
 
 ```json
 {
@@ -239,6 +239,8 @@ Exponential Weighted Moving Average for ETA smoothing:
 
 **Range**: 0.05-0.9  
 **Default**: 0.3
+
+ETA is also speed-aware: remaining media time ÷ FFmpeg `speed=` (falls back to remaining media time when speed is unknown).
 
 ### Auto-Retry
 

@@ -65,6 +65,10 @@ Manages the conversion process:
 
 Optional Rust `cdylib` that recommends concurrent job slots from available memory and load average. Python loads it with `ctypes` when present; otherwise the same heuristics run in pure Python. FFmpeg workers stay in Python/QThread — only the scheduling hot path is native.
 
+### Progress tracking (`core/progress.py`)
+
+Per-worker `ProgressTracker` keeps percent monotonic, computes wall-clock ETA from FFmpeg `speed=`, applies Preferences `ewma_alpha`, and throttles signal emits so many parallel jobs do not flood the Qt event loop. The main window coalesces Active Conversions table redraws (~150 ms) and shows aggregate batch progress in the status bar.
+
 ### Worker (`core/orchestrator.py`)
 
 Individual conversion worker:

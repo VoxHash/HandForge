@@ -16,6 +16,7 @@ from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QIcon, QColor
 
 from ..core.models import Job
 from ..core.orchestrator import Orchestrator
+from ..core.progress import batch_progress_with_eta
 from ..core.settings import (
     load_settings, save_settings, load_custom_presets, save_custom_presets,
     load_patterns, save_patterns,
@@ -56,6 +57,12 @@ class MainWindow(QMainWindow):
         self.orchestrator.sig_worker_progress.connect(self._on_worker_progress)
         self.orchestrator.sig_worker_log.connect(self._on_worker_log)
         self.orchestrator.sig_worker_started.connect(self._on_worker_started)
+
+        # Coalesce table redraws under heavy parallel progress floods
+        self._workers_table_dirty = False
+        self._progress_ui_timer = QTimer(self)
+        self._progress_ui_timer.setInterval(150)
+        self._progress_ui_timer.timeout.connect(self._flush_workers_table)
         
         # System tray icon
         self.tray_icon = None
@@ -904,13 +911,16 @@ class MainWindow(QMainWindow):
             self.workers_data[wid]["status"] = "Done" if success else "Failed"
             self.workers_data[wid]["message"] = message
             self.workers_data[wid]["output_path"] = output_path
+            self.workers_data[wid]["progress"] = 100.0 if success else self.workers_data[wid].get("progress", 0)
+            self.workers_data[wid]["eta"] = 0
             # Update file name to show output filename with new extension
             if output_path and os.path.exists(output_path):
                 self.workers_data[wid]["file"] = os.path.basename(output_path)
             elif output_path:
                 # Even if file doesn't exist (failed), show intended output filename
                 self.workers_data[wid]["file"] = os.path.basename(output_path)
-            self.update_workers_table()
+            self._schedule_workers_table_update(force=True)
+            self._update_batch_status()
             
             # Show notification with file location if successful
             if success and output_path:
@@ -990,10 +1000,10 @@ class MainWindow(QMainWindow):
                 "log": [],
                 "output_path": "",
             }
-        self.update_workers_table()
+        self._schedule_workers_table_update()
     
     def _on_worker_progress(self, wid: int, progress: float, elapsed: float, eta: float, speed: str, peak: str, true_peak: str):
-        """Handle worker progress."""
+        """Handle worker progress (coalesced UI refresh under parallel load)."""
         if wid not in self.workers_data:
             # Get file name from orchestrator if available
             file_name = ""
@@ -1015,12 +1025,18 @@ class MainWindow(QMainWindow):
                 "output_path": "",
             }
         
+        prev = float(self.workers_data[wid].get("progress", 0) or 0)
+        # Ignore out-of-order / keepalive regressions once real progress exists
+        if progress < prev and prev >= 1.0 and progress < 100.0:
+            progress = prev
+        
         self.workers_data[wid]["elapsed"] = elapsed
         self.workers_data[wid]["eta"] = eta
         self.workers_data[wid]["speed"] = speed
         self.workers_data[wid]["progress"] = progress
         self.workers_data[wid]["status"] = "Running"
-        self.update_workers_table()
+        self._schedule_workers_table_update()
+        self._update_batch_status()
     
     def _on_worker_log(self, wid: int, log_line: str):
         """Handle worker log."""
@@ -1062,6 +1078,51 @@ class MainWindow(QMainWindow):
             except:
                 pass
     
+    def _schedule_workers_table_update(self, force: bool = False):
+        """Coalesce table redraws so parallel progress signals do not thrash the UI."""
+        self._workers_table_dirty = True
+        if force:
+            self._flush_workers_table()
+            return
+        if not self._progress_ui_timer.isActive():
+            self._progress_ui_timer.start()
+
+    def _flush_workers_table(self):
+        """Apply a pending workers-table refresh."""
+        if not self._workers_table_dirty:
+            self._progress_ui_timer.stop()
+            return
+        self._workers_table_dirty = False
+        self.update_workers_table()
+        if not any(
+            d.get("status") == "Running" for d in self.workers_data.values()
+        ) and not self.orchestrator.workers and not self.orchestrator.job_queue:
+            self._progress_ui_timer.stop()
+
+    def _format_eta_short(self, eta: float) -> str:
+        if eta <= 0:
+            return "-"
+        if eta < 60:
+            return f"{eta:.0f}s"
+        if eta < 3600:
+            return f"{eta / 60:.1f}m"
+        return f"{eta / 3600:.1f}h"
+
+    def _update_batch_status(self):
+        """Show aggregate batch progress in the status bar during parallel runs."""
+        if not self.orchestrator.workers and not self.orchestrator.job_queue:
+            return
+        queued = len(self.orchestrator.job_queue)
+        overall, batch_eta = batch_progress_with_eta(self.workers_data, queued=queued)
+        running = sum(
+            1 for d in self.workers_data.values() if d.get("status") == "Running"
+        )
+        eta_txt = self._format_eta_short(batch_eta)
+        self.statusBar().showMessage(
+            f"⚡ Batch {overall:.1f}% — {running} running, {queued} queued"
+            + (f", ETA {eta_txt}" if batch_eta > 0 else "")
+        )
+
     def update_workers_table(self):
         """Update the workers table."""
         self.workers_table.setRowCount(len(self.workers_data))

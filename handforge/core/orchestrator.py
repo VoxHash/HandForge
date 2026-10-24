@@ -9,6 +9,7 @@ from typing import List, Optional, Dict, Any
 from PyQt6.QtCore import QObject, QThread, pyqtSignal, QMutex, QWaitCondition
 from .models import Job
 from .native_scheduler import estimate_job_rss_mb, recommend_parallel
+from .progress import ProgressTracker
 from ..util.ffmpeg import build_ffmpeg_cmd, run_ffmpeg, out_path, is_video_file
 
 # Platform-specific imports for non-blocking I/O
@@ -229,13 +230,15 @@ class Worker(QThread):
                     self.sig_done.emit(self.wid, False, f"FFmpeg process exited immediately: {str(e)}", "")
                 return
             
-            # Monitor progress
-            last_progress = 0.0
-            last_time = start_time
+            # Monitor progress (monotonic %, speed-aware ETA, EWMA, throttled emits)
             peak = ""
             true_peak = ""
-            speed_str = "1.0x"  # Default speed string
-            elapsed = 0.0  # Track elapsed time
+            speed_str = "1.0x"
+            elapsed = 0.0
+            tracker = ProgressTracker(
+                ewma_alpha=float(self.settings.get("ewma_alpha", 0.3) or 0.3),
+                min_emit_interval=0.25,
+            )
             
             # Use threading to read stderr without blocking
             import threading
@@ -244,30 +247,28 @@ class Worker(QThread):
             
             def read_stderr():
                 """Read stderr in background thread and parse FFmpeg progress."""
-                import re
                 nonlocal speed_str, elapsed
                 try:
-                    duration_seconds = None
                     last_progress_time = start_time
-                    no_output_timeout = 30.0  # 30 seconds without output = potential issue
+                    no_output_timeout = 30.0
                     
-                    # Log that we're starting to read stderr
                     self.sig_log.emit(self.wid, "Reading FFmpeg output...")
                     
                     while proc.poll() is None:
-                        # Check for timeout - if no output for too long, something is wrong
-                        if time.time() - last_progress_time > no_output_timeout and duration_seconds is None:
-                            self.sig_log.emit(self.wid, f"Warning: No output from FFmpeg for {no_output_timeout}s. Process may be stuck.")
+                        if (
+                            time.time() - last_progress_time > no_output_timeout
+                            and tracker.duration_seconds is None
+                        ):
+                            self.sig_log.emit(
+                                self.wid,
+                                f"Warning: No output from FFmpeg for {no_output_timeout}s. Process may be stuck.",
+                            )
                         
-                        # Try to read a line - use readline() directly
-                        # With unbuffered mode (bufsize=0), this should work
                         line = None
                         try:
-                            # Simple readline - it may block briefly but that's okay in a thread
                             line = proc.stderr.readline()
                         except (OSError, ValueError, AttributeError) as e:
-                            # If read fails, log and continue
-                            if "peek" not in str(e).lower():  # Don't log peek errors
+                            if "peek" not in str(e).lower():
                                 self.sig_log.emit(self.wid, f"Read error: {e}")
                             time.sleep(0.1)
                             continue
@@ -279,44 +280,42 @@ class Worker(QThread):
                                 stderr_buffer.append(line_str)
                                 self.sig_log.emit(self.wid, line_str)
                                 
-                                # Parse duration from input (first time we see it)
-                                if duration_seconds is None:
-                                    # Try multiple duration formats
-                                    duration_match = re.search(r'Duration: (\d{2}):(\d{2}):(\d{2})\.(\d{2})', line_str)
-                                    if duration_match:
-                                        h, m, s, ms = map(int, duration_match.groups())
-                                        duration_seconds = h * 3600 + m * 60 + s + ms / 100.0
-                                        self.sig_log.emit(self.wid, f"Detected duration: {duration_seconds:.2f}s")
-                                
-                                # Parse progress from frame/time info
-                                # Format: frame=  123 fps= 25 q=28.0 size=    1024kB time=00:00:05.00 bitrate=1677.7kbits/s speed=1.25x
-                                progress_match = re.search(r'time=(\d{2}):(\d{2}):(\d{2})\.(\d{2})', line_str)
-                                if progress_match and duration_seconds:
-                                    h, m, s, ms = map(int, progress_match.groups())
-                                    current_seconds = h * 3600 + m * 60 + s + ms / 100.0
-                                    if duration_seconds > 0:
-                                        progress = min(99.0, (current_seconds / duration_seconds) * 100.0)
-                                        # Update progress immediately
-                                        elapsed = time.time() - start_time
-                                        eta_remaining = (duration_seconds - current_seconds) if current_seconds < duration_seconds else 0
-                                        
-                                        # Parse speed if available
-                                        speed_match = re.search(r'speed=\s*([\d.]+)x', line_str)
-                                        speed_str = speed_match.group(1) + "x" if speed_match else "1.0x"
-                                        
-                                        self.sig_progress.emit(
-                                            self.wid, progress, elapsed, eta_remaining, speed_str, peak, true_peak
-                                        )
-                                # Also try to parse frame count for progress estimation
-                                elif "frame=" in line_str and duration_seconds is None:
-                                    # If we see frame info but no duration yet, at least log it
-                                    frame_match = re.search(r'frame=\s*(\d+)', line_str)
+                                prev_duration = tracker.duration_seconds
+                                elapsed = time.time() - start_time
+                                sample = tracker.update_from_line(line_str, elapsed)
+                                if (
+                                    tracker.duration_seconds is not None
+                                    and prev_duration is None
+                                ):
+                                    self.sig_log.emit(
+                                        self.wid,
+                                        f"Detected duration: {tracker.duration_seconds:.2f}s",
+                                    )
+                                if sample.emitted:
+                                    speed_str = sample.speed_str
+                                    self.sig_progress.emit(
+                                        self.wid,
+                                        sample.progress,
+                                        sample.elapsed,
+                                        sample.eta,
+                                        sample.speed_str,
+                                        peak,
+                                        true_peak,
+                                    )
+                                elif (
+                                    "frame=" in line_str
+                                    and tracker.duration_seconds is None
+                                ):
+                                    import re
+                                    frame_match = re.search(r"frame=\s*(\d+)", line_str)
                                     if frame_match:
-                                        self.sig_log.emit(self.wid, f"Processing frames... (frame {frame_match.group(1)})")
+                                        self.sig_log.emit(
+                                            self.wid,
+                                            f"Processing frames... (frame {frame_match.group(1)})",
+                                        )
                         else:
                             time.sleep(0.1)
                     
-                    # Read remaining stderr output
                     try:
                         remaining_stderr = proc.stderr.read()
                         if remaining_stderr:
@@ -325,7 +324,7 @@ class Worker(QThread):
                                 if line_str:
                                     stderr_buffer.append(line_str)
                                     self.sig_log.emit(self.wid, line_str)
-                    except:
+                    except Exception:
                         pass
                 except Exception as e:
                     import traceback
@@ -339,10 +338,9 @@ class Worker(QThread):
             stderr_thread = threading.Thread(target=read_stderr, daemon=True)
             stderr_thread.start()
             
-            # Monitor progress while process runs
+            # Monitor process; keepalive must not overwrite real progress
             last_check_time = time.time()
             while proc.poll() is None:
-                # Check if paused
                 self._mutex.lock()
                 while self._paused and not self._stopped:
                     self._wait_condition.wait(self._mutex)
@@ -352,22 +350,24 @@ class Worker(QThread):
                     proc.terminate()
                     break
                 
-                # Emit a minimal progress update periodically if no progress has been reported
-                # This helps detect if the process is actually running
                 current_time = time.time()
-                if current_time - last_check_time > 5.0:  # Every 5 seconds
+                if current_time - last_check_time > 5.0:
                     elapsed = current_time - start_time
-                    # Emit a small progress update to show the process is alive
-                    # Use 0.1% to indicate "processing" without actual progress
-                    self.sig_progress.emit(
-                        self.wid, 0.1, elapsed, 0.0, "?", peak, true_peak
-                    )
+                    sample = tracker.keepalive(elapsed)
+                    if sample.emitted:
+                        speed_str = sample.speed_str
+                        self.sig_progress.emit(
+                            self.wid,
+                            sample.progress,
+                            sample.elapsed,
+                            sample.eta,
+                            sample.speed_str,
+                            peak,
+                            true_peak,
+                        )
                     last_check_time = current_time
-                    speed_str = "?"  # Update speed_str for consistency
                 
-                # Progress is now parsed from FFmpeg stderr in read_stderr thread
-                # Just check process status periodically
-                time.sleep(0.5)  # Check every 0.5 seconds
+                time.sleep(0.5)
             
             # Wait for process to finish (with timeout to prevent hanging)
             try:
@@ -463,13 +463,17 @@ class Worker(QThread):
                         time.sleep(0.1)
                     if return_code == 0:
                         return_code = proc2.wait()
-                        # Emit final 100% progress for second pass
-                        current_time = time.time()
-                        elapsed = current_time - start_time
-                        if not speed_str:
-                            speed_str = "1.0x"
+                        elapsed = time.time() - start_time
+                        sample = tracker.force_complete(elapsed, speed_str or "1.0x")
+                        speed_str = sample.speed_str
                         self.sig_progress.emit(
-                            self.wid, 100.0, elapsed, 0.0, speed_str, peak, true_peak
+                            self.wid,
+                            sample.progress,
+                            sample.elapsed,
+                            sample.eta,
+                            sample.speed_str,
+                            peak,
+                            true_peak,
                         )
                     
                     # Clean up two-pass log file
@@ -503,14 +507,18 @@ class Worker(QThread):
                 pass
             
             if return_code == 0:
-                # Emit final 100% progress before completion
-                # Ensure elapsed and speed_str are defined
                 if elapsed == 0.0:
                     elapsed = time.time() - start_time
-                if not speed_str:
-                    speed_str = "1.0x"
+                sample = tracker.force_complete(elapsed, speed_str or "1.0x")
+                speed_str = sample.speed_str
                 self.sig_progress.emit(
-                    self.wid, 100.0, elapsed, 0.0, speed_str, peak, true_peak
+                    self.wid,
+                    sample.progress,
+                    sample.elapsed,
+                    sample.eta,
+                    sample.speed_str,
+                    peak,
+                    true_peak,
                 )
                 
                 # Verify output file was created and has content
