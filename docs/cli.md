@@ -1,57 +1,109 @@
 # Command-Line Interface
 
-> **Note**: CLI support is planned for a future release. Currently, HandForge is GUI-only.
+HandForge includes a headless CLI for scriptable batch conversion. It uses the same Orchestrator, workers, and FFmpeg command builder as the GUI — no separate encode path.
 
-## Planned CLI Features
+Requires FFmpeg on `PATH`. No display server is required (`QT_QPA_PLATFORM=offscreen` is set automatically when needed).
 
-The command-line interface will support:
+## Install / run
 
-- Batch conversion from command line
-- Preset-based conversions
-- Scriptable workflows
-- Integration with other tools
-
-## Current Workaround
-
-Until CLI is available, you can use FFmpeg directly for command-line conversions:
+From a clone (or after `pip install -e .`):
 
 ```bash
-# Convert MP3 to AAC
-ffmpeg -i input.mp3 -c:a aac -b:a 192k output.m4a
+# Module entry
+python -m handforge --help
 
-# Convert with metadata
-ffmpeg -i input.mp3 -c:a libmp3lame -b:a 192k \
-  -metadata title="Song Title" \
-  -metadata artist="Artist Name" \
-  output.mp3
+# Console script (after editable/install)
+handforge --help
 ```
 
-## Future CLI Usage (Planned)
+GUI remains: `python -m handforge.app`
+
+## Commands
+
+### `list-presets`
+
+List built-in presets and any custom presets from `~/.handforge/presets.json`.
 
 ```bash
-# Basic conversion
-handforge convert input.mp3 --preset "MP3 192k"
-
-# Batch conversion
-handforge convert *.mp3 --preset "AAC 256k" --output-dir ./output
-
-# With metadata
-handforge convert input.mp3 --preset "MP3 192k" \
-  --title "Song Title" \
-  --artist "Artist Name"
-
-# List presets
-handforge list-presets
-
-# Create preset
-handforge create-preset "My Preset" --format mp3 --mode CBR --bitrate 192
+python -m handforge list-presets
 ```
 
-## Stay Updated
+### `convert`
 
-Check the [Roadmap](../ROADMAP.md) for CLI development progress.
+Convert one or more files or directories (directories are scanned recursively for audio/video).
+
+```bash
+# Preset-based
+python -m handforge convert input.mp3 --preset "MP3 192k"
+
+# Batch directory
+python -m handforge convert ./music --preset "AAC 256k" --output-dir ./output
+
+# Explicit format / bitrate (no preset)
+python -m handforge convert clip.wav -f mp3 --bitrate 192 -o ./out
+
+# Metadata overrides
+python -m handforge convert input.mp3 --preset "MP3 192k" \
+  --title "Song Title" --artist "Artist Name"
+
+# Parallelism
+python -m handforge convert ./batch -f flac --mode Lossless --parallel 4 --no-adaptive
+```
+
+#### Options
+
+| Option | Description |
+|--------|-------------|
+| `-o`, `--output-dir` | Output directory (default: settings `output_dir` or `~/HandForge_Output`) |
+| `-p`, `--preset` | Named preset (see `list-presets`) |
+| `-f`, `--format` | Output format (overrides preset) |
+| `--mode` | `CBR`, `VBR`, or `Lossless` |
+| `--bitrate` / `--vbrq` | Audio bitrate or VBR quality |
+| `--video-codec` / `--video-quality` / `--video-bitrate` | Video encode options |
+| `--extract-audio` | Force audio extraction from video |
+| `--parallel` | Max concurrent jobs (hard ceiling) |
+| `--no-adaptive` | Disable RAM/load-aware concurrency |
+| `--on-exists` | `overwrite`, `skip`, or `rename` |
+| `--title` / `--artist` / `--album` / `--year` / `--genre` / `--track` | Metadata |
+| `-q`, `--quiet` | Print only output paths on stdout; errors on stderr |
+| `-v`, `--verbose` | Include FFmpeg log lines on stderr |
+
+## Progress and exit codes
+
+- Progress and status lines go to **stderr** (safe for piping paths from stdout).
+- Successful output paths are printed on **stdout** (one per completed file).
+- Exit codes:
+  - `0` — all conversions succeeded
+  - `1` — one or more conversions failed (or FFmpeg missing)
+  - `2` — usage / no inputs / unknown preset / missing path
+
+Example scripting:
+
+```bash
+python -m handforge convert ./inbox --preset "MP3 192k" -o ./out -q
+echo $?
+```
+
+## Built-in presets
+
+| Preset | Notes |
+|--------|--------|
+| MP3 192k | CBR MP3 192 kbps |
+| AAC 256k | CBR AAC 256 kbps |
+| FLAC Lossless | Lossless FLAC |
+| MP4 H.264 / MKV H.264 | H.264 video |
+| MP4 H.265 (Smart Compression) / MKV H.265 (Smart Compression) | HEVC size reduction |
+| WebM VP9 | VP9 |
+| Extract Audio (MP3) | Audio-only from video |
+
+Custom presets saved in the GUI appear in `list-presets` and work with `--preset`.
+
+## Related
+
+- [Usage](usage.md) — GUI workflow
+- [Configuration](configuration.md) — shared settings (`parallel`, `adaptive_parallel`, …)
+- [Roadmap](../ROADMAP.md)
 
 ---
 
-**For now**, use the GUI application: `python -m handforge.app`
-
+**HandForge CLI** · © 2026 VoxHash Technologies

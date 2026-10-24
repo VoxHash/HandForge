@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Optional Rust adaptive parallel scheduler (`native/handforge_scheduler`) that caps concurrent FFmpeg jobs from free RAM and load; pure-Python fallback when the cdylib is not built
 - Preferences toggle **Adapt concurrency from free RAM / CPU load** (`adaptive_parallel`, default on)
 - Comprehensive pytest suite: unit coverage for progress, native scheduler, settings, Job model, FFmpeg command helpers, and orchestrator adaptive concurrency; integration tests that run real FFmpeg pipelines on lavfi-generated audio/video clips (skipped when FFmpeg is missing)
+- Headless CLI for batch conversion: `python -m handforge` / console script `handforge` (`convert`, `list-presets`); reuses Orchestrator workers and FFmpeg helpers; progress on stderr, output paths on stdout, non-zero exit on failure; no DISPLAY required
 
 ### Changed
 - Orchestrator respects `adaptive_parallel`: user `parallel` setting is a hard ceiling; effective concurrency can be lower under memory/load pressure

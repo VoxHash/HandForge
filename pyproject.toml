@@ -1,3 +1,29 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "handforge"
+version = "1.3.2"
+description = "Cross-platform audio and video converter (GUI + headless CLI) built with PyQt6 and FFmpeg"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "VoxHash Technologies", email = "contact@voxhash.dev" }]
+dependencies = ["PyQt6"]
+
+[project.scripts]
+handforge = "handforge.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/VoxHash/HandForge"
+Documentation = "https://github.com/VoxHash/HandForge/blob/main/docs/index.md"
+Issues = "https://github.com/VoxHash/HandForge/issues"
+
+[tool.setuptools.packages.find]
+include = ["handforge*"]
+exclude = ["tests*", "native*"]
+
 [tool.black]
 line-length = 127
 target-version = ['py39', 'py310', 'py311', 'py312']
@@ -57,4 +83,3 @@ addopts = "-v --tb=short"
 [tool.bandit]
 exclude_dirs = ["tests", "venv", ".venv"]
 skips = ["B101", "B601"]
-

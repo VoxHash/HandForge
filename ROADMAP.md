@@ -10,7 +10,7 @@ High-level milestones and planned features for HandForge.
 - ✅ Comprehensive unit and integration tests (pytest: progress, scheduler, settings, models, FFmpeg helpers, orchestrator; real FFmpeg lavfi pipelines when available)
 
 ### User Experience
-- Command-line interface (CLI) for headless batch processing — see [docs/cli.md](docs/cli.md) for current scope
+- ✅ Command-line interface (CLI) for headless batch processing — see [docs/cli.md](docs/cli.md)
 - Preset template library
 - Improved error messages with actionable solutions
 - Keyboard shortcuts for common actions
@@ -50,6 +50,7 @@ These are **not** near-term ports of the desktop PyQt6 UI. They depend on a shar
 - ✅ Adaptive parallel pool for large batches (optional Rust `handforge_scheduler` + Python fallback; Preferences `adaptive_parallel`)
 - ✅ Progress tracking accuracy under heavy parallel load (monotonic %, speed-aware ETA, wired `ewma_alpha`, coalesced table updates, batch status aggregate)
 - ✅ Comprehensive unit and integration tests (`tests/`; real FFmpeg conversion paths via lavfi-generated clips)
+- ✅ Headless CLI (`python -m handforge` / `handforge`) for batch convert + list-presets via shared Orchestrator/FFmpeg stack
 
 ### v1.3.2 (Q4 2026)
 - ✅ Permission-aware output directory handling and pre-conversion write checks

@@ -19,6 +19,7 @@
 - **Multi-Language Support**: Full internationalization with 11 languages
 - **System Tray**: Minimize to tray with conversion notifications
 - **Real-time Progress**: Progress tracking with elapsed/ETA/speed and visual progress bars
+- **Headless CLI**: Batch convert from the terminal (`python -m handforge`) without a GUI or display
 
 ## 🧭 Table of Contents
 
@@ -42,8 +43,12 @@ pip install -r requirements.txt
 # Windows: winget install ffmpeg
 # Linux: sudo apt install ffmpeg
 
-# 3) Run the application
+# 3) Run the GUI
 python -m handforge.app
+
+# Or convert headlessly (no display required)
+python -m handforge convert input.mp3 --preset "MP3 192k" -o ./output
+python -m handforge list-presets
 ```
 
 ## 💿 Installation
@@ -58,7 +63,13 @@ cd native/handforge_scheduler && cargo build --release
 
 ## 🛠 Usage
 
-Basic usage: Add files to the queue, select a preset, and start conversion. Advanced usage in [docs/usage.md](docs/usage.md).
+**GUI**: Add files to the queue, select a preset, and start conversion. Details: [docs/usage.md](docs/usage.md).
+
+**CLI** (same conversion stack, headless): [docs/cli.md](docs/cli.md).
+
+```bash
+python -m handforge convert ./folder --preset "AAC 256k" --output-dir ./out --parallel 2
+```
 
 ### Supported Formats
 

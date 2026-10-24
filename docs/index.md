@@ -12,7 +12,7 @@ Welcome to the HandForge documentation! HandForge is a cross-platform audio and 
 
 - [Usage](usage.md) - How to use HandForge
 - [Configuration](configuration.md) - Configuration options and settings
-- [CLI](cli.md) - Command-line interface (if available)
+- [CLI](cli.md) - Headless command-line interface for batch conversion
 
 ## Technical Documentation
 
