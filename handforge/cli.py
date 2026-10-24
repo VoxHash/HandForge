@@ -103,6 +103,40 @@ def resolve_conversion_options(args: argparse.Namespace) -> Dict[str, Any]:
     if getattr(args, "extract_audio", False):
         options["extract_audio_only"] = True
 
+    # Advanced audio filters — CLI flags override settings when present
+    if getattr(args, "eq", False):
+        options["eq_enabled"] = True
+    if getattr(args, "eq_bass", None) is not None:
+        options["eq_enabled"] = True
+        options["eq_bass"] = args.eq_bass
+    if getattr(args, "eq_mid", None) is not None:
+        options["eq_enabled"] = True
+        options["eq_mid"] = args.eq_mid
+    if getattr(args, "eq_treble", None) is not None:
+        options["eq_enabled"] = True
+        options["eq_treble"] = args.eq_treble
+    if getattr(args, "compressor", False):
+        options["compressor_enabled"] = True
+    if getattr(args, "compressor_threshold", None) is not None:
+        options["compressor_enabled"] = True
+        options["compressor_threshold"] = args.compressor_threshold
+    if getattr(args, "compressor_ratio", None) is not None:
+        options["compressor_enabled"] = True
+        options["compressor_ratio"] = args.compressor_ratio
+    if getattr(args, "limiter", False):
+        options["limiter_enabled"] = True
+    if getattr(args, "limiter_limit", None) is not None:
+        options["limiter_enabled"] = True
+        options["limiter_limit"] = args.limiter_limit
+    if getattr(args, "denoise", False):
+        options["denoise_enabled"] = True
+    if getattr(args, "denoise_nr", None) is not None:
+        options["denoise_enabled"] = True
+        options["denoise_nr"] = args.denoise_nr
+    if getattr(args, "denoise_nf", None) is not None:
+        options["denoise_enabled"] = True
+        options["denoise_nf"] = args.denoise_nf
+
     if "format" not in options:
         options["format"] = "mp3"
     if "mode" not in options:
@@ -127,6 +161,12 @@ def build_job(
     dst_is_video = is_video_file(f"dummy.{dst_format}")
 
     meta = meta or {}
+
+    def _af(key: str, default: Any) -> Any:
+        if key in options:
+            return options[key]
+        return settings.get(key, default)
+
     job = Job(
         src=src,
         dst_dir=dst_dir,
@@ -137,6 +177,24 @@ def build_job(
         prefer_external_cover=settings.get("prefer_external_cover", False),
         normalize_lufs=settings.get("normalize_lufs", False),
         target_lufs=settings.get("target_lufs", -14.0),
+        eq_enabled=bool(_af("eq_enabled", False)),
+        eq_bass=float(_af("eq_bass", 0.0)),
+        eq_mid=float(_af("eq_mid", 0.0)),
+        eq_treble=float(_af("eq_treble", 0.0)),
+        compressor_enabled=bool(_af("compressor_enabled", False)),
+        compressor_threshold=float(_af("compressor_threshold", 0.125)),
+        compressor_ratio=float(_af("compressor_ratio", 4.0)),
+        compressor_attack=float(_af("compressor_attack", 20.0)),
+        compressor_release=float(_af("compressor_release", 250.0)),
+        compressor_makeup=float(_af("compressor_makeup", 2.0)),
+        limiter_enabled=bool(_af("limiter_enabled", False)),
+        limiter_limit=float(_af("limiter_limit", 0.95)),
+        limiter_attack=float(_af("limiter_attack", 5.0)),
+        limiter_release=float(_af("limiter_release", 50.0)),
+        denoise_enabled=bool(_af("denoise_enabled", False)),
+        denoise_nr=float(_af("denoise_nr", 12.0)),
+        denoise_nf=float(_af("denoise_nf", -50.0)),
+        denoise_track_noise=bool(_af("denoise_track_noise", True)),
         meta_title=meta.get("title"),
         meta_artist=meta.get("artist"),
         meta_album=meta.get("album"),
@@ -650,6 +708,66 @@ def build_parser() -> argparse.ArgumentParser:
         "--extract-audio",
         action="store_true",
         help="Extract audio only from video sources",
+    )
+    p_conv.add_argument(
+        "--eq",
+        action="store_true",
+        help="Enable 3-band EQ (use with --eq-bass/--eq-mid/--eq-treble)",
+    )
+    p_conv.add_argument(
+        "--eq-bass",
+        type=float,
+        help="EQ bass gain in dB (~100 Hz); enables EQ",
+    )
+    p_conv.add_argument(
+        "--eq-mid",
+        type=float,
+        help="EQ mid gain in dB (~1 kHz); enables EQ",
+    )
+    p_conv.add_argument(
+        "--eq-treble",
+        type=float,
+        help="EQ treble gain in dB (~8 kHz); enables EQ",
+    )
+    p_conv.add_argument(
+        "--compressor",
+        action="store_true",
+        help="Enable acompressor (settings defaults or --compressor-*)",
+    )
+    p_conv.add_argument(
+        "--compressor-threshold",
+        type=float,
+        help="Compressor threshold (linear 0–1); enables compressor",
+    )
+    p_conv.add_argument(
+        "--compressor-ratio",
+        type=float,
+        help="Compressor ratio; enables compressor",
+    )
+    p_conv.add_argument(
+        "--limiter",
+        action="store_true",
+        help="Enable alimiter peak limiting",
+    )
+    p_conv.add_argument(
+        "--limiter-limit",
+        type=float,
+        help="Limiter ceiling (linear 0–1); enables limiter",
+    )
+    p_conv.add_argument(
+        "--denoise",
+        action="store_true",
+        help="Enable afftdn FFT noise reduction",
+    )
+    p_conv.add_argument(
+        "--denoise-nr",
+        type=float,
+        help="Denoise reduction in dB; enables denoise",
+    )
+    p_conv.add_argument(
+        "--denoise-nf",
+        type=float,
+        help="Denoise noise floor in dB; enables denoise",
     )
     p_conv.add_argument(
         "--parallel",

@@ -218,6 +218,125 @@ class PreferencesDialog(QDialog):
         norm_layout.addRow("Target LUFS:", self.target_lufs_spin)
         
         layout.addWidget(norm_group)
+
+        # 3-band EQ (FFmpeg equalizer)
+        eq_group = QGroupBox("Equalizer (3-band)")
+        eq_layout = QFormLayout(eq_group)
+        self.eq_enabled_check = QCheckBox("Enable equalizer")
+        self.eq_enabled_check.setToolTip(
+            "Apply FFmpeg equalizer bands at ~100 Hz / 1 kHz / 8 kHz"
+        )
+        eq_layout.addRow("", self.eq_enabled_check)
+        self.eq_bass_spin = QDoubleSpinBox()
+        self.eq_bass_spin.setRange(-24.0, 24.0)
+        self.eq_bass_spin.setSingleStep(0.5)
+        self.eq_bass_spin.setSuffix(" dB")
+        self.eq_bass_spin.setToolTip("Bass gain at ~100 Hz")
+        eq_layout.addRow("Bass:", self.eq_bass_spin)
+        self.eq_mid_spin = QDoubleSpinBox()
+        self.eq_mid_spin.setRange(-24.0, 24.0)
+        self.eq_mid_spin.setSingleStep(0.5)
+        self.eq_mid_spin.setSuffix(" dB")
+        self.eq_mid_spin.setToolTip("Mid gain at ~1 kHz")
+        eq_layout.addRow("Mid:", self.eq_mid_spin)
+        self.eq_treble_spin = QDoubleSpinBox()
+        self.eq_treble_spin.setRange(-24.0, 24.0)
+        self.eq_treble_spin.setSingleStep(0.5)
+        self.eq_treble_spin.setSuffix(" dB")
+        self.eq_treble_spin.setToolTip("Treble gain at ~8 kHz")
+        eq_layout.addRow("Treble:", self.eq_treble_spin)
+        layout.addWidget(eq_group)
+
+        # Compressor (FFmpeg acompressor)
+        comp_group = QGroupBox("Compressor")
+        comp_layout = QFormLayout(comp_group)
+        self.compressor_enabled_check = QCheckBox("Enable compressor")
+        self.compressor_enabled_check.setToolTip(
+            "Reduce dynamic range via FFmpeg acompressor"
+        )
+        comp_layout.addRow("", self.compressor_enabled_check)
+        self.compressor_threshold_spin = QDoubleSpinBox()
+        self.compressor_threshold_spin.setRange(0.001, 1.0)
+        self.compressor_threshold_spin.setDecimals(3)
+        self.compressor_threshold_spin.setSingleStep(0.01)
+        self.compressor_threshold_spin.setToolTip(
+            "Threshold (linear 0–1; FFmpeg default 0.125 ≈ -18 dBFS)"
+        )
+        comp_layout.addRow("Threshold:", self.compressor_threshold_spin)
+        self.compressor_ratio_spin = QDoubleSpinBox()
+        self.compressor_ratio_spin.setRange(1.0, 20.0)
+        self.compressor_ratio_spin.setSingleStep(0.5)
+        self.compressor_ratio_spin.setToolTip("Compression ratio")
+        comp_layout.addRow("Ratio:", self.compressor_ratio_spin)
+        self.compressor_attack_spin = QDoubleSpinBox()
+        self.compressor_attack_spin.setRange(0.01, 2000.0)
+        self.compressor_attack_spin.setSuffix(" ms")
+        self.compressor_attack_spin.setToolTip("Attack time")
+        comp_layout.addRow("Attack:", self.compressor_attack_spin)
+        self.compressor_release_spin = QDoubleSpinBox()
+        self.compressor_release_spin.setRange(0.01, 9000.0)
+        self.compressor_release_spin.setSuffix(" ms")
+        self.compressor_release_spin.setToolTip("Release time")
+        comp_layout.addRow("Release:", self.compressor_release_spin)
+        self.compressor_makeup_spin = QDoubleSpinBox()
+        self.compressor_makeup_spin.setRange(1.0, 64.0)
+        self.compressor_makeup_spin.setSingleStep(0.5)
+        self.compressor_makeup_spin.setToolTip("Makeup gain (linear)")
+        comp_layout.addRow("Makeup:", self.compressor_makeup_spin)
+        layout.addWidget(comp_group)
+
+        # Limiter (FFmpeg alimiter)
+        lim_group = QGroupBox("Limiter")
+        lim_layout = QFormLayout(lim_group)
+        self.limiter_enabled_check = QCheckBox("Enable limiter")
+        self.limiter_enabled_check.setToolTip(
+            "Peak-limit via FFmpeg alimiter (lookahead)"
+        )
+        lim_layout.addRow("", self.limiter_enabled_check)
+        self.limiter_limit_spin = QDoubleSpinBox()
+        self.limiter_limit_spin.setRange(0.01, 1.0)
+        self.limiter_limit_spin.setDecimals(3)
+        self.limiter_limit_spin.setSingleStep(0.01)
+        self.limiter_limit_spin.setToolTip("Peak ceiling (linear; 0.95 ≈ -0.4 dBFS)")
+        lim_layout.addRow("Limit:", self.limiter_limit_spin)
+        self.limiter_attack_spin = QDoubleSpinBox()
+        self.limiter_attack_spin.setRange(0.1, 80.0)
+        self.limiter_attack_spin.setSuffix(" ms")
+        self.limiter_attack_spin.setToolTip("Lookahead / attack")
+        lim_layout.addRow("Attack:", self.limiter_attack_spin)
+        self.limiter_release_spin = QDoubleSpinBox()
+        self.limiter_release_spin.setRange(1.0, 2000.0)
+        self.limiter_release_spin.setSuffix(" ms")
+        self.limiter_release_spin.setToolTip("Release time")
+        lim_layout.addRow("Release:", self.limiter_release_spin)
+        layout.addWidget(lim_group)
+
+        # Noise reduction (FFmpeg afftdn)
+        denoise_group = QGroupBox("Noise Reduction")
+        denoise_layout = QFormLayout(denoise_group)
+        self.denoise_enabled_check = QCheckBox("Enable noise reduction")
+        self.denoise_enabled_check.setToolTip(
+            "FFT denoise via FFmpeg afftdn (speech / podcast friendly)"
+        )
+        denoise_layout.addRow("", self.denoise_enabled_check)
+        self.denoise_nr_spin = QDoubleSpinBox()
+        self.denoise_nr_spin.setRange(0.01, 97.0)
+        self.denoise_nr_spin.setSingleStep(1.0)
+        self.denoise_nr_spin.setSuffix(" dB")
+        self.denoise_nr_spin.setToolTip("Noise reduction amount")
+        denoise_layout.addRow("Reduction:", self.denoise_nr_spin)
+        self.denoise_nf_spin = QDoubleSpinBox()
+        self.denoise_nf_spin.setRange(-80.0, -20.0)
+        self.denoise_nf_spin.setSingleStep(1.0)
+        self.denoise_nf_spin.setSuffix(" dB")
+        self.denoise_nf_spin.setToolTip("Noise floor estimate")
+        denoise_layout.addRow("Noise floor:", self.denoise_nf_spin)
+        self.denoise_track_noise_check = QCheckBox("Track noise floor automatically")
+        self.denoise_track_noise_check.setToolTip(
+            "Enable afftdn tn=1 for adaptive noise-floor tracking"
+        )
+        denoise_layout.addRow("", self.denoise_track_noise_check)
+        layout.addWidget(denoise_group)
         
         # Cover art
         cover_group = QGroupBox("Cover Art")
@@ -381,6 +500,40 @@ class PreferencesDialog(QDialog):
         # Audio
         self.normalize_check.setChecked(self.settings.get("normalize_lufs", False))
         self.target_lufs_spin.setValue(self.settings.get("target_lufs", -14.0))
+        self.eq_enabled_check.setChecked(self.settings.get("eq_enabled", False))
+        self.eq_bass_spin.setValue(self.settings.get("eq_bass", 0.0))
+        self.eq_mid_spin.setValue(self.settings.get("eq_mid", 0.0))
+        self.eq_treble_spin.setValue(self.settings.get("eq_treble", 0.0))
+        self.compressor_enabled_check.setChecked(
+            self.settings.get("compressor_enabled", False)
+        )
+        self.compressor_threshold_spin.setValue(
+            self.settings.get("compressor_threshold", 0.125)
+        )
+        self.compressor_ratio_spin.setValue(self.settings.get("compressor_ratio", 4.0))
+        self.compressor_attack_spin.setValue(
+            self.settings.get("compressor_attack", 20.0)
+        )
+        self.compressor_release_spin.setValue(
+            self.settings.get("compressor_release", 250.0)
+        )
+        self.compressor_makeup_spin.setValue(
+            self.settings.get("compressor_makeup", 2.0)
+        )
+        self.limiter_enabled_check.setChecked(
+            self.settings.get("limiter_enabled", False)
+        )
+        self.limiter_limit_spin.setValue(self.settings.get("limiter_limit", 0.95))
+        self.limiter_attack_spin.setValue(self.settings.get("limiter_attack", 5.0))
+        self.limiter_release_spin.setValue(self.settings.get("limiter_release", 50.0))
+        self.denoise_enabled_check.setChecked(
+            self.settings.get("denoise_enabled", False)
+        )
+        self.denoise_nr_spin.setValue(self.settings.get("denoise_nr", 12.0))
+        self.denoise_nf_spin.setValue(self.settings.get("denoise_nf", -50.0))
+        self.denoise_track_noise_check.setChecked(
+            self.settings.get("denoise_track_noise", True)
+        )
         self.prefer_external_cover_check.setChecked(self.settings.get("prefer_external_cover", False))
         
         # Video
@@ -437,6 +590,24 @@ class PreferencesDialog(QDialog):
         # Audio
         settings["normalize_lufs"] = self.normalize_check.isChecked()
         settings["target_lufs"] = self.target_lufs_spin.value()
+        settings["eq_enabled"] = self.eq_enabled_check.isChecked()
+        settings["eq_bass"] = self.eq_bass_spin.value()
+        settings["eq_mid"] = self.eq_mid_spin.value()
+        settings["eq_treble"] = self.eq_treble_spin.value()
+        settings["compressor_enabled"] = self.compressor_enabled_check.isChecked()
+        settings["compressor_threshold"] = self.compressor_threshold_spin.value()
+        settings["compressor_ratio"] = self.compressor_ratio_spin.value()
+        settings["compressor_attack"] = self.compressor_attack_spin.value()
+        settings["compressor_release"] = self.compressor_release_spin.value()
+        settings["compressor_makeup"] = self.compressor_makeup_spin.value()
+        settings["limiter_enabled"] = self.limiter_enabled_check.isChecked()
+        settings["limiter_limit"] = self.limiter_limit_spin.value()
+        settings["limiter_attack"] = self.limiter_attack_spin.value()
+        settings["limiter_release"] = self.limiter_release_spin.value()
+        settings["denoise_enabled"] = self.denoise_enabled_check.isChecked()
+        settings["denoise_nr"] = self.denoise_nr_spin.value()
+        settings["denoise_nf"] = self.denoise_nf_spin.value()
+        settings["denoise_track_noise"] = self.denoise_track_noise_check.isChecked()
         settings["prefer_external_cover"] = self.prefer_external_cover_check.isChecked()
         
         # Video
@@ -475,6 +646,24 @@ class PreferencesDialog(QDialog):
                 "codec_threads": {"mp3": 1, "aac": 1, "flac": 1},
                 "normalize_lufs": False,
                 "target_lufs": -14.0,
+                "eq_enabled": False,
+                "eq_bass": 0.0,
+                "eq_mid": 0.0,
+                "eq_treble": 0.0,
+                "compressor_enabled": False,
+                "compressor_threshold": 0.125,
+                "compressor_ratio": 4.0,
+                "compressor_attack": 20.0,
+                "compressor_release": 250.0,
+                "compressor_makeup": 2.0,
+                "limiter_enabled": False,
+                "limiter_limit": 0.95,
+                "limiter_attack": 5.0,
+                "limiter_release": 50.0,
+                "denoise_enabled": False,
+                "denoise_nr": 12.0,
+                "denoise_nf": -50.0,
+                "denoise_track_noise": True,
                 "prefer_external_cover": False,
                 "default_video_quality": "medium",
                 "default_video_codec": "libx264",

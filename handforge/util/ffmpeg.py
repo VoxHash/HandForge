@@ -222,12 +222,63 @@ def build_ffmpeg_cmd(
     hw_accel: Optional[str] = None,
     # Force software encoder (used after HW encode failure fallback)
     force_software: bool = False,
+    # Advanced audio filters (EQ / compressor / limiter / denoise) — all off by default
+    eq_enabled: bool = False,
+    eq_bass: float = 0.0,
+    eq_mid: float = 0.0,
+    eq_treble: float = 0.0,
+    compressor_enabled: bool = False,
+    compressor_threshold: float = 0.125,
+    compressor_ratio: float = 4.0,
+    compressor_attack: float = 20.0,
+    compressor_release: float = 250.0,
+    compressor_makeup: float = 2.0,
+    limiter_enabled: bool = False,
+    limiter_limit: float = 0.95,
+    limiter_attack: float = 5.0,
+    limiter_release: float = 50.0,
+    denoise_enabled: bool = False,
+    denoise_nr: float = 12.0,
+    denoise_nf: float = -50.0,
+    denoise_track_noise: bool = True,
 ) -> List[str]:
     """Build FFmpeg command for audio or video conversion."""
     
     ffmpeg = find_ffmpeg()
     if not ffmpeg:
         raise RuntimeError("FFmpeg not found. Please install FFmpeg and ensure it's on PATH.")
+
+    def _append_audio_filters(cmd_list: List[str]) -> None:
+        from .audio_filters import build_audio_filter_graph, join_audio_filters
+
+        af = join_audio_filters(
+            build_audio_filter_graph(
+                fade_in=fade_in,
+                fade_out=fade_out,
+                normalize_lufs=normalize_lufs,
+                target_lufs=target_lufs,
+                eq_enabled=eq_enabled,
+                eq_bass=eq_bass,
+                eq_mid=eq_mid,
+                eq_treble=eq_treble,
+                compressor_enabled=compressor_enabled,
+                compressor_threshold=compressor_threshold,
+                compressor_ratio=compressor_ratio,
+                compressor_attack=compressor_attack,
+                compressor_release=compressor_release,
+                compressor_makeup=compressor_makeup,
+                limiter_enabled=limiter_enabled,
+                limiter_limit=limiter_limit,
+                limiter_attack=limiter_attack,
+                limiter_release=limiter_release,
+                denoise_enabled=denoise_enabled,
+                denoise_nr=denoise_nr,
+                denoise_nf=denoise_nf,
+                denoise_track_noise=denoise_track_noise,
+            )
+        )
+        if af:
+            cmd_list.extend(["-af", af])
     
     # Determine if source is video
     src_is_video = is_video_file(src)
@@ -372,21 +423,7 @@ def build_ffmpeg_cmd(
             else:
                 cmd.extend(["-ss", str(start)])
         
-        # Audio effects (fade in/out)
-        audio_filters = []
-        if fade_in:
-            audio_filters.append(f"afade=t=in:ss=0:d={fade_in}")
-        if fade_out:
-            # Fade out at end of file
-            audio_filters.append(f"afade=t=out:st=0:d={fade_out}")
-        
-        # Loudness normalization
-        if normalize_lufs:
-            audio_filters.append(f"loudnorm=I={target_lufs}:TP=-1.5:LRA=11")
-        
-        # Apply audio filters
-        if audio_filters:
-            cmd.extend(["-af", ",".join(audio_filters)])
+        _append_audio_filters(cmd)
     
     elif dst_is_video:
         # Video conversion
@@ -567,6 +604,8 @@ def build_ffmpeg_cmd(
         if channels:
             cmd.extend(["-ac", channels])
 
+        _append_audio_filters(cmd)
+
     else:
         # Audio to audio conversion
         audio_codec_map = {
@@ -634,21 +673,7 @@ def build_ffmpeg_cmd(
             else:
                 cmd.extend(["-ss", str(start)])
         
-        # Audio effects (fade in/out)
-        audio_filters = []
-        if fade_in:
-            audio_filters.append(f"afade=t=in:ss=0:d={fade_in}")
-        if fade_out:
-            # Fade out at end of file
-            audio_filters.append(f"afade=t=out:st=0:d={fade_out}")
-        
-        # Loudness normalization
-        if normalize_lufs:
-            audio_filters.append(f"loudnorm=I={target_lufs}:TP=-1.5:LRA=11")
-        
-        # Apply audio filters
-        if audio_filters:
-            cmd.extend(["-af", ",".join(audio_filters)])
+        _append_audio_filters(cmd)
     
     # Metadata
     if not strip_meta:

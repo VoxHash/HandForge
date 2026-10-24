@@ -19,7 +19,7 @@ High-level milestones and planned features for HandForge.
 
 ### Advanced Features
 - ✅ Hardware acceleration support (NVENC, QuickSync, VAAPI)
-- Advanced audio filters (EQ, compressor, limiter, noise reduction)
+- ✅ Advanced audio filters (EQ, compressor, limiter, noise reduction)
 - Video filters (brightness, contrast, saturation, stabilization)
 - Plugin system architecture for extensibility
 
@@ -55,6 +55,7 @@ These are **not** near-term ports of the desktop PyQt6 UI. They depend on a shar
 - ✅ Actionable conversion errors (`handforge/util/errors.py`): maps missing FFmpeg, disk full, permissions, missing/corrupt input, unsupported codec/muxer, filter failures, timeouts, and incomplete output to summary + “What to try” steps; wired through orchestrator, CLI, and GUI log/tooltips
 - ✅ Keyboard shortcuts for common actions (`handforge/ui/main_window.py`): Ctrl+O / Ctrl+Shift+O add files/folder; Ctrl+Return start; Ctrl+. stop; Delete remove selected; Ctrl+Shift+K clear queue; Ctrl+, prefs; Ctrl+P / Ctrl+Shift+L presets; Ctrl+1/2 focus queue/active; F1 shortcuts dialog
 - ✅ Hardware acceleration for video encodes (`handforge/util/hwaccel.py`): probe FFmpeg for NVENC / Quick Sync / VAAPI / VideoToolbox; Preferences + CLI `--hw-accel` / `list-hw-accel`; Auto selects a working backend and falls back to libx264/libx265 on failure
+- ✅ Advanced audio filters (`handforge/util/audio_filters.py`): FFmpeg `equalizer` (3-band), `acompressor`, `alimiter`, `afftdn`; Preferences Audio tab + CLI `--eq` / `--compressor` / `--limiter` / `--denoise`; off by default
 
 ### v1.3.2 (Q4 2026)
 - ✅ Permission-aware output directory handling and pre-conversion write checks

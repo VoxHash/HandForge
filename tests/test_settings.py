@@ -11,6 +11,10 @@ def test_load_settings_merges_defaults(isolated_config_dir):
     assert loaded["adaptive_parallel"] is True
     assert loaded["ewma_alpha"] == 0.3
     assert loaded["hw_accel"] == "auto"
+    assert loaded["eq_enabled"] is False
+    assert loaded["compressor_enabled"] is False
+    assert loaded["limiter_enabled"] is False
+    assert loaded["denoise_enabled"] is False
     assert "auto_retry_patterns" in loaded
     assert (isolated_config_dir / "settings.json").exists() is False  # not written yet
 

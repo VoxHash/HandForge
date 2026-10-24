@@ -134,6 +134,39 @@ cmd = build_ffmpeg_cmd(
     fmt="mp4",
     hw_accel="auto",  # or software | nvenc | qsv | vaapi | videotoolbox
 )
+
+# Advanced audio filters (also accepted by build_ffmpeg_cmd)
+cmd = build_ffmpeg_cmd(
+    src="podcast.wav",
+    dst="podcast.mp3",
+    fmt="mp3",
+    bitrate="192",
+    eq_enabled=True,
+    eq_bass=2.0,
+    compressor_enabled=True,
+    limiter_enabled=True,
+    denoise_enabled=True,
+)
+```
+
+### handforge.util.audio_filters
+
+Build ordered FFmpeg `-af` fragments (denoise → EQ → compressor → limiter → fade → loudnorm).
+
+```python
+from handforge.util.audio_filters import (
+    build_audio_filter_graph,
+    join_audio_filters,
+)
+
+parts = build_audio_filter_graph(
+    eq_enabled=True,
+    eq_mid=1.5,
+    compressor_enabled=True,
+    limiter_enabled=True,
+    denoise_enabled=True,
+)
+af = join_audio_filters(parts)  # ready for -af
 ```
 
 ### handforge.util.hwaccel
@@ -215,6 +248,7 @@ handforge/
 ├── ui/
 │   └── main_window.py     # Main application window
 └── util/
+    ├── audio_filters.py   # EQ / compressor / limiter / denoise graphs
     ├── errors.py          # Actionable error classification / formatting
     ├── ffmpeg.py          # FFmpeg command builder
     └── hwaccel.py         # HW encoder probe / selection

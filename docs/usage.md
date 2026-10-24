@@ -17,11 +17,13 @@ Access comprehensive settings via **Settings** → **Preferences**:
 
 - **General**: Language selection, parallel processing, file handling, system tray behavior
 - **Conversion**: Output directory, codec thread counts
-- **Audio**: Loudness normalization, cover art preferences
+- **Audio**: Loudness normalization, **EQ / compressor / limiter / noise reduction**, cover art preferences
 - **Video**: Default quality, codec, **hardware acceleration** (Auto / Software / NVENC / Quick Sync / VAAPI / VideoToolbox), size reduction settings
 - **Advanced**: Auto-retry, performance tuning
 
 Use **Detect Hardware Encoders…** on the Video tab to probe FFmpeg on this machine. Auto mode picks a working backend and falls back to software if encode fails.
+
+On the **Audio** tab, enable advanced filters only when needed (all off by default). EQ uses three bands; compressor/limiter use FFmpeg `acompressor` / `alimiter`; noise reduction uses `afftdn`.
 
 Settings are saved automatically and persist between sessions.
 
@@ -339,10 +341,19 @@ Configure thread count per codec:
 
 Configure EBU R128 normalization:
 
-1. Go to **Settings** → **Loudness Normalization**
-2. Enable normalization
+1. Go to **Settings** → **Preferences** → **Audio**
+2. Enable loudness normalization
 3. Set target LUFS value
 4. Default: -14.0 LUFS
+
+### Advanced Audio Filters
+
+1. Open **Settings** → **Preferences** → **Audio**
+2. Enable **Equalizer**, **Compressor**, **Limiter**, and/or **Noise Reduction** as needed
+3. Adjust gains / thresholds; leave unused filters disabled
+4. Start a conversion — filters apply to audio-to-audio, video-to-audio, and video audio tracks
+
+CLI equivalents: `--eq`, `--compressor`, `--limiter`, `--denoise` (see [CLI](cli.md)).
 
 ### EWMA Smoothing
 

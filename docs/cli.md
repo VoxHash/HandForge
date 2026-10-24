@@ -85,6 +85,10 @@ python -m handforge convert clip.mkv -f mp4 --hw-accel auto -o ./out
 python -m handforge convert clip.mkv -f mp4 --hw-accel nvenc -o ./out
 python -m handforge convert clip.mkv -f mp4 --hw-accel software -o ./out
 
+# Advanced audio filters (EQ / compressor / limiter / denoise)
+python -m handforge convert podcast.wav -f mp3 --bitrate 192 \
+  --eq --eq-bass=2 --eq-treble=-1 --compressor --limiter --denoise -o ./out
+
 # Metadata overrides
 python -m handforge convert input.mp3 --preset "MP3 192k" \
   --title "Song Title" --artist "Artist Name"
@@ -105,6 +109,10 @@ python -m handforge convert ./batch -f flac --mode Lossless --parallel 4 --no-ad
 | `--video-codec` / `--video-quality` / `--video-bitrate` | Video encode options |
 | `--hw-accel` | `auto`, `software`, `nvenc`, `qsv`, `vaapi`, or `videotoolbox` (default from settings) |
 | `--extract-audio` | Force audio extraction from video |
+| `--eq` / `--eq-bass` / `--eq-mid` / `--eq-treble` | 3-band EQ (`equalizer`); gains in dB |
+| `--compressor` / `--compressor-threshold` / `--compressor-ratio` | Dynamics compressor (`acompressor`) |
+| `--limiter` / `--limiter-limit` | Peak limiter (`alimiter`) |
+| `--denoise` / `--denoise-nr` / `--denoise-nf` | FFT noise reduction (`afftdn`) |
 | `--parallel` | Max concurrent jobs (hard ceiling) |
 | `--no-adaptive` | Disable RAM/load-aware concurrency |
 | `--on-exists` | `overwrite`, `skip`, or `rename` |

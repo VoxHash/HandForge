@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Added
+- Advanced audio filters via real FFmpeg chains (`handforge/util/audio_filters.py`): 3-band **EQ** (`equalizer`), **compressor** (`acompressor`), **limiter** (`alimiter`), and **noise reduction** (`afftdn`); Preferences → Audio; CLI `convert --eq` / `--compressor` / `--limiter` / `--denoise` (and related params); all off by default so existing encodes are unchanged
 - Hardware-accelerated video encoding: probe local FFmpeg for **NVENC**, **Intel Quick Sync**, **VAAPI**, and **VideoToolbox**; Preferences **Hardware Acceleration** (Auto / Software / NVENC / Quick Sync / VAAPI / VideoToolbox); CLI `list-hw-accel` and `convert --hw-accel`; Auto picks a working backend and workers fall back to libx264/libx265 if HW encode fails (`handforge/util/hwaccel.py`)
 - Optional Rust adaptive parallel scheduler (`native/handforge_scheduler`) that caps concurrent FFmpeg jobs from free RAM and load; pure-Python fallback when the cdylib is not built
 - Preferences toggle **Adapt concurrency from free RAM / CPU load** (`adaptive_parallel`, default on)

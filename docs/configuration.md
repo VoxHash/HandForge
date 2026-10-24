@@ -234,6 +234,42 @@ EBU R128 loudness normalization settings:
 
 **Default**: false (disabled), -14.0 LUFS
 
+### Advanced Audio Filters
+
+Optional FFmpeg audio filters (Preferences → **Audio**). All disabled by default.
+
+```json
+{
+  "eq_enabled": false,
+  "eq_bass": 0.0,
+  "eq_mid": 0.0,
+  "eq_treble": 0.0,
+  "compressor_enabled": false,
+  "compressor_threshold": 0.125,
+  "compressor_ratio": 4.0,
+  "compressor_attack": 20.0,
+  "compressor_release": 250.0,
+  "compressor_makeup": 2.0,
+  "limiter_enabled": false,
+  "limiter_limit": 0.95,
+  "limiter_attack": 5.0,
+  "limiter_release": 50.0,
+  "denoise_enabled": false,
+  "denoise_nr": 12.0,
+  "denoise_nf": -50.0,
+  "denoise_track_noise": true
+}
+```
+
+| Filter | FFmpeg | Notes |
+|--------|--------|-------|
+| EQ | `equalizer` | 3 bands (~100 Hz / 1 kHz / 8 kHz), gains in dB |
+| Compressor | `acompressor` | Threshold is linear 0–1 (0.125 ≈ −18 dBFS) |
+| Limiter | `alimiter` | Peak ceiling linear (0.95 ≈ −0.4 dBFS) |
+| Denoise | `afftdn` | `nr` / `nf` in dB; optional noise-floor tracking |
+
+Filter order in the graph: denoise → EQ → compressor → limiter → fade → loudnorm.
+
 ### Codec Thread Caps
 
 Thread count per codec:

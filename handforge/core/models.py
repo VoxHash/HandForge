@@ -27,6 +27,25 @@ class Job:
     prefer_external_cover: bool = False
     normalize_lufs: bool = False
     target_lufs: float = -14.0
+    # Advanced audio filters (FFmpeg equalizer / acompressor / alimiter / afftdn)
+    eq_enabled: bool = False
+    eq_bass: float = 0.0
+    eq_mid: float = 0.0
+    eq_treble: float = 0.0
+    compressor_enabled: bool = False
+    compressor_threshold: float = 0.125
+    compressor_ratio: float = 4.0
+    compressor_attack: float = 20.0
+    compressor_release: float = 250.0
+    compressor_makeup: float = 2.0
+    limiter_enabled: bool = False
+    limiter_limit: float = 0.95
+    limiter_attack: float = 5.0
+    limiter_release: float = 50.0
+    denoise_enabled: bool = False
+    denoise_nr: float = 12.0
+    denoise_nf: float = -50.0
+    denoise_track_noise: bool = True
     threads: int = 1
     custom_args: Optional[str] = None
     # Video conversion options
@@ -88,6 +107,24 @@ class Job:
             "prefer_external_cover": self.prefer_external_cover,
             "normalize_lufs": self.normalize_lufs,
             "target_lufs": self.target_lufs,
+            "eq_enabled": self.eq_enabled,
+            "eq_bass": self.eq_bass,
+            "eq_mid": self.eq_mid,
+            "eq_treble": self.eq_treble,
+            "compressor_enabled": self.compressor_enabled,
+            "compressor_threshold": self.compressor_threshold,
+            "compressor_ratio": self.compressor_ratio,
+            "compressor_attack": self.compressor_attack,
+            "compressor_release": self.compressor_release,
+            "compressor_makeup": self.compressor_makeup,
+            "limiter_enabled": self.limiter_enabled,
+            "limiter_limit": self.limiter_limit,
+            "limiter_attack": self.limiter_attack,
+            "limiter_release": self.limiter_release,
+            "denoise_enabled": self.denoise_enabled,
+            "denoise_nr": self.denoise_nr,
+            "denoise_nf": self.denoise_nf,
+            "denoise_track_noise": self.denoise_track_noise,
             "threads": self.threads,
             "custom_args": self.custom_args,
             "video_codec": self.video_codec,

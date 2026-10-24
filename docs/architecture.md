@@ -106,6 +106,10 @@ FFmpeg integration:
 
 Probes `ffmpeg -encoders` and runs a short lavfi encode to verify NVENC, Quick Sync, VAAPI, and VideoToolbox. `resolve_hw_encode()` maps Preferences / CLI `hw_accel` (`auto` / `software` / backend) onto a concrete encoder plus any pre-`-i` device args (VAAPI/QSV). `build_ffmpeg_cmd(..., hw_accel=...)` applies the plan; orchestrator workers retry once with software (`libx264` / `libx265`) if a HW encode fails.
 
+### Advanced audio filters (`util/audio_filters.py`)
+
+`build_audio_filter_graph()` assembles real FFmpeg filters: `afftdn` (denoise), `equalizer` (3-band EQ), `acompressor`, `alimiter`, plus existing fade / `loudnorm`. `build_ffmpeg_cmd` applies the joined `-af` chain for audio and video jobs when any filter is enabled. Defaults are all off.
+
 ## Data Flow
 
 ```
