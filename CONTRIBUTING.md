@@ -26,13 +26,26 @@ python -m handforge.app
 
 ## Testing
 
-Currently, HandForge is primarily tested manually. When contributing:
+Install test dependencies and run the suite from the repo root:
 
-- Test your changes on Windows, Linux, and macOS if possible
-- Test with various audio and video formats
-- Verify UI changes work correctly
-- Check for any regressions
-- Test edge cases (large files, invalid formats, etc.)
+```bash
+pip install -r requirements.txt pytest pytest-cov
+# FFmpeg must be on PATH for integration tests (lavfi-generated clips)
+ffmpeg -version
+pytest
+# Or: python -m pytest tests/ -v
+```
+
+What the suite covers:
+
+- **Unit**: progress tracking, adaptive scheduler metrics, settings I/O, Job model, FFmpeg command construction, orchestrator concurrency caps
+- **Integration** (`@pytest.mark.ffmpeg`): real encode/extract/trim pipelines and a Worker conversion when FFmpeg/ffprobe are available (auto-skipped otherwise)
+
+Also when contributing:
+
+- Test UI changes manually on your platform
+- Prefer adding or extending pytest coverage for core conversion logic
+- Check for regressions on large batches and invalid inputs
 
 ## Branching & Commit Style
 

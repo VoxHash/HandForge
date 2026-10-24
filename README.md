@@ -94,7 +94,7 @@ Planned milestones live in [ROADMAP.md](ROADMAP.md). For changes, see [CHANGELOG
 
 ## 🤝 Contributing
 
-We welcome PRs! Please read [CONTRIBUTING.md](CONTRIBUTING.md) and follow the PR template.
+We welcome PRs! Please read [CONTRIBUTING.md](CONTRIBUTING.md) and follow the PR template. Run `pytest` (requires FFmpeg on PATH for integration tests) before opening a PR.
 
 ## 🔒 Security
 

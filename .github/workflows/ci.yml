@@ -69,6 +69,10 @@ jobs:
       run: |
         ffmpeg -version || echo "FFmpeg not found in PATH"
 
+    - name: Run pytest
+      run: |
+        python -m pytest tests/ -v --tb=short
+
   lint:
     name: Code Quality Checks
     runs-on: ubuntu-latest
