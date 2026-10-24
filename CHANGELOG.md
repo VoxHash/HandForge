@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Headless CLI for batch conversion: `python -m handforge` / console script `handforge` (`convert`, `list-presets`); reuses Orchestrator workers and FFmpeg helpers; progress on stderr, output paths on stdout, non-zero exit on failure; no DISPLAY required
 - Preset template library: curated templates (Apple Podcasts / YouTube-aligned bitrates and common archive workflows) in `handforge/data/preset_templates.json`; GUI **Settings → Preset Template Library**; Manage Presets import/export JSON; CLI `list-templates`, `apply-template`, `export-presets`, `import-presets`; `convert --preset` accepts template ids/names without installing
 - Actionable error messages (`handforge.util.errors`): shared classifier maps common conversion failures (missing FFmpeg, disk full, permissions, missing/corrupt input, unsupported encoder/decoder/muxer, filter errors, timeouts, incomplete/missing video output) to a short summary plus numbered **What to try** steps; unit tests in `tests/test_errors.py`
+- Keyboard shortcuts for common GUI actions (add files/folder, start/stop, clear queue, preferences, presets, focus queue/active conversions, quit); **Help → Keyboard Shortcuts** (`F1`); documented in [docs/usage.md](docs/usage.md); tests in `tests/test_shortcuts.py`
 
 ### Changed
 - Orchestrator respects `adaptive_parallel`: user `parallel` setting is a hard ceiling; effective concurrency can be lower under memory/load pressure

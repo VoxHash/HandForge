@@ -120,8 +120,30 @@ Use the search box to find files by name in the queue.
 
 ### Removing Files
 
-- Select files in the queue and press Delete
-- Or right-click and select "Remove from queue"
+- Select files in the queue and press **Delete**
+- Or right-click and select **Remove from Queue**
+- Clear the entire queue with **File → Clear Queue** (`Ctrl+Shift+K`)
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+O` | Add Files |
+| `Ctrl+Shift+O` | Add Folder |
+| `Ctrl+Return` | Start Conversion |
+| `Ctrl+.` | Stop Conversion |
+| `Delete` | Remove selected queue items (when queue is focused) |
+| `Ctrl+Shift+K` | Clear Queue |
+| `Ctrl+Shift+Delete` | Clear Active Conversions list |
+| `Ctrl+,` | Preferences |
+| `Ctrl+P` | Manage Presets |
+| `Ctrl+Shift+L` | Preset Template Library |
+| `Ctrl+1` | Focus Conversion Queue |
+| `Ctrl+2` | Focus Active Conversions |
+| `Ctrl+Q` | Quit |
+| `F1` | Keyboard Shortcuts (Help) |
+
+Open **Help → Keyboard Shortcuts** (or press `F1`) for the same list inside the app.
 
 ## Presets
 

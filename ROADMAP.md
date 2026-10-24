@@ -13,7 +13,7 @@ High-level milestones and planned features for HandForge.
 - ✅ Command-line interface (CLI) for headless batch processing — see [docs/cli.md](docs/cli.md)
 - ✅ Preset template library (curated templates + browse/apply/import/export in GUI and CLI)
 - ✅ Improved error messages with actionable solutions — shared `handforge.util.errors` maps FFmpeg/FS failures to clear next steps in GUI (log dialog / tooltips) and CLI
-- Keyboard shortcuts for common actions
+- ✅ Keyboard shortcuts for common actions — QAction shortcuts (add/start/stop/prefs/presets/clear/focus); Help → Keyboard Shortcuts (`F1`); see [docs/usage.md](docs/usage.md)
 
 ## 2027
 
@@ -53,6 +53,7 @@ These are **not** near-term ports of the desktop PyQt6 UI. They depend on a shar
 - ✅ Headless CLI (`python -m handforge` / `handforge`) for batch convert + list-presets via shared Orchestrator/FFmpeg stack
 - ✅ Preset template library (`handforge/data/preset_templates.json`): curated Podcast/Speech/Music/Archive/Video templates; GUI Settings → Preset Template Library; CLI `list-templates` / `apply-template` / `export-presets` / `import-presets`; `--preset` resolves template ids/names
 - ✅ Actionable conversion errors (`handforge/util/errors.py`): maps missing FFmpeg, disk full, permissions, missing/corrupt input, unsupported codec/muxer, filter failures, timeouts, and incomplete output to summary + “What to try” steps; wired through orchestrator, CLI, and GUI log/tooltips
+- ✅ Keyboard shortcuts for common actions (`handforge/ui/main_window.py`): Ctrl+O / Ctrl+Shift+O add files/folder; Ctrl+Return start; Ctrl+. stop; Delete remove selected; Ctrl+Shift+K clear queue; Ctrl+, prefs; Ctrl+P / Ctrl+Shift+L presets; Ctrl+1/2 focus queue/active; F1 shortcuts dialog
 
 ### v1.3.2 (Q4 2026)
 - ✅ Permission-aware output directory handling and pre-conversion write checks

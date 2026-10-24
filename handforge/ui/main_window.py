@@ -12,7 +12,32 @@ from PyQt6.QtWidgets import (
     QGroupBox, QFrame, QSizePolicy, QSystemTrayIcon,
 )
 from PyQt6.QtCore import Qt, QMimeData, pyqtSignal, QTimer
-from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QIcon, QColor
+from PyQt6.QtGui import (
+    QAction,
+    QDragEnterEvent,
+    QDropEvent,
+    QIcon,
+    QColor,
+    QKeySequence,
+)
+
+# Key sequence → description (Help dialog + tests). All map to real QActions.
+KEYBOARD_SHORTCUTS = (
+    ("Ctrl+O", "Add Files"),
+    ("Ctrl+Shift+O", "Add Folder"),
+    ("Ctrl+Return", "Start Conversion"),
+    ("Ctrl+.", "Stop Conversion"),
+    ("Delete", "Remove Selected from Queue"),
+    ("Ctrl+Shift+K", "Clear Queue"),
+    ("Ctrl+Shift+Delete", "Clear Active Conversions"),
+    ("Ctrl+,", "Preferences"),
+    ("Ctrl+P", "Manage Presets"),
+    ("Ctrl+Shift+L", "Preset Template Library"),
+    ("Ctrl+1", "Focus Conversion Queue"),
+    ("Ctrl+2", "Focus Active Conversions"),
+    ("Ctrl+Q", "Quit"),
+    ("F1", "Keyboard Shortcuts"),
+)
 
 from ..core.models import Job
 from ..core.orchestrator import Orchestrator
@@ -97,10 +122,8 @@ class MainWindow(QMainWindow):
         layout.setSpacing(12)
         layout.setContentsMargins(16, 16, 16, 16)
         
-        # Menu bar
-        self.create_menu_bar()
-        
         # Main control panel - grouped for better UX
+        # (menu bar created after tables so Delete can bind to the queue widget)
         t = self.translator
         control_group = QGroupBox(t.tr("group_file_management"))
         control_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -112,13 +135,17 @@ class MainWindow(QMainWindow):
         file_row.setSpacing(10)
         
         self.btn_add_files = QPushButton(t.tr("btn_add_files"))
-        self.btn_add_files.setToolTip("Add individual files to the conversion queue")
+        self.btn_add_files.setToolTip(
+            "Add individual files to the conversion queue (Ctrl+O)"
+        )
         self.btn_add_files.clicked.connect(self.add_files)
         self.btn_add_files.setMinimumHeight(36)
         file_row.addWidget(self.btn_add_files)
         
         self.btn_add_folder = QPushButton(t.tr("btn_add_folder"))
-        self.btn_add_folder.setToolTip("Add all media files from a folder (recursive)")
+        self.btn_add_folder.setToolTip(
+            "Add all media files from a folder, recursive (Ctrl+Shift+O)"
+        )
         self.btn_add_folder.clicked.connect(self.add_folder)
         self.btn_add_folder.setMinimumHeight(36)
         file_row.addWidget(self.btn_add_folder)
@@ -160,14 +187,14 @@ class MainWindow(QMainWindow):
         
         # Action buttons
         self.btn_start = QPushButton("▶️ Start Conversion")
-        self.btn_start.setToolTip("Start converting all files in the queue")
+        self.btn_start.setToolTip("Start converting all files in the queue (Ctrl+Return)")
         self.btn_start.clicked.connect(self.start_conversion)
         self.btn_start.setMinimumHeight(36)
         self.btn_start.setMinimumWidth(140)
         preset_row.addWidget(self.btn_start)
         
         self.btn_stop = QPushButton("⏹️ Stop")
-        self.btn_stop.setToolTip("Stop all running conversions")
+        self.btn_stop.setToolTip("Stop all running conversions (Ctrl+.)")
         self.btn_stop.clicked.connect(self.stop_conversion)
         self.btn_stop.setMinimumHeight(36)
         self.btn_stop.setMinimumWidth(100)
@@ -303,6 +330,9 @@ class MainWindow(QMainWindow):
         self.queue_table.dropEvent = self.dropEvent
         
         layout.addWidget(splitter, 1)  # Give splitter stretch factor
+
+        # Menu bar (after tables so shortcuts can target queue/workers widgets)
+        self.create_menu_bar()
         
         # Status bar with better info
         self.statusBar().showMessage("✨ Ready - Add files to begin conversion")
@@ -349,43 +379,169 @@ class MainWindow(QMainWindow):
         from ..util.ffmpeg import is_video_file
         return is_video_file(path)
     
+    def _make_action(
+        self,
+        text: str,
+        slot,
+        shortcut: Optional[str] = None,
+        tip: Optional[str] = None,
+        *,
+        window_wide: bool = True,
+    ) -> QAction:
+        """Create a QAction with optional shortcut wired to the main window."""
+        action = QAction(text, self)
+        action.triggered.connect(slot)
+        if tip:
+            action.setStatusTip(tip)
+            action.setToolTip(
+                f"{tip} ({shortcut})" if shortcut else tip
+            )
+        if shortcut:
+            action.setShortcut(QKeySequence(shortcut))
+            action.setShortcutContext(Qt.ShortcutContext.WindowShortcut)
+            if window_wide:
+                self.addAction(action)
+        return action
+
     def create_menu_bar(self):
-        """Create menu bar."""
+        """Create menu bar with keyboard shortcuts on common actions."""
         t = self.translator
         menubar = self.menuBar()
-        
+
         # File menu
         file_menu = menubar.addMenu(t.tr("menu_file"))
+        self.act_add_files = self._make_action(
+            t.tr("menu_add_files", "Add Files…"),
+            self.add_files,
+            "Ctrl+O",
+            "Add individual files to the conversion queue",
+        )
+        self.act_add_folder = self._make_action(
+            t.tr("menu_add_folder", "Add Folder…"),
+            self.add_folder,
+            "Ctrl+Shift+O",
+            "Add all media files from a folder (recursive)",
+        )
+        file_menu.addAction(self.act_add_files)
+        file_menu.addAction(self.act_add_folder)
+        file_menu.addSeparator()
+        self.act_start = self._make_action(
+            t.tr("menu_start", "Start Conversion"),
+            self.start_conversion,
+            "Ctrl+Return",
+            "Start converting all files in the queue",
+        )
+        self.act_stop = self._make_action(
+            t.tr("menu_stop", "Stop Conversion"),
+            self.stop_conversion,
+            "Ctrl+.",
+            "Stop all running conversions",
+        )
+        file_menu.addAction(self.act_start)
+        file_menu.addAction(self.act_stop)
+        file_menu.addSeparator()
         file_menu.addAction(t.tr("menu_export_queue"), self.export_queue)
         file_menu.addAction(t.tr("menu_export_summary"), self.export_summary)
         file_menu.addSeparator()
-        file_menu.addAction(t.tr("menu_clear_conversions"), self.clear_completed_workers)
+        self.act_clear_queue = self._make_action(
+            t.tr("menu_clear_queue", "Clear Queue"),
+            self.clear_queue,
+            "Ctrl+Shift+K",
+            "Remove all files from the conversion queue",
+        )
+        self.act_clear_conversions = self._make_action(
+            t.tr("menu_clear_conversions"),
+            self.clear_completed_workers,
+            "Ctrl+Shift+Delete",
+            "Clear completed and failed rows from Active Conversions",
+        )
+        file_menu.addAction(self.act_clear_queue)
+        file_menu.addAction(self.act_clear_conversions)
         file_menu.addSeparator()
-        file_menu.addAction(t.tr("menu_exit"), self.close)
-        
+        self.act_quit = self._make_action(
+            t.tr("menu_exit"),
+            self.close,
+            "Ctrl+Q",
+            "Quit HandForge",
+        )
+        file_menu.addAction(self.act_quit)
+
         # View menu
         view_menu = menubar.addMenu(t.tr("menu_view"))
+        self.act_focus_queue = self._make_action(
+            t.tr("menu_focus_queue", "Focus Conversion Queue"),
+            self.focus_queue,
+            "Ctrl+1",
+            "Move keyboard focus to the conversion queue",
+        )
+        self.act_focus_active = self._make_action(
+            t.tr("menu_focus_active", "Focus Active Conversions"),
+            self.focus_active_conversions,
+            "Ctrl+2",
+            "Move keyboard focus to Active Conversions (progress / output status)",
+        )
+        view_menu.addAction(self.act_focus_queue)
+        view_menu.addAction(self.act_focus_active)
+        view_menu.addSeparator()
         view_menu.addAction(t.tr("menu_parse_tags"), self.parse_tags)
         view_menu.addAction(t.tr("menu_fetch_covers"), self.fetch_covers)
         view_menu.addSeparator()
         view_menu.addAction(t.tr("menu_analyze_quality"), self.analyze_audio_quality)
-        
+
         # Edit menu
         edit_menu = menubar.addMenu(t.tr("menu_edit"))
+        self.act_remove_selected = self._make_action(
+            t.tr("menu_remove_selected", "Remove Selected from Queue"),
+            self.remove_selected_from_queue,
+            "Delete",
+            "Remove selected files from the conversion queue",
+            window_wide=False,
+        )
+        # Delete only when the queue table (or its children) has focus
+        self.act_remove_selected.setShortcutContext(
+            Qt.ShortcutContext.WidgetWithChildrenShortcut
+        )
+        self.queue_table.addAction(self.act_remove_selected)
+        edit_menu.addAction(self.act_remove_selected)
         edit_menu.addAction(t.tr("menu_batch_metadata"), self.batch_edit_metadata)
-        
+
         # Settings menu
         settings_menu = menubar.addMenu(t.tr("menu_settings"))
-        settings_menu.addAction(t.tr("menu_manage_presets"), self.manage_presets)
-        settings_menu.addAction(
+        self.act_manage_presets = self._make_action(
+            t.tr("menu_manage_presets"),
+            self.manage_presets,
+            "Ctrl+P",
+            "Open the Manage Presets dialog",
+        )
+        self.act_preset_library = self._make_action(
             t.tr("menu_preset_library", "Preset Template Library"),
             self.open_preset_template_library,
+            "Ctrl+Shift+L",
+            "Browse and apply curated preset templates",
         )
+        settings_menu.addAction(self.act_manage_presets)
+        settings_menu.addAction(self.act_preset_library)
         settings_menu.addAction(t.tr("menu_manage_patterns"), self.manage_patterns)
         settings_menu.addAction(t.tr("menu_autoretry"), self.manage_autoretry)
         settings_menu.addSeparator()
-        settings_menu.addAction(t.tr("menu_preferences"), self.show_preferences)
+        self.act_preferences = self._make_action(
+            t.tr("menu_preferences"),
+            self.show_preferences,
+            "Ctrl+,",
+            "Open Preferences",
+        )
+        settings_menu.addAction(self.act_preferences)
         settings_menu.addAction(t.tr("menu_reset"), self.reset_settings)
+
+        # Help menu
+        help_menu = menubar.addMenu(t.tr("menu_help", "Help"))
+        self.act_shortcuts_help = self._make_action(
+            t.tr("menu_keyboard_shortcuts", "Keyboard Shortcuts"),
+            self.show_keyboard_shortcuts,
+            "F1",
+            "Show keyboard shortcuts for common actions",
+        )
+        help_menu.addAction(self.act_shortcuts_help)
     
     def apply_settings(self):
         """Apply application settings with Glassmorphism styling."""
@@ -1486,10 +1642,83 @@ class MainWindow(QMainWindow):
         rows_to_remove = sorted([index.row() for index in selected_rows], reverse=True)
         for row in rows_to_remove:
             if row < len(self.queue):
-                self.queue.pop(row)
+                job = self.queue.pop(row)
+                self.file_subtitle_tracks.pop(job.src, None)
         
         self.update_queue_table()
         self.update_queue_count()
+
+    def clear_queue(self):
+        """Remove all files from the conversion queue."""
+        if not self.queue:
+            QMessageBox.information(
+                self,
+                "Queue Empty",
+                "There are no files in the conversion queue to clear.",
+            )
+            return
+
+        reply = QMessageBox.question(
+            self,
+            "Clear Queue",
+            f"Remove all {len(self.queue)} file(s) from the conversion queue?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        count = len(self.queue)
+        self.queue.clear()
+        self.file_subtitle_tracks.clear()
+        self.update_queue_table()
+        self.update_queue_count()
+        self.statusBar().showMessage(f"✅ Cleared {count} file(s) from the queue", 3000)
+
+    def focus_queue(self):
+        """Move keyboard focus to the conversion queue table."""
+        self.queue_table.setFocus(Qt.FocusReason.ShortcutFocusReason)
+        self.statusBar().showMessage("Focused conversion queue", 2000)
+
+    def focus_active_conversions(self):
+        """Move keyboard focus to Active Conversions (progress / output status)."""
+        self.workers_table.setFocus(Qt.FocusReason.ShortcutFocusReason)
+        self.statusBar().showMessage("Focused Active Conversions", 2000)
+
+    def show_keyboard_shortcuts(self):
+        """Show a dialog listing keyboard shortcuts for common actions."""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Keyboard Shortcuts")
+        dialog.setMinimumWidth(420)
+        layout = QVBoxLayout(dialog)
+        intro = QLabel(
+            "Shortcuts for common HandForge actions. "
+            "Menu items show the same keys when available."
+        )
+        intro.setWordWrap(True)
+        layout.addWidget(intro)
+
+        table = QTableWidget(len(KEYBOARD_SHORTCUTS), 2)
+        table.setHorizontalHeaderLabels(["Shortcut", "Action"])
+        table.verticalHeader().setVisible(False)
+        table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
+        table.horizontalHeader().setStretchLastSection(True)
+        table.setColumnWidth(0, 160)
+        for row, (key, description) in enumerate(KEYBOARD_SHORTCUTS):
+            table.setItem(row, 0, QTableWidgetItem(key))
+            table.setItem(row, 1, QTableWidgetItem(description))
+        table.resizeRowsToContents()
+        layout.addWidget(table)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons.rejected.connect(dialog.reject)
+        buttons.accepted.connect(dialog.accept)
+        close_btn = buttons.button(QDialogButtonBox.StandardButton.Close)
+        if close_btn:
+            close_btn.clicked.connect(dialog.accept)
+        layout.addWidget(buttons)
+        dialog.exec()
     
     def show_workers_context_menu(self, position):
         """Show context menu for Active Conversions table."""
