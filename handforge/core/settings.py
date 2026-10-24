@@ -77,6 +77,8 @@ def load_settings() -> Dict[str, Any]:
         "default_video_codec": "libx264",
         "default_reduction_factor": 7.0,
         "default_two_pass": False,
+        # Video HW acceleration: auto | software | nvenc | qsv | vaapi | videotoolbox
+        "hw_accel": "auto",
         "language": None,  # None = auto-detect, or locale code like 'en', 'ru', etc.
     }
     

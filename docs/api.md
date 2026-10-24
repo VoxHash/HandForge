@@ -126,6 +126,32 @@ proc = run_ffmpeg(cmd)
 
 # Generate output path
 output = out_path("/output", "input.mp3", "mp3")
+
+# Video with hardware acceleration preference
+cmd = build_ffmpeg_cmd(
+    src="input.mkv",
+    dst="output.mp4",
+    fmt="mp4",
+    hw_accel="auto",  # or software | nvenc | qsv | vaapi | videotoolbox
+)
+```
+
+### handforge.util.hwaccel
+
+Hardware encoder detection and selection.
+
+```python
+from handforge.util.hwaccel import (
+    detect_available_backends,
+    format_detection_report,
+    resolve_hw_encode,
+)
+
+info = detect_available_backends(probe=True)
+print(format_detection_report(info))
+
+plan = resolve_hw_encode("auto", software_codec="libx264", detection=info)
+print(plan.backend, plan.encoder, plan.used_hw)
 ```
 
 ## Example: Programmatic Usage
@@ -190,7 +216,8 @@ handforge/
 │   └── main_window.py     # Main application window
 └── util/
     ├── errors.py          # Actionable error classification / formatting
-    └── ffmpeg.py          # FFmpeg utilities
+    ├── ffmpeg.py          # FFmpeg command builder
+    └── hwaccel.py         # HW encoder probe / selection
 ```
 
 ## Notes

@@ -56,6 +56,15 @@ python -m handforge import-presets ./my-presets.json
 python -m handforge import-presets ./my-presets.json --replace
 ```
 
+### `list-hw-accel`
+
+Probe the local FFmpeg for working hardware video encoders (NVENC, Quick Sync, VAAPI, VideoToolbox).
+
+```bash
+python -m handforge list-hw-accel
+python -m handforge list-hw-accel --no-probe   # compiled encoders only
+```
+
 ### `convert`
 
 Convert one or more files or directories (directories are scanned recursively for audio/video).
@@ -70,6 +79,11 @@ python -m handforge convert ./music --preset "AAC 256k" --output-dir ./output
 
 # Explicit format / bitrate (no preset)
 python -m handforge convert clip.wav -f mp3 --bitrate 192 -o ./out
+
+# Video with hardware acceleration (auto falls back to software)
+python -m handforge convert clip.mkv -f mp4 --hw-accel auto -o ./out
+python -m handforge convert clip.mkv -f mp4 --hw-accel nvenc -o ./out
+python -m handforge convert clip.mkv -f mp4 --hw-accel software -o ./out
 
 # Metadata overrides
 python -m handforge convert input.mp3 --preset "MP3 192k" \
@@ -89,6 +103,7 @@ python -m handforge convert ./batch -f flac --mode Lossless --parallel 4 --no-ad
 | `--mode` | `CBR`, `VBR`, or `Lossless` |
 | `--bitrate` / `--vbrq` | Audio bitrate or VBR quality |
 | `--video-codec` / `--video-quality` / `--video-bitrate` | Video encode options |
+| `--hw-accel` | `auto`, `software`, `nvenc`, `qsv`, `vaapi`, or `videotoolbox` (default from settings) |
 | `--extract-audio` | Force audio extraction from video |
 | `--parallel` | Max concurrent jobs (hard ceiling) |
 | `--no-adaptive` | Disable RAM/load-aware concurrency |

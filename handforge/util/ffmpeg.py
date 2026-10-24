@@ -218,6 +218,10 @@ def build_ffmpeg_cmd(
     video_quality_preset: Optional[str] = None,
     # Multiple audio tracks
     audio_track: Optional[int] = None,
+    # Hardware acceleration preference: auto | software | nvenc | qsv | vaapi | videotoolbox
+    hw_accel: Optional[str] = None,
+    # Force software encoder (used after HW encode failure fallback)
+    force_software: bool = False,
 ) -> List[str]:
     """Build FFmpeg command for audio or video conversion."""
     
@@ -241,8 +245,41 @@ def build_ffmpeg_cmd(
                            "3gp", "ogv", "mts", "m2ts", "ts"]
             dst_is_video = fmt.lower() in video_formats
     
+    # Resolve HW encode plan early (pre-input args must precede -i).
+    # When hw_accel is None, keep legacy software-only behavior for callers
+    # that do not pass a preference; GUI/CLI always pass settings["hw_accel"].
+    hw_plan = None
+    if dst_is_video and (hw_accel is not None or force_software):
+        from .hwaccel import resolve_hw_encode
+
+        # Two-pass size reduction stays on software encoders (libx264/libx265).
+        use_force_sw = force_software or (two_pass and reduce_size)
+        soft_codec = video_codec
+        if reduce_size and use_hevc and not video_codec:
+            soft_codec = "libx265"
+        elif not soft_codec:
+            soft_codec = {
+                "mp4": "libx264",
+                "mkv": "libx264",
+                "webm": "libvpx-vp9",
+                "avi": "libx264",
+                "mov": "libx264",
+                "wmv": "wmv2",
+                "flv": "libx264",
+                "m4v": "libx264",
+                "3gp": "libx264",
+                "ogv": "libtheora",
+            }.get(fmt.lower(), "libx264")
+        hw_plan = resolve_hw_encode(
+            hw_accel if hw_accel is not None else "software",
+            software_codec=soft_codec,
+            force_software=use_force_sw,
+        )
+
     # Video trimming (must be before -i for faster seeking)
     cmd = [ffmpeg]
+    if hw_plan and hw_plan.pre_input_args:
+        cmd.extend(hw_plan.pre_input_args)
     if video_trim_start is not None:
         cmd.extend(["-ss", str(video_trim_start)])
     cmd.extend(["-i", src])
@@ -353,7 +390,8 @@ def build_ffmpeg_cmd(
     
     elif dst_is_video:
         # Video conversion
-        # Video codec
+        from .hwaccel import apply_hw_rate_control, is_hw_encoder
+
         video_codec_map = {
             "mp4": "libx264",
             "mkv": "libx264",
@@ -366,146 +404,138 @@ def build_ffmpeg_cmd(
             "3gp": "libx264",
             "ogv": "libtheora",
         }
-        
+
         # Smart size reduction: Use H.265/HEVC for better compression
         if reduce_size and use_hevc:
-            # H.265/HEVC provides ~50% better compression than H.264
-            # Force H.265 for size reduction
             if fmt.lower() in ["mp4", "mkv", "m4v"]:
-                vcodec = "libx265"  # H.265/HEVC encoder
+                soft_vcodec = "libx265"
             else:
-                # For formats that don't support H.265, use H.264 with high compression
-                vcodec = "libx264"
+                soft_vcodec = "libx264"
         elif video_codec:
-            vcodec = video_codec
+            soft_vcodec = video_codec
         else:
-            vcodec = video_codec_map.get(fmt.lower(), "libx264")
-        
+            soft_vcodec = video_codec_map.get(fmt.lower(), "libx264")
+
+        if hw_plan is not None:
+            vcodec = hw_plan.encoder
+        else:
+            vcodec = soft_vcodec
+
         cmd.extend(["-c:v", vcodec])
-        
+
         # Multiple audio track selection
         audio_map = "0:a:0"  # Default to first audio track
         if audio_track is not None and audio_track >= 0:
             audio_map = f"0:a:{audio_track}"
-        
+
         # Subtitle handling - map streams explicitly to ensure video is included
         # CRITICAL: Always explicitly map video stream for video-to-video conversion
         if subtitle_track is not None and subtitle_track >= 0:
-            # Include specific subtitle track (subtitle_track is the actual stream index)
-            # Map by stream index directly using 0:index format
             cmd.extend(["-map", "0:v:0", "-map", audio_map, "-map", f"0:{subtitle_track}"])
-            # Convert subtitle to format compatible with output
             if fmt.lower() in ["mp4", "m4v"]:
-                # MP4 supports mov_text subtitle codec
                 cmd.extend(["-c:s", "mov_text"])
             elif fmt.lower() == "mkv":
-                # MKV supports most subtitle formats, copy if possible
                 cmd.extend(["-c:s", "copy"])
             else:
-                # For other formats, try mov_text or copy
                 cmd.extend(["-c:s", "mov_text"])
         else:
-            # Default: explicitly map video and audio streams (no subtitles)
-            # This ensures video stream is always included in video-to-video conversion
             cmd.extend(["-map", "0:v:0", "-map", audio_map])
-        
-        # Smart compression settings for size reduction
+
+        # Rate control / quality
+        crf_for_reduce = None
         if reduce_size:
-            # Use CRF (Constant Rate Factor) for quality-based encoding
-            # CRF 23 is visually lossless, CRF 28 is good quality with smaller size
-            # For 5-10x reduction, we use CRF 28-30 which maintains good quality
             if size_reduction_factor:
                 if size_reduction_factor >= 8.0:
-                    crf_value = "30"  # Higher compression, still good quality
+                    crf_for_reduce = "30"
                 elif size_reduction_factor >= 5.0:
-                    crf_value = "28"  # Medium-high compression
+                    crf_for_reduce = "28"
                 else:
-                    crf_value = "26"  # Medium compression
+                    crf_for_reduce = "26"
             else:
-                crf_value = "28"  # Default for size reduction
-            
+                crf_for_reduce = "28"
+
             if vcodec in ["libx264", "libx265"]:
-                # Use slower preset for better compression efficiency
-                cmd.extend(["-preset", "slow"])  # Better compression than "medium"
-                # Enable two-pass if requested for optimal quality/size
+                cmd.extend(["-preset", "slow"])
                 if two_pass:
-                    # For two-pass, first pass uses bitrate mode, second pass uses CRF
-                    # We'll use CRF for single-pass, or let two-pass handle it
                     pass_logfile = dst + ".ffmpeg2pass"
                     cmd.extend(["-pass", "1"])
                     cmd.extend(["-passlogfile", pass_logfile])
-                    # First pass: analyze and write log, output to null
-                    # Note: Output will be handled in orchestrator
                 else:
-                    # Single-pass: use CRF for quality-based encoding
-                    cmd.extend(["-crf", crf_value])
+                    cmd.extend(["-crf", crf_for_reduce])
             elif vcodec == "libvpx-vp9":
-                cmd.extend(["-crf", crf_value, "-b:v", "0"])
+                cmd.extend(["-crf", crf_for_reduce, "-b:v", "0"])
+            elif is_hw_encoder(vcodec):
+                apply_hw_rate_control(
+                    cmd,
+                    encoder=vcodec,
+                    video_bitrate=video_bitrate,
+                    crf_value=crf_for_reduce,
+                    preset="slow",
+                )
         else:
-            # Normal video encoding
-            if video_bitrate:
-                cmd.extend(["-b:v", f"{video_bitrate}k"])
-            elif video_quality:
-                # CRF quality (0-51, lower is better)
-                if vcodec in ["libx264", "libx265"]:
-                    cmd.extend(["-crf", video_quality])
-                elif vcodec == "libvpx-vp9":
-                    cmd.extend(["-crf", video_quality, "-b:v", "0"])
-        
-        # Video quality preset
-        if video_quality_preset and not reduce_size:
-            quality_map = {
-                "low": {"crf": "32", "preset": "fast"},
-                "medium": {"crf": "28", "preset": "medium"},
-                "high": {"crf": "23", "preset": "slow"},
-                "ultra": {"crf": "18", "preset": "veryslow"},
-            }
-            if video_quality_preset.lower() in quality_map:
-                q = quality_map[video_quality_preset.lower()]
-                if vcodec in ["libx264", "libx265"]:
-                    # Remove existing CRF/preset if any
-                    if "-crf" in cmd:
-                        idx = cmd.index("-crf")
-                        cmd.pop(idx)
-                        cmd.pop(idx)
-                    if "-preset" in cmd:
-                        idx = cmd.index("-preset")
-                        cmd.pop(idx)
-                        cmd.pop(idx)
-                    cmd.extend(["-crf", q["crf"], "-preset", q["preset"]])
-                elif vcodec == "libvpx-vp9":
-                    if "-crf" in cmd:
-                        idx = cmd.index("-crf")
-                        cmd.pop(idx)
-                        cmd.pop(idx)
-                    cmd.extend(["-crf", q["crf"], "-b:v", "0"])
-        
-        # Video cropping
+            quality_preset_crf = None
+            quality_preset_x264 = None
+            if video_quality_preset:
+                quality_map = {
+                    "low": {"crf": "32", "preset": "fast"},
+                    "medium": {"crf": "28", "preset": "medium"},
+                    "high": {"crf": "23", "preset": "slow"},
+                    "ultra": {"crf": "18", "preset": "veryslow"},
+                }
+                q = quality_map.get(video_quality_preset.lower())
+                if q:
+                    quality_preset_crf = q["crf"]
+                    quality_preset_x264 = q["preset"]
+
+            if is_hw_encoder(vcodec):
+                apply_hw_rate_control(
+                    cmd,
+                    encoder=vcodec,
+                    video_bitrate=video_bitrate,
+                    video_quality=video_quality or quality_preset_crf,
+                    preset=quality_preset_x264 or "medium",
+                )
+            else:
+                if video_bitrate:
+                    cmd.extend(["-b:v", f"{video_bitrate}k"])
+                elif video_quality:
+                    if vcodec in ["libx264", "libx265"]:
+                        cmd.extend(["-crf", video_quality])
+                    elif vcodec == "libvpx-vp9":
+                        cmd.extend(["-crf", video_quality, "-b:v", "0"])
+                elif quality_preset_crf:
+                    if vcodec in ["libx264", "libx265"]:
+                        cmd.extend(
+                            ["-crf", quality_preset_crf, "-preset", quality_preset_x264]
+                        )
+                    elif vcodec == "libvpx-vp9":
+                        cmd.extend(["-crf", quality_preset_crf, "-b:v", "0"])
+
+                if (
+                    vcodec in ["libx264", "libx265"]
+                    and not reduce_size
+                    and "-preset" not in cmd
+                ):
+                    cmd.extend(["-preset", quality_preset_x264 or "medium"])
+
+        # Software filters first; HW upload filters last (VAAPI/QSV).
+        sw_vf: List[str] = []
         if crop_width and crop_height:
             crop_filter = f"crop={crop_width}:{crop_height}"
             if crop_x is not None and crop_y is not None:
                 crop_filter += f":{crop_x}:{crop_y}"
-            # Add to video filters
-            if "-vf" in cmd:
-                # Append to existing video filter
-                vf_idx = cmd.index("-vf")
-                cmd[vf_idx + 1] += f",{crop_filter}"
-            else:
-                cmd.extend(["-vf", crop_filter])
-        
-        # Resolution - preserve original if not specified (for quality preservation)
+            sw_vf.append(crop_filter)
         if resolution:
-            # Use scale filter instead of -s for better quality
-            if "-vf" in cmd:
-                vf_idx = cmd.index("-vf")
-                cmd[vf_idx + 1] += f",scale={resolution.replace('x', ':')}"
-            else:
-                cmd.extend(["-vf", f"scale={resolution.replace('x', ':')}"])
-        
+            sw_vf.append(f"scale={resolution.replace('x', ':')}")
+        hw_vf = list(hw_plan.vf_filters) if hw_plan and hw_plan.vf_filters else []
+        vf_parts = sw_vf + hw_vf
+        if vf_parts:
+            cmd.extend(["-vf", ",".join(vf_parts)])
+
         # FPS - preserve original if not specified
         if fps:
             cmd.extend(["-r", fps])
-        
+
         # Audio codec for video
         audio_codec_map = {
             "mp4": "aac",
@@ -519,28 +549,24 @@ def build_ffmpeg_cmd(
             "3gp": "aac",
             "ogv": "libvorbis",
         }
-        
+
         acodec = audio_codec_map.get(fmt.lower(), "aac")
         cmd.extend(["-c:a", acodec])
-        
+
         # Audio bitrate for video
         if bitrate:
             cmd.extend(["-b:a", f"{bitrate}k"])
         elif not bitrate and acodec == "aac":
             cmd.extend(["-b:a", "192k"])  # Default audio bitrate
-        
+
         # Sample rate
         if sample_rate:
             cmd.extend(["-ar", sample_rate])
-        
+
         # Channels
         if channels:
             cmd.extend(["-ac", channels])
-        
-        # Preset for x264/x265 (if not already set for size reduction)
-        if vcodec in ["libx264", "libx265"] and not reduce_size:
-            cmd.extend(["-preset", "medium"])
-    
+
     else:
         # Audio to audio conversion
         audio_codec_map = {

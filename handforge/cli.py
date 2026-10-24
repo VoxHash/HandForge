@@ -31,6 +31,12 @@ from .core.presets import (
 from .core.settings import load_settings
 from .util.errors import format_actionable_error
 from .util.ffmpeg import find_ffmpeg, is_audio_file, is_video_file
+from .util.hwaccel import (
+    HW_PREFERENCES,
+    detect_available_backends,
+    format_detection_report,
+    normalize_hw_preference,
+)
 
 
 EXIT_OK = 0
@@ -92,6 +98,8 @@ def resolve_conversion_options(args: argparse.Namespace) -> Dict[str, Any]:
         options["video_quality"] = args.video_quality
     if args.video_bitrate is not None:
         options["video_bitrate"] = args.video_bitrate
+    if getattr(args, "hw_accel", None):
+        options["hw_accel"] = normalize_hw_preference(args.hw_accel)
     if getattr(args, "extract_audio", False):
         options["extract_audio_only"] = True
 
@@ -149,6 +157,10 @@ def build_job(
         job.video_quality = options.get("video_quality")
         job.resolution = options.get("resolution")
         job.fps = options.get("fps")
+        if options.get("hw_accel"):
+            job.hw_accel = options.get("hw_accel")
+        elif settings.get("hw_accel"):
+            job.hw_accel = settings.get("hw_accel")
         if options.get("reduce_size"):
             job.reduce_size = True
             job.size_reduction_factor = options.get("size_reduction_factor", 7.0)
@@ -386,6 +398,24 @@ def cmd_import_presets(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_list_hw_accel(args: argparse.Namespace) -> int:
+    """Probe FFmpeg and print available hardware video encoders."""
+    if not find_ffmpeg():
+        print(
+            format_actionable_error("FFmpeg not found on PATH"),
+            file=sys.stderr,
+        )
+        return EXIT_FAIL
+    probe = not getattr(args, "no_probe", False)
+    info = detect_available_backends(probe=probe, force_refresh=True)
+    print(format_detection_report(info))
+    backends = info.get("backends") or {}
+    if any(backends.values()):
+        return EXIT_OK
+    # No HW available is still a successful detection run.
+    return EXIT_OK
+
+
 def cmd_convert(args: argparse.Namespace) -> int:
     if not find_ffmpeg():
         print(
@@ -415,6 +445,8 @@ def cmd_convert(args: argparse.Namespace) -> int:
         settings["parallel"] = max(1, int(args.parallel))
     if args.no_adaptive:
         settings["adaptive_parallel"] = False
+    if getattr(args, "hw_accel", None):
+        settings["hw_accel"] = normalize_hw_preference(args.hw_accel)
 
     out_dir = args.output_dir or settings.get("output_dir") or _default_output_dir()
     out_dir = os.path.expanduser(str(out_dir))
@@ -557,6 +589,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_import.set_defaults(func=cmd_import_presets)
 
+    p_hw = sub.add_parser(
+        "list-hw-accel",
+        help="Detect FFmpeg hardware video encoders (NVENC, Quick Sync, VAAPI, VideoToolbox)",
+    )
+    p_hw.add_argument(
+        "--no-probe",
+        action="store_true",
+        help="Only list encoders compiled into FFmpeg (skip live encode probe)",
+    )
+    p_hw.set_defaults(func=cmd_list_hw_accel)
+
     p_conv = sub.add_parser(
         "convert",
         help="Convert one or more media files or directories",
@@ -594,6 +637,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_conv.add_argument("--video-codec", help="Video codec (e.g. libx264)")
     p_conv.add_argument("--video-quality", help="Video CRF/quality value")
     p_conv.add_argument("--video-bitrate", help="Video bitrate (e.g. 5000)")
+    p_conv.add_argument(
+        "--hw-accel",
+        choices=list(HW_PREFERENCES),
+        help=(
+            "Hardware video encoder preference "
+            "(auto|software|nvenc|qsv|vaapi|videotoolbox); "
+            "falls back to software if unavailable or encode fails"
+        ),
+    )
     p_conv.add_argument(
         "--extract-audio",
         action="store_true",

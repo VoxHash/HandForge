@@ -957,6 +957,7 @@ class MainWindow(QMainWindow):
                 job.video_quality = preset.get("video_quality")
                 job.resolution = preset.get("resolution")
                 job.fps = preset.get("fps")
+                job.hw_accel = self.settings.get("hw_accel", "auto")
                 
                 # Subtitle selection (per file from queue table)
                 subtitle_combo = self.queue_table.cellWidget(i, 3)

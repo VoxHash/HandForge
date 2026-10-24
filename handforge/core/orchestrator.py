@@ -12,6 +12,7 @@ from .native_scheduler import estimate_job_rss_mb, recommend_parallel
 from .progress import ProgressTracker
 from ..util.errors import format_actionable_error
 from ..util.ffmpeg import build_ffmpeg_cmd, run_ffmpeg, out_path, is_video_file
+from ..util.hwaccel import is_hw_encoder
 
 # Platform-specific imports for non-blocking I/O
 if platform.system() == "Windows":
@@ -72,6 +73,113 @@ class Worker(QThread):
         )
         self.sig_log.emit(self.wid, f"Error: {user_msg.splitlines()[0]}")
         self.sig_done.emit(self.wid, False, user_msg, output_path)
+
+    def _build_ffmpeg_command(
+        self,
+        dst: str,
+        *,
+        hw_accel: Optional[str] = None,
+        force_software: bool = False,
+        two_pass: Optional[bool] = None,
+    ) -> List[str]:
+        """Build the FFmpeg argv for this job."""
+        use_two_pass = self.job.two_pass if two_pass is None else two_pass
+        pref = hw_accel
+        if pref is None:
+            pref = self.job.hw_accel or self.settings.get("hw_accel", "auto")
+        return build_ffmpeg_cmd(
+            src=self.job.src,
+            dst=dst,
+            fmt=self.job.format,
+            mode=self.job.mode,
+            bitrate=self.job.bitrate,
+            vbrq=self.job.vbrq,
+            sample_rate=self.job.sample_rate,
+            channels=self.job.channels,
+            metadata={
+                "title": self.job.meta_title,
+                "artist": self.job.meta_artist,
+                "album": self.job.meta_album,
+                "year": self.job.meta_year,
+                "genre": self.job.meta_genre,
+                "track": self.job.meta_track,
+            }
+            if not self.job.strip_meta
+            else {},
+            copy_meta=self.job.copy_meta and not self.job.strip_meta,
+            prefer_external_cover=self.job.prefer_external_cover,
+            normalize_lufs=self.job.normalize_lufs,
+            target_lufs=self.job.target_lufs,
+            threads=self.job.threads,
+            custom_args=self.job.custom_args,
+            video_codec=self.job.video_codec,
+            video_bitrate=self.job.video_bitrate,
+            video_quality=self.job.video_quality,
+            resolution=self.job.resolution,
+            fps=self.job.fps,
+            extract_audio_only=self.job.extract_audio_only,
+            reduce_size=self.job.reduce_size,
+            size_reduction_factor=self.job.size_reduction_factor,
+            use_hevc=self.job.use_hevc,
+            two_pass=use_two_pass,
+            subtitle_track=self.job.subtitle_track,
+            trim_start=self.job.trim_start,
+            trim_end=self.job.trim_end,
+            fade_in=self.job.fade_in,
+            fade_out=self.job.fade_out,
+            video_trim_start=self.job.video_trim_start,
+            video_trim_end=self.job.video_trim_end,
+            crop_x=self.job.crop_x,
+            crop_y=self.job.crop_y,
+            crop_width=self.job.crop_width,
+            crop_height=self.job.crop_height,
+            video_quality_preset=self.job.video_quality_preset,
+            audio_track=self.job.audio_track,
+            hw_accel=pref,
+            force_software=force_software,
+        )
+
+    @staticmethod
+    def _video_codec_from_cmd(cmd: List[str]) -> Optional[str]:
+        try:
+            idx = cmd.index("-c:v")
+            return cmd[idx + 1]
+        except (ValueError, IndexError):
+            return None
+
+    def _software_fallback_encode(
+        self,
+        dst: str,
+        *,
+        stderr_hint: str = "",
+    ) -> Optional[int]:
+        """Retry once with software encoders. Returns exit code, or None if not attempted."""
+        self.sig_log.emit(
+            self.wid,
+            "Hardware encode failed; falling back to software (libx264/libx265)...",
+        )
+        if stderr_hint:
+            self.sig_log.emit(self.wid, f"HW error hint: {stderr_hint[:240]}")
+        if dst not in ("NUL", "/dev/null") and os.path.exists(dst):
+            try:
+                os.remove(dst)
+            except OSError:
+                pass
+        cmd = self._build_ffmpeg_command(
+            dst, hw_accel="software", force_software=True, two_pass=False
+        )
+        self.sig_log.emit(
+            self.wid,
+            f"Software fallback encoder: {self._video_codec_from_cmd(cmd) or 'unknown'}",
+        )
+        proc = run_ffmpeg(cmd)
+        if proc is None:
+            return None
+        try:
+            return proc.wait(timeout=3600)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            return -1
     
     def run(self):
         """Run the conversion."""
@@ -139,52 +247,9 @@ class Worker(QThread):
                     first_pass_dst = "/dev/null"
             
             # Build FFmpeg command (use first_pass_dst for two-pass)
-            cmd = build_ffmpeg_cmd(
-                src=self.job.src,
-                dst=first_pass_dst,
-                fmt=self.job.format,
-                mode=self.job.mode,
-                bitrate=self.job.bitrate,
-                vbrq=self.job.vbrq,
-                sample_rate=self.job.sample_rate,
-                channels=self.job.channels,
-                metadata={
-                    "title": self.job.meta_title,
-                    "artist": self.job.meta_artist,
-                    "album": self.job.meta_album,
-                    "year": self.job.meta_year,
-                    "genre": self.job.meta_genre,
-                    "track": self.job.meta_track,
-                } if not self.job.strip_meta else {},
-                copy_meta=self.job.copy_meta and not self.job.strip_meta,
-                prefer_external_cover=self.job.prefer_external_cover,
-                normalize_lufs=self.job.normalize_lufs,
-                target_lufs=self.job.target_lufs,
-                threads=self.job.threads,
-                custom_args=self.job.custom_args,
-                video_codec=self.job.video_codec,
-                video_bitrate=self.job.video_bitrate,
-                video_quality=self.job.video_quality,
-                resolution=self.job.resolution,
-                fps=self.job.fps,
-                extract_audio_only=self.job.extract_audio_only,
-                reduce_size=self.job.reduce_size,
-                size_reduction_factor=self.job.size_reduction_factor,
-                use_hevc=self.job.use_hevc,
-                two_pass=self.job.two_pass,
-                subtitle_track=self.job.subtitle_track,
-                trim_start=self.job.trim_start,
-                trim_end=self.job.trim_end,
-                fade_in=self.job.fade_in,
-                fade_out=self.job.fade_out,
-                video_trim_start=self.job.video_trim_start,
-                video_trim_end=self.job.video_trim_end,
-                crop_x=self.job.crop_x,
-                crop_y=self.job.crop_y,
-                crop_width=self.job.crop_width,
-                crop_height=self.job.crop_height,
-                video_quality_preset=self.job.video_quality_preset,
-                audio_track=self.job.audio_track,
+            hw_pref = self.job.hw_accel or self.settings.get("hw_accel", "auto")
+            cmd = self._build_ffmpeg_command(
+                first_pass_dst, hw_accel=hw_pref, force_software=False
             )
             
             # Run FFmpeg
@@ -240,12 +305,26 @@ class Worker(QThread):
                         if stderr_output
                         else ""
                     )
-                    self._fail(
-                        "FFmpeg process exited immediately",
-                        stderr=error_text,
-                    )
                 except Exception as e:
                     self._fail(f"FFmpeg process exited immediately: {e}", exc=e)
+                    return
+                vcodec = self._video_codec_from_cmd(cmd)
+                if is_hw_encoder(vcodec):
+                    fb_rc = self._software_fallback_encode(
+                        dst, stderr_hint=error_text
+                    )
+                    if fb_rc == 0:
+                        self.sig_done.emit(
+                            self.wid,
+                            True,
+                            f"Conversion completed successfully (software fallback)\nSaved to: {dst}",
+                            dst,
+                        )
+                        return
+                self._fail(
+                    "FFmpeg process exited immediately",
+                    stderr=error_text,
+                )
                 return
             
             # Monitor progress (monotonic %, speed-aware ETA, EWMA, throttled emits)
@@ -411,39 +490,11 @@ class Worker(QThread):
                     cmd[output_idx] = dst
                 except (ValueError, IndexError):
                     # Fallback: rebuild command for second pass
-                    cmd = build_ffmpeg_cmd(
-                        src=self.job.src,
-                        dst=dst,
-                        fmt=self.job.format,
-                        mode=self.job.mode,
-                        bitrate=self.job.bitrate,
-                        vbrq=self.job.vbrq,
-                        sample_rate=self.job.sample_rate,
-                        channels=self.job.channels,
-                        metadata={
-                            "title": self.job.meta_title,
-                            "artist": self.job.meta_artist,
-                            "album": self.job.meta_album,
-                            "year": self.job.meta_year,
-                            "genre": self.job.meta_genre,
-                            "track": self.job.meta_track,
-                        } if not self.job.strip_meta else {},
-                        copy_meta=self.job.copy_meta and not self.job.strip_meta,
-                        prefer_external_cover=self.job.prefer_external_cover,
-                        normalize_lufs=self.job.normalize_lufs,
-                        target_lufs=self.job.target_lufs,
-                        threads=self.job.threads,
-                        custom_args=self.job.custom_args,
-                        video_codec=self.job.video_codec,
-                        video_bitrate=self.job.video_bitrate,
-                        video_quality=self.job.video_quality,
-                        resolution=self.job.resolution,
-                        fps=self.job.fps,
-                        extract_audio_only=self.job.extract_audio_only,
-                        reduce_size=self.job.reduce_size,
-                        size_reduction_factor=self.job.size_reduction_factor,
-                        use_hevc=self.job.use_hevc,
-                        two_pass=False,  # Second pass, don't add pass parameter again
+                    cmd = self._build_ffmpeg_command(
+                        dst,
+                        hw_accel="software",
+                        force_software=True,
+                        two_pass=False,
                     )
                     # Manually add second pass parameters
                     try:
@@ -618,6 +669,21 @@ class Worker(QThread):
                             stderr_text = remaining.decode("utf-8", errors="ignore")
                     except Exception:
                         pass
+                vcodec = self._video_codec_from_cmd(cmd)
+                if is_hw_encoder(vcodec):
+                    fb_rc = self._software_fallback_encode(
+                        dst, stderr_hint=stderr_text
+                    )
+                    if fb_rc == 0:
+                        # Minimal success verification for fallback path
+                        if os.path.exists(dst) and os.path.getsize(dst) > 0:
+                            self.sig_done.emit(
+                                self.wid,
+                                True,
+                                f"Conversion completed successfully (software fallback)\nSaved to: {dst}",
+                                dst,
+                            )
+                            return
                 self._fail(
                     f"Conversion failed with exit code {return_code}",
                     stderr=stderr_text,

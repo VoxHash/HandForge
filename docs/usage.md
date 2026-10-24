@@ -18,8 +18,10 @@ Access comprehensive settings via **Settings** → **Preferences**:
 - **General**: Language selection, parallel processing, file handling, system tray behavior
 - **Conversion**: Output directory, codec thread counts
 - **Audio**: Loudness normalization, cover art preferences
-- **Video**: Default quality, codec, size reduction settings
+- **Video**: Default quality, codec, **hardware acceleration** (Auto / Software / NVENC / Quick Sync / VAAPI / VideoToolbox), size reduction settings
 - **Advanced**: Auto-retry, performance tuning
+
+Use **Detect Hardware Encoders…** on the Video tab to probe FFmpeg on this machine. Auto mode picks a working backend and falls back to software if encode fails.
 
 Settings are saved automatically and persist between sessions.
 

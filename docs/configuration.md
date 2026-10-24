@@ -121,6 +121,29 @@ Default video codec for conversions:
 **Options**: "libx264", "libx265", "libvpx-vp9"  
 **Default**: "libx264"
 
+### Hardware Acceleration
+
+Prefer a hardware video encoder when converting H.264/H.265 video. HandForge probes the local FFmpeg build (and runs a short encode test) before selecting a backend.
+
+```json
+{
+  "hw_accel": "auto"
+}
+```
+
+| Value | Behavior |
+|-------|----------|
+| `auto` | Prefer NVENC → Quick Sync → VAAPI → VideoToolbox when a probed encoder works; otherwise software |
+| `software` | Always use libx264 / libx265 |
+| `nvenc` | NVIDIA NVENC (`h264_nvenc` / `hevc_nvenc`) |
+| `qsv` | Intel Quick Sync (`h264_qsv` / `hevc_qsv`) |
+| `vaapi` | VAAPI (`h264_vaapi` / `hevc_vaapi`), with device init + `hwupload` |
+| `videotoolbox` | Apple VideoToolbox (macOS) |
+
+**Default**: `auto`
+
+If the preferred HW path is unavailable or the encode fails, workers automatically retry once with software encoders. Two-pass size reduction always uses software. Set this in **Preferences → Video → Hardware Acceleration**, or override per CLI run with `--hw-accel`. See `handforge list-hw-accel` to print detection results.
+
 ### Default Size Reduction Factor
 
 Default size reduction factor for video compression:

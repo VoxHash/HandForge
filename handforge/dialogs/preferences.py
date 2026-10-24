@@ -251,6 +251,34 @@ class PreferencesDialog(QDialog):
         self.default_video_codec_combo.addItems(["libx264", "libx265", "libvpx-vp9"])
         self.default_video_codec_combo.setToolTip("Default video codec")
         video_layout.addRow("Default Codec:", self.default_video_codec_combo)
+
+        self.hw_accel_combo = QComboBox()
+        # Display label → preference value
+        self._hw_accel_choices = [
+            ("Auto (detect)", "auto"),
+            ("Software (libx264/libx265)", "software"),
+            ("NVIDIA NVENC", "nvenc"),
+            ("Intel Quick Sync", "qsv"),
+            ("VAAPI", "vaapi"),
+            ("Apple VideoToolbox", "videotoolbox"),
+        ]
+        for label, _value in self._hw_accel_choices:
+            self.hw_accel_combo.addItem(label)
+        self.hw_accel_combo.setToolTip(
+            "Hardware video encoder. Auto probes FFmpeg for NVENC / Quick Sync / "
+            "VAAPI / VideoToolbox and falls back to software if unavailable or if "
+            "the encode fails."
+        )
+        video_layout.addRow("Hardware Acceleration:", self.hw_accel_combo)
+
+        self.hw_accel_status = QLabel("")
+        self.hw_accel_status.setWordWrap(True)
+        self.hw_accel_status.setStyleSheet("color: gray; font-size: 11px;")
+        video_layout.addRow("", self.hw_accel_status)
+        detect_btn = QPushButton("Detect Hardware Encoders…")
+        detect_btn.setToolTip("Probe FFmpeg on this machine for working HW encoders")
+        detect_btn.clicked.connect(lambda: self.refresh_hw_accel_status(probe=True))
+        video_layout.addRow("", detect_btn)
         
         layout.addWidget(video_group)
         
@@ -365,6 +393,14 @@ class PreferencesDialog(QDialog):
         codec_index = self.default_video_codec_combo.findText(default_codec)
         if codec_index >= 0:
             self.default_video_codec_combo.setCurrentIndex(codec_index)
+
+        hw_pref = self.settings.get("hw_accel", "auto")
+        hw_index = next(
+            (i for i, (_label, value) in enumerate(self._hw_accel_choices) if value == hw_pref),
+            0,
+        )
+        self.hw_accel_combo.setCurrentIndex(hw_index)
+        self.refresh_hw_accel_status(probe=False)
         
         self.default_reduction_factor_spin.setValue(self.settings.get("default_reduction_factor", 7.0))
         self.default_two_pass_check.setChecked(self.settings.get("default_two_pass", False))
@@ -406,6 +442,11 @@ class PreferencesDialog(QDialog):
         # Video
         settings["default_video_quality"] = self.default_video_quality_combo.currentText()
         settings["default_video_codec"] = self.default_video_codec_combo.currentText()
+        hw_idx = self.hw_accel_combo.currentIndex()
+        if 0 <= hw_idx < len(self._hw_accel_choices):
+            settings["hw_accel"] = self._hw_accel_choices[hw_idx][1]
+        else:
+            settings["hw_accel"] = "auto"
         settings["default_reduction_factor"] = self.default_reduction_factor_spin.value()
         settings["default_two_pass"] = self.default_two_pass_check.isChecked()
         
@@ -437,12 +478,35 @@ class PreferencesDialog(QDialog):
                 "prefer_external_cover": False,
                 "default_video_quality": "medium",
                 "default_video_codec": "libx264",
+                "hw_accel": "auto",
                 "default_reduction_factor": 7.0,
                 "default_two_pass": False,
                 "auto_retry_enabled": True,
                 "ewma_alpha": 0.3,
             }
             self.load_settings()
+
+    def refresh_hw_accel_status(self, probe: bool = True):
+        """Update the hardware encoder status label (optionally probing FFmpeg)."""
+        try:
+            from ..util.hwaccel import detect_available_backends, format_detection_report
+
+            info = detect_available_backends(probe=bool(probe), force_refresh=bool(probe))
+            available = [
+                name
+                for name, ok in (info.get("backends") or {}).items()
+                if ok
+            ]
+            if available:
+                summary = "Detected: " + ", ".join(available)
+            else:
+                summary = "No working hardware encoders detected (software will be used)."
+            if not probe:
+                summary += " Click Detect for a live FFmpeg probe."
+            self.hw_accel_status.setText(summary)
+            self.hw_accel_status.setToolTip(format_detection_report(info))
+        except Exception as exc:
+            self.hw_accel_status.setText(f"Detection unavailable: {exc}")
     
     def accept(self):
         """Save settings and close."""

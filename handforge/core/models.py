@@ -61,6 +61,8 @@ class Job:
     video_quality_preset: Optional[str] = None  # low, medium, high, ultra
     # Multiple audio tracks
     audio_track: Optional[int] = None  # Audio track index to use (None = first/default)
+    # Hardware acceleration preference (None = use settings["hw_accel"])
+    hw_accel: Optional[str] = None  # auto | software | nvenc | qsv | vaapi | videotoolbox
     # File management
     delete_original: bool = False  # Delete original file after successful conversion
     
@@ -111,6 +113,7 @@ class Job:
             "crop_height": self.crop_height,
             "video_quality_preset": self.video_quality_preset,
             "audio_track": self.audio_track,
+            "hw_accel": self.hw_accel,
             "delete_original": self.delete_original,
         }
     

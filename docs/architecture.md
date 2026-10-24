@@ -102,6 +102,10 @@ FFmpeg integration:
 - Path utilities
 - Cover art handling
 
+### Hardware acceleration (`util/hwaccel.py`)
+
+Probes `ffmpeg -encoders` and runs a short lavfi encode to verify NVENC, Quick Sync, VAAPI, and VideoToolbox. `resolve_hw_encode()` maps Preferences / CLI `hw_accel` (`auto` / `software` / backend) onto a concrete encoder plus any pre-`-i` device args (VAAPI/QSV). `build_ffmpeg_cmd(..., hw_accel=...)` applies the plan; orchestrator workers retry once with software (`libx264` / `libx265`) if a HW encode fails.
+
 ## Data Flow
 
 ```
