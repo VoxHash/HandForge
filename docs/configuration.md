@@ -18,12 +18,20 @@ Control how many files are converted simultaneously:
 
 ```json
 {
-  "parallel": 2
+  "parallel": 2,
+  "adaptive_parallel": true
 }
 ```
 
-**Range**: 1-32  
-**Default**: 2
+| Key | Description | Default |
+|-----|-------------|---------|
+| `parallel` | Hard ceiling for concurrent conversions | `2` |
+| `adaptive_parallel` | When `true`, lower concurrency from free RAM / load (Rust native scheduler if built, else Python fallback) so other apps stay responsive | `true` |
+
+**Range** (`parallel`): 1-32  
+**Default** (`parallel`): 2
+
+See [Installation — Native Adaptive Scheduler](installation.md#optional-native-adaptive-scheduler-rust) to build the optional Rust module.
 
 ### Dark Theme
 

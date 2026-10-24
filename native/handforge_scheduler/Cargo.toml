@@ -1,0 +1,17 @@
+[package]
+name = "handforge_scheduler"
+version = "0.1.0"
+edition = "2021"
+description = "Adaptive parallel-job scheduler for HandForge (memory/CPU aware)"
+license = "MIT"
+publish = false
+
+[lib]
+name = "handforge_scheduler"
+crate-type = ["cdylib", "rlib"]
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+strip = true

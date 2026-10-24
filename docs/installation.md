@@ -125,6 +125,25 @@ python -c "import PyQt6; print('PyQt6 installed successfully')"
 python -m handforge.app
 ```
 
+## Optional: Native Adaptive Scheduler (Rust)
+
+HandForge can use a small Rust library to cap parallel FFmpeg jobs from free RAM and CPU load, so batches leave headroom for other apps. The PyQt6 UI is unchanged; if the library is missing, a pure-Python fallback applies the same rules.
+
+**Requirements:** [Rust toolchain](https://rustup.rs/) (`cargo`, `rustc`)
+
+```bash
+cd native/handforge_scheduler
+cargo build --release
+```
+
+This produces `target/release/libhandforge_scheduler.so` (Linux), `.dylib` (macOS), or `handforge_scheduler.dll` (Windows). The Python package loads it automatically from that path, or from `HANDFORGE_NATIVE_LIB` if set.
+
+Verify:
+
+```bash
+python -c "from handforge.core.native_scheduler import native_available, system_snapshot; print(native_available(), system_snapshot(4))"
+```
+
 ## Troubleshooting
 
 ### FFmpeg Not Found

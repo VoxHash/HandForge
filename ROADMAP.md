@@ -6,7 +6,7 @@ High-level milestones and planned features for HandForge.
 
 ### Performance & Stability
 - Improve progress tracking accuracy under heavy parallel load
-- Memory optimization for large batch conversions
+- ✅ Memory optimization for large batch conversions (adaptive parallel pool via optional Rust scheduler — see `native/handforge_scheduler`)
 - Comprehensive unit and integration tests (CI matrix already covers import checks on Windows, Linux, and macOS)
 
 ### User Experience
@@ -33,12 +33,21 @@ High-level milestones and planned features for HandForge.
 - Companion mobile apps (remote queue monitoring)
 - Optional web-based interface for shared workstations
 
+#### Mobile & Headset Targets
+These are **not** near-term ports of the desktop PyQt6 UI. They depend on a shared conversion/queue core (and the native scheduler path) before any full client ships.
+
+- **Android / GrapheneOS app** — Remote queue control and lightweight convert/transcode on-device where FFmpeg and storage permissions allow. GrapheneOS is called out for privacy-hardened installs (no Google Play Services assumption); expect sideload/F-Droid-style distribution first. Rationale: HandForge users already batch on desktops; a locked-down phone client covers “send this recording home” without a full desktop rewrite.
+- **Meta Quest 3 app** — Queue monitoring and short media prep (trim/export) from a VR/MR headset, talking to a desktop or LAN HandForge instance. On-headset heavy encodes are a later stretch goal only. Rationale: creators already review media in Quest; a companion surface beats forcing ALT-TAB to a monitor mid-session.
+
 ### Advanced Capabilities
 - Real-time preview of conversions
 - Collaborative features (preset sharing)
 - Advanced analytics and reporting
 
 ## Completed Milestones
+
+### Unreleased (Q4 2026)
+- ✅ Adaptive parallel pool for large batches (optional Rust `handforge_scheduler` + Python fallback; Preferences `adaptive_parallel`)
 
 ### v1.3.2 (Q4 2026)
 - ✅ Permission-aware output directory handling and pre-conversion write checks

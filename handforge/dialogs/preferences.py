@@ -109,8 +109,16 @@ class PreferencesDialog(QDialog):
         self.parallel_spin = QSpinBox()
         self.parallel_spin.setMinimum(1)
         self.parallel_spin.setMaximum(16)
-        self.parallel_spin.setToolTip("Number of files to convert simultaneously")
+        self.parallel_spin.setToolTip("Maximum files to convert simultaneously (hard ceiling)")
         parallel_layout.addRow("Parallel Conversions:", self.parallel_spin)
+
+        self.adaptive_parallel_check = QCheckBox(
+            "Adapt concurrency from free RAM / CPU load"
+        )
+        self.adaptive_parallel_check.setToolTip(
+            "Lower parallel jobs when memory or load is high (Rust scheduler if built, else Python)"
+        )
+        parallel_layout.addRow("", self.adaptive_parallel_check)
         
         layout.addWidget(parallel_group)
         
@@ -320,6 +328,9 @@ class PreferencesDialog(QDialog):
         """Load settings into UI."""
         # General
         self.parallel_spin.setValue(self.settings.get("parallel", 2))
+        self.adaptive_parallel_check.setChecked(
+            self.settings.get("adaptive_parallel", True)
+        )
         dup_handling = self.settings.get("dup_handling", "Overwrite")
         index = self.dup_handling_combo.findText(dup_handling)
         if index >= 0:
@@ -368,6 +379,7 @@ class PreferencesDialog(QDialog):
         
         # General
         settings["parallel"] = self.parallel_spin.value()
+        settings["adaptive_parallel"] = self.adaptive_parallel_check.isChecked()
         settings["dup_handling"] = self.dup_handling_combo.currentText()
         settings["delete_original"] = self.delete_original_check.isChecked()
         settings["minimize_to_tray"] = self.minimize_to_tray_check.isChecked()
@@ -415,6 +427,7 @@ class PreferencesDialog(QDialog):
             # Reset to factory defaults
             self.settings = {
                 "parallel": 2,
+                "adaptive_parallel": True,
                 "dup_handling": "Overwrite",
                 "delete_original": False,
                 "minimize_to_tray": True,

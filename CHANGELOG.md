@@ -7,10 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Added
-- 
+- Optional Rust adaptive parallel scheduler (`native/handforge_scheduler`) that caps concurrent FFmpeg jobs from free RAM and load; pure-Python fallback when the cdylib is not built
+- Preferences toggle **Adapt concurrency from free RAM / CPU load** (`adaptive_parallel`, default on)
 
 ### Changed
-- 
+- Orchestrator respects `adaptive_parallel`: user `parallel` setting is a hard ceiling; effective concurrency can be lower under memory/load pressure
 
 ### Fixed
 - Parallel workers no longer collide on the shared `.handforge_test_<pid>` write-permission probe (include worker id)

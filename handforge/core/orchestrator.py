@@ -8,6 +8,7 @@ import platform
 from typing import List, Optional, Dict, Any
 from PyQt6.QtCore import QObject, QThread, pyqtSignal, QMutex, QWaitCondition
 from .models import Job
+from .native_scheduler import estimate_job_rss_mb, recommend_parallel
 from ..util.ffmpeg import build_ffmpeg_cmd, run_ffmpeg, out_path, is_video_file
 
 # Platform-specific imports for non-blocking I/O
@@ -609,6 +610,20 @@ class Orchestrator(QObject):
         """Set application settings."""
         self.settings = settings
         self.max_parallel = settings.get("parallel", 2)
+
+    def _effective_max_parallel(self) -> int:
+        """User parallel ceiling, optionally lowered by the adaptive scheduler.
+
+        Uses the Rust native module when built; otherwise the Python fallback.
+        Keeps headroom so HandForge can run beside other apps without saturating RAM.
+        """
+        user_max = int(self.settings.get("parallel", self.max_parallel) or 1)
+        if not self.settings.get("adaptive_parallel", True):
+            return max(1, user_max)
+        avg_rss = 0
+        if self.job_queue:
+            avg_rss = estimate_job_rss_mb(is_video_file(self.job_queue[0].src))
+        return recommend_parallel(user_max, len(self.workers), avg_rss)
     
     def enqueue(self, jobs: List[Job]):
         """Add jobs to the queue."""
@@ -617,7 +632,9 @@ class Orchestrator(QObject):
     
     def _process_queue(self):
         """Process queued jobs."""
-        while len(self.workers) < self.max_parallel and self.job_queue:
+        while self.job_queue:
+            if len(self.workers) >= self._effective_max_parallel():
+                break
             job = self.job_queue.pop(0)
             wid = self.next_wid
             self.next_wid += 1

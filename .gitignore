@@ -1,3 +1,6 @@
+# Rust native scheduler build artifacts
+native/**/target/
+
 # Python
 __pycache__/
 *.py[cod]

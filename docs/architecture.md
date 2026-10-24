@@ -9,6 +9,7 @@ HandForge is a cross-platform audio and video converter built with:
 - **PyQt6** - GUI framework
 - **FFmpeg** - Audio/video processing backend
 - **Python 3.9+** - Programming language
+- **Rust (optional)** - Adaptive parallel-job scheduler (`native/handforge_scheduler`)
 
 ## Architecture Layers
 
@@ -21,14 +22,17 @@ HandForge is a cross-platform audio and video converter built with:
            ▼
 ┌─────────────────────────────────────┐
 │      Core Layer                     │
-│  (Orchestrator, Models, Settings)   │
+│  (Orchestrator, Models, Settings,   │
+│   native_scheduler)                 │
 └─────────────────────────────────────┘
            │
-           ▼
-┌─────────────────────────────────────┐
-│      Utility Layer                  │
-│  (FFmpeg, File Operations)          │
-└─────────────────────────────────────┘
+     ┌─────┴─────┐
+     ▼           ▼
+┌──────────┐  ┌──────────────────────┐
+│ Utility  │  │ Native (optional)    │
+│ (FFmpeg) │  │ Rust cdylib via      │
+│          │  │ ctypes               │
+└──────────┘  └──────────────────────┘
            │
            ▼
 ┌─────────────────────────────────────┐
@@ -54,8 +58,12 @@ Manages the conversion process:
 
 - Worker thread pool
 - Job queue
-- Parallel execution control
+- Parallel execution control (user ceiling + adaptive limit)
 - Signal-based communication
+
+### Native scheduler (`core/native_scheduler.py` + `native/handforge_scheduler`)
+
+Optional Rust `cdylib` that recommends concurrent job slots from available memory and load average. Python loads it with `ctypes` when present; otherwise the same heuristics run in pure Python. FFmpeg workers stay in Python/QThread — only the scheduling hot path is native.
 
 ### Worker (`core/orchestrator.py`)
 

@@ -13,7 +13,7 @@
 - **Audio & Video Support**: Convert between nearly any audio and video formats FFmpeg supports
 - **Smart Video Compression**: Reduce video file size by 5-10x while maintaining quality using H.265/HEVC
 - **Two-Pass Encoding**: Optional two-pass encoding for optimal quality/size ratio
-- **Parallel Processing**: Parallel encodes with per-codec thread caps
+- **Parallel Processing**: Parallel encodes with per-codec thread caps and optional Rust adaptive scheduling (RAM/load aware)
 - **Presets System**: Save and load custom conversion presets (audio and video)
 - **Metadata Management**: Copy or strip metadata, per-file overrides
 - **Multi-Language Support**: Full internationalization with 11 languages
@@ -50,6 +50,12 @@ python -m handforge.app
 
 See [docs/installation.md](docs/installation.md) for platform-specific installation instructions.
 
+Optional native scheduler (reduces peak RAM under heavy batches):
+
+```bash
+cd native/handforge_scheduler && cargo build --release
+```
+
 ## 🛠 Usage
 
 Basic usage: Add files to the queue, select a preset, and start conversion. Advanced usage in [docs/usage.md](docs/usage.md).
@@ -66,7 +72,8 @@ Key settings (full reference: [docs/configuration.md](docs/configuration.md)):
 
 | Setting | Description | Default |
 |---------|-------------|---------|
-| `parallel` | Number of parallel encodes | 2 |
+| `parallel` | Max parallel encodes (hard ceiling) | 2 |
+| `adaptive_parallel` | Lower concurrency from free RAM/load | true |
 | `output_dir` | Default output directory | ~/HandForge_Output |
 | `default_video_quality` | Default video quality preset | medium |
 | `default_video_codec` | Default video codec | libx264 |

@@ -48,6 +48,8 @@ def load_settings() -> Dict[str, Any]:
     """Load application settings."""
     defaults = {
         "parallel": 2,
+        # Cap concurrent jobs from free RAM / load (Rust native when built).
+        "adaptive_parallel": True,
         "dark_theme": False,
         "prefer_external_cover": False,
         "dup_handling": "Overwrite",
