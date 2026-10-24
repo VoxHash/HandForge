@@ -67,13 +67,15 @@ pip install PyQt6
 
 **Problem**: All or some conversions fail.
 
+HandForge maps common failures to an actionable summary plus **What to try** steps. In the GUI, click **Status** or **View Log** on a failed row (tooltip also shows the full guidance). In the CLI, FAIL lines print the same multi-line help on stderr.
+
 **Solutions**:
-1. Check FFmpeg is working: `ffmpeg -version`
-2. Verify input files are valid audio files
-3. Check output directory permissions
-4. Review error logs (click "🔎 log" on failed items)
-5. Try "Retry Failed (Safe)" with WAV format
-6. Check disk space
+1. Read the on-screen / CLI **What to try** list first — it targets the detected cause (FFmpeg missing, disk full, permissions, corrupt input, unsupported codec, …)
+2. Check FFmpeg is working: `ffmpeg -version`
+3. Verify input files are valid media (`ffprobe -show_streams file`)
+4. Check output directory permissions and free disk space
+5. Review the full FFmpeg log in the conversion log dialog
+6. Try a simpler preset (WAV / MP3 / H.264 MP4) or "Retry Failed (Safe)"
 
 ### Slow Conversions
 

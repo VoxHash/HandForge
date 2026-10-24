@@ -10,6 +10,7 @@ from PyQt6.QtCore import QObject, QThread, pyqtSignal, QMutex, QWaitCondition
 from .models import Job
 from .native_scheduler import estimate_job_rss_mb, recommend_parallel
 from .progress import ProgressTracker
+from ..util.errors import format_actionable_error
 from ..util.ffmpeg import build_ffmpeg_cmd, run_ffmpeg, out_path, is_video_file
 
 # Platform-specific imports for non-blocking I/O
@@ -56,6 +57,21 @@ class Worker(QThread):
         self._paused = False
         self._wait_condition.wakeAll()
         self._mutex.unlock()
+
+    def _fail(
+        self,
+        message: str,
+        *,
+        stderr: str = "",
+        exc: Optional[BaseException] = None,
+        output_path: str = "",
+    ) -> None:
+        """Emit a failed completion with an actionable user-facing message."""
+        user_msg = format_actionable_error(
+            message, stderr=stderr, exc=exc, include_solutions=True
+        )
+        self.sig_log.emit(self.wid, f"Error: {user_msg.splitlines()[0]}")
+        self.sig_done.emit(self.wid, False, user_msg, output_path)
     
     def run(self):
         """Run the conversion."""
@@ -67,25 +83,28 @@ class Worker(QThread):
             self._mutex.unlock()
             
             if self._stopped:
-                self.sig_done.emit(self.wid, False, "Stopped by user", "")
+                self._fail("Stopped by user")
                 return
             
             # Verify source file exists
             if not os.path.exists(self.job.src):
-                self.sig_done.emit(self.wid, False, f"Source file not found: {self.job.src}", "")
+                self._fail(f"Source file not found: {self.job.src}")
                 return
             
             # Build output path
             try:
                 dst = out_path(self.job.dst_dir, self.job.src, self.job.format)
             except PermissionError as e:
-                self.sig_done.emit(self.wid, False, f"Permission error: {str(e)}", "")
+                self._fail(f"Permission error: {e}", exc=e)
                 return
             
             # Verify output directory is writable before proceeding
             output_dir = os.path.dirname(dst)
             if not os.access(output_dir, os.W_OK):
-                self.sig_done.emit(self.wid, False, f"Output directory is not writable: {output_dir}. Please check permissions or choose a different output directory.", "")
+                self._fail(
+                    f"Output directory is not writable: {output_dir}",
+                    exc=PermissionError(output_dir),
+                )
                 return
             
             # Check if output exists
@@ -183,7 +202,10 @@ class Worker(QThread):
                         f.write('test')
                     os.remove(test_file)
                 except (PermissionError, OSError) as e:
-                    self.sig_done.emit(self.wid, False, f"Cannot write to output directory '{output_dir}': {e}. Please check permissions or choose a different output directory.", "")
+                    self._fail(
+                        f"Cannot write to output directory '{output_dir}': {e}",
+                        exc=e,
+                    )
                     return
             except Exception as e:
                 self.sig_log.emit(self.wid, f"Warning: Could not verify write permissions: {e}")
@@ -197,11 +219,11 @@ class Worker(QThread):
             try:
                 proc = run_ffmpeg(cmd)
             except Exception as e:
-                self.sig_done.emit(self.wid, False, f"Failed to start FFmpeg: {str(e)}", "")
+                self._fail(f"Failed to start FFmpeg: {e}", exc=e)
                 return
             
             if proc is None:
-                self.sig_done.emit(self.wid, False, "Failed to start FFmpeg - check if FFmpeg is installed and on PATH", "")
+                self._fail("Failed to start FFmpeg - check if FFmpeg is installed and on PATH")
                 return
             
             # Verify process started successfully
@@ -213,21 +235,17 @@ class Worker(QThread):
                 # Process finished immediately with a failure exit code
                 try:
                     stderr_output = proc.stderr.read()
-                    error_msg = "FFmpeg process exited immediately"
-                    if stderr_output:
-                        error_text = stderr_output.decode("utf-8", errors="ignore")
-                        error_lines = [l for l in error_text.splitlines() if l.strip() and ("error" in l.lower() or "failed" in l.lower() or "invalid" in l.lower())]
-                        if error_lines:
-                            error_msg = error_lines[-1][:300]
-                        else:
-                            # Show last few lines
-                            lines = error_text.splitlines()
-                            if lines:
-                                error_msg = "\n".join(lines[-3:])[:300]
-                    self.sig_log.emit(self.wid, f"Error: {error_msg}")
-                    self.sig_done.emit(self.wid, False, error_msg, "")
+                    error_text = (
+                        stderr_output.decode("utf-8", errors="ignore")
+                        if stderr_output
+                        else ""
+                    )
+                    self._fail(
+                        "FFmpeg process exited immediately",
+                        stderr=error_text,
+                    )
                 except Exception as e:
-                    self.sig_done.emit(self.wid, False, f"FFmpeg process exited immediately: {str(e)}", "")
+                    self._fail(f"FFmpeg process exited immediately: {e}", exc=e)
                 return
             
             # Monitor progress (monotonic %, speed-aware ETA, EWMA, throttled emits)
@@ -375,7 +393,7 @@ class Worker(QThread):
             except subprocess.TimeoutExpired:
                 proc.kill()
                 return_code = -1
-                self.sig_done.emit(self.wid, False, "Conversion timed out after 1 hour", "")
+                self._fail("Conversion timed out after 1 hour")
                 return
             
             # Wait for stderr thread to finish (with timeout)
@@ -523,7 +541,10 @@ class Worker(QThread):
                 
                 # Verify output file was created and has content
                 if not os.path.exists(dst):
-                    self.sig_done.emit(self.wid, False, f"Conversion completed but output file not found: {dst}", "")
+                    self._fail(
+                        f"Conversion completed but output file not found: {dst}",
+                        output_path=dst,
+                    )
                     return
                 
                 # Check if output file has reasonable size
@@ -535,10 +556,16 @@ class Worker(QThread):
                         # Video files should be at least 100KB (very small videos)
                         min_size = 100 * 1024
                         if output_size < min_size:
-                            self.sig_done.emit(self.wid, False, f"Output file is too small ({output_size} bytes) - video stream may be missing", dst)
+                            self._fail(
+                                f"Output file is too small ({output_size} bytes) - video stream may be missing",
+                                output_path=dst,
+                            )
                             return
                     elif output_size < 1024:  # Audio files: at least 1KB
-                        self.sig_done.emit(self.wid, False, f"Output file is too small ({output_size} bytes) - conversion may have failed", dst)
+                        self._fail(
+                            f"Output file is too small ({output_size} bytes) - conversion may have failed",
+                            output_path=dst,
+                        )
                         return
                     
                     # Additional check: verify video stream exists for video-to-video conversions
@@ -561,7 +588,10 @@ class Worker(QThread):
                                     data = json.loads(result.stdout)
                                     video_streams = [s for s in data.get("streams", []) if s.get("codec_type") == "video"]
                                     if not video_streams:
-                                        self.sig_done.emit(self.wid, False, "Conversion completed but output file has no video stream - video was not included", dst)
+                                        self._fail(
+                                            "Conversion completed but output file has no video stream - video was not included",
+                                            output_path=dst,
+                                        )
                                         return
                             except:
                                 pass  # If check fails, assume it's OK
@@ -579,22 +609,22 @@ class Worker(QThread):
                 else:
                     self.sig_done.emit(self.wid, True, f"Conversion completed successfully\nSaved to: {dst}", dst)
             else:
-                error_msg = f"Conversion failed with exit code {return_code}"
-                try:
-                    stderr_text = proc.stderr.read().decode("utf-8", errors="ignore")
-                    if stderr_text:
-                        # Get last error line
-                        error_lines = [l for l in stderr_text.splitlines() if l.strip() and ("error" in l.lower() or "failed" in l.lower())]
-                        if error_lines:
-                            error_msg = error_lines[-1][:200]
-                        else:
-                            error_msg = stderr_text[-200:] if len(stderr_text) > 200 else stderr_text
-                except:
-                    pass
-                self.sig_done.emit(self.wid, False, error_msg, "")
+                # Prefer buffered stderr (already consumed by the reader thread)
+                stderr_text = "\n".join(stderr_buffer)
+                if not stderr_text:
+                    try:
+                        remaining = proc.stderr.read()
+                        if remaining:
+                            stderr_text = remaining.decode("utf-8", errors="ignore")
+                    except Exception:
+                        pass
+                self._fail(
+                    f"Conversion failed with exit code {return_code}",
+                    stderr=stderr_text,
+                )
         
         except Exception as e:
-            self.sig_done.emit(self.wid, False, f"Error: {str(e)}", "")
+            self._fail(f"Error: {e}", exc=e)
 
 
 class Orchestrator(QObject):

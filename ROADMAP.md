@@ -12,7 +12,7 @@ High-level milestones and planned features for HandForge.
 ### User Experience
 - ✅ Command-line interface (CLI) for headless batch processing — see [docs/cli.md](docs/cli.md)
 - ✅ Preset template library (curated templates + browse/apply/import/export in GUI and CLI)
-- Improved error messages with actionable solutions
+- ✅ Improved error messages with actionable solutions — shared `handforge.util.errors` maps FFmpeg/FS failures to clear next steps in GUI (log dialog / tooltips) and CLI
 - Keyboard shortcuts for common actions
 
 ## 2027
@@ -52,6 +52,7 @@ These are **not** near-term ports of the desktop PyQt6 UI. They depend on a shar
 - ✅ Comprehensive unit and integration tests (`tests/`; real FFmpeg conversion paths via lavfi-generated clips)
 - ✅ Headless CLI (`python -m handforge` / `handforge`) for batch convert + list-presets via shared Orchestrator/FFmpeg stack
 - ✅ Preset template library (`handforge/data/preset_templates.json`): curated Podcast/Speech/Music/Archive/Video templates; GUI Settings → Preset Template Library; CLI `list-templates` / `apply-template` / `export-presets` / `import-presets`; `--preset` resolves template ids/names
+- ✅ Actionable conversion errors (`handforge/util/errors.py`): maps missing FFmpeg, disk full, permissions, missing/corrupt input, unsupported codec/muxer, filter failures, timeouts, and incomplete output to summary + “What to try” steps; wired through orchestrator, CLI, and GUI log/tooltips
 
 ### v1.3.2 (Q4 2026)
 - ✅ Permission-aware output directory handling and pre-conversion write checks

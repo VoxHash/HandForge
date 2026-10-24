@@ -29,6 +29,7 @@ from .core.presets import (
     list_templates,
 )
 from .core.settings import load_settings
+from .util.errors import format_actionable_error
 from .util.ffmpeg import find_ffmpeg, is_audio_file, is_video_file
 
 
@@ -251,11 +252,16 @@ def run_batch(
                 print(dest, flush=True)
         else:
             failed += 1
+            # Orchestrator already enriches failures; keep multi-line solutions readable.
+            first_line, *rest = (message or "Unknown error").splitlines()
             print(
-                f"[{idx}/{total}] {name}  FAIL  {message}",
+                f"[{idx}/{total}] {name}  FAIL  {first_line}",
                 file=sys.stderr,
                 flush=True,
             )
+            for line in rest:
+                if line.strip():
+                    print(f"  {line}", file=sys.stderr, flush=True)
         if completed >= total and not orch.job_queue and not orch.workers:
             QCoreApplication.instance().quit()
 
@@ -383,7 +389,7 @@ def cmd_import_presets(args: argparse.Namespace) -> int:
 def cmd_convert(args: argparse.Namespace) -> int:
     if not find_ffmpeg():
         print(
-            "FFmpeg not found on PATH. Install FFmpeg and retry.",
+            format_actionable_error("FFmpeg not found on PATH"),
             file=sys.stderr,
         )
         return EXIT_FAIL
@@ -391,7 +397,7 @@ def cmd_convert(args: argparse.Namespace) -> int:
     try:
         inputs = collect_inputs(args.inputs)
     except FileNotFoundError as exc:
-        print(str(exc), file=sys.stderr)
+        print(format_actionable_error(str(exc), exc=exc), file=sys.stderr)
         return EXIT_USAGE
 
     if not inputs:
@@ -412,7 +418,21 @@ def cmd_convert(args: argparse.Namespace) -> int:
 
     out_dir = args.output_dir or settings.get("output_dir") or _default_output_dir()
     out_dir = os.path.expanduser(str(out_dir))
-    os.makedirs(out_dir, mode=0o755, exist_ok=True)
+    try:
+        os.makedirs(out_dir, mode=0o755, exist_ok=True)
+        probe = os.path.join(out_dir, f".handforge_cli_write_{os.getpid()}")
+        with open(probe, "w", encoding="utf-8") as fh:
+            fh.write("ok")
+        os.remove(probe)
+    except OSError as exc:
+        print(
+            format_actionable_error(
+                f"Cannot write to output directory '{out_dir}': {exc}",
+                exc=exc,
+            ),
+            file=sys.stderr,
+        )
+        return EXIT_FAIL
 
     if args.on_exists:
         settings["on_exists"] = args.on_exists

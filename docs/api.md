@@ -90,6 +90,20 @@ jobs = [Job(...), Job(...)]
 orch.enqueue(jobs)
 ```
 
+### handforge.util.errors
+
+Actionable conversion error mapping (shared by orchestrator, CLI, and GUI).
+
+```python
+from handforge.util.errors import classify_error, format_actionable_error
+
+err = classify_error("Unknown encoder 'libx265'")
+print(err.code, err.title)          # unsupported_encoder / Encoder / codec unavailable
+print(err.format())                 # summary + "What to try:" steps
+
+print(format_actionable_error("No space left on device"))
+```
+
 ### handforge.util.ffmpeg
 
 FFmpeg utilities.
@@ -175,6 +189,7 @@ handforge/
 ├── ui/
 │   └── main_window.py     # Main application window
 └── util/
+    ├── errors.py          # Actionable error classification / formatting
     └── ffmpeg.py          # FFmpeg utilities
 ```
 
@@ -183,7 +198,7 @@ handforge/
 - HandForge is designed primarily as a GUI application
 - Programmatic usage is possible but not the main use case
 - The GUI provides the best user experience
-- For batch scripting, consider using FFmpeg directly or wait for CLI support
+- For headless batch scripting, use `python -m handforge` / the `handforge` CLI (see [CLI](cli.md))
 
 ---
 

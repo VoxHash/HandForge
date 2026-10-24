@@ -12,14 +12,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Comprehensive pytest suite: unit coverage for progress, native scheduler, settings, Job model, FFmpeg command helpers, and orchestrator adaptive concurrency; integration tests that run real FFmpeg pipelines on lavfi-generated audio/video clips (skipped when FFmpeg is missing)
 - Headless CLI for batch conversion: `python -m handforge` / console script `handforge` (`convert`, `list-presets`); reuses Orchestrator workers and FFmpeg helpers; progress on stderr, output paths on stdout, non-zero exit on failure; no DISPLAY required
 - Preset template library: curated templates (Apple Podcasts / YouTube-aligned bitrates and common archive workflows) in `handforge/data/preset_templates.json`; GUI **Settings → Preset Template Library**; Manage Presets import/export JSON; CLI `list-templates`, `apply-template`, `export-presets`, `import-presets`; `convert --preset` accepts template ids/names without installing
+- Actionable error messages (`handforge.util.errors`): shared classifier maps common conversion failures (missing FFmpeg, disk full, permissions, missing/corrupt input, unsupported encoder/decoder/muxer, filter errors, timeouts, incomplete/missing video output) to a short summary plus numbered **What to try** steps; unit tests in `tests/test_errors.py`
 
 ### Changed
 - Orchestrator respects `adaptive_parallel`: user `parallel` setting is a hard ceiling; effective concurrency can be lower under memory/load pressure
+- Conversion failures in the orchestrator are enriched before GUI/CLI display; Active Conversions log dialog and status tooltips show solutions; CLI prints multi-line guidance on FAIL and pre-flight write checks use the same mapper
 
 ### Fixed
 - Parallel workers no longer collide on the shared `.handforge_test_<pid>` write-permission probe (include worker id)
 - Short/fast FFmpeg jobs that finish within 0.1s are no longer treated as immediate failures when exit code is 0
 - Progress under heavy parallel load: keepalive no longer resets bars to 0.1%; progress stays monotonic; ETA uses FFmpeg `speed=`; Preferences `ewma_alpha` now smooths %/ETA; UI coalesces table redraws and shows aggregate batch progress
+- Failed FFmpeg jobs now classify from the buffered stderr log (not a second empty `stderr.read()`), so codec/permission hints are not lost
 
 ## [1.3.2] - 2026-10-05
 

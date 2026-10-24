@@ -21,6 +21,7 @@ from ..core.settings import (
     load_settings, save_settings, load_custom_presets, save_custom_presets,
     load_patterns, save_patterns,
 )
+from ..util.errors import classify_error
 from ..util.ffmpeg import out_path
 from ..dialogs.metadata import MetadataDialog
 from ..dialogs.batch_metadata import BatchMetadataDialog
@@ -944,11 +945,12 @@ class MainWindow(QMainWindow):
                         3000
                     )
             else:
-                # Show error notification
+                # Show error notification (short summary; full text + steps in log dialog)
                 if self.tray_icon:
+                    err = classify_error(message or "Unknown error")
                     self.tray_icon.showMessage(
-                        "Conversion Failed",
-                        message[:100] if message else "Unknown error",
+                        err.title,
+                        err.short(120),
                         QSystemTrayIcon.MessageIcon.Critical,
                         5000
                     )
@@ -1176,13 +1178,13 @@ class MainWindow(QMainWindow):
             status = data.get("status", "Running")
             message = data.get("message", "")
             if status == "Failed" and message:
-                # Show error message in status - clean up duplicate "Error:" prefixes
-                clean_message = message
+                # Show short summary in status; full actionable text is in tooltip / log
+                err = classify_error(message)
+                clean_message = err.short(50)
                 error_prefix = t.tr("error_prefix")
-                # Remove duplicate error prefixes
                 while clean_message.startswith(f"{error_prefix} "):
                     clean_message = clean_message[len(error_prefix) + 1:]
-                status_text = f"{t.tr('status_failed_prefix')} {clean_message[:50]}{'...' if len(clean_message) > 50 else ''}"
+                status_text = f"{t.tr('status_failed_prefix')} {clean_message}"
             else:
                 status_text = {
                     "Running": t.tr("status_running"),
@@ -1198,9 +1200,10 @@ class MainWindow(QMainWindow):
                 status_item.setForeground(QColor(100, 255, 100))
             elif status == "Failed":
                 status_item.setForeground(QColor(255, 100, 100))
-                # Set full error message as tooltip
+                # Full actionable message (summary + steps) as tooltip
                 if message:
-                    status_item.setToolTip(f"Error: {message}")
+                    err = classify_error(message)
+                    status_item.setToolTip(err.format(include_solutions=True))
             elif status == "Running":
                 status_item.setForeground(QColor(100, 200, 255))
             self.workers_table.setItem(row, 5, status_item)
@@ -1334,15 +1337,25 @@ class MainWindow(QMainWindow):
             path_label.setStyleSheet("padding: 5px; background-color: rgba(100, 200, 255, 0.2); border-radius: 4px;")
             layout.addWidget(path_label)
         
-        # Add error message if failed
+        # Add actionable error summary + solutions if failed
         if status == "Failed" and message:
-            # Clean up duplicate "Error:" prefixes
-            clean_message = message
-            while clean_message.startswith("Error: "):
-                clean_message = clean_message[7:]
-            error_label = QLabel(f"<b>Error:</b> {clean_message}")
+            err = classify_error(message)
+            clean_summary = err.summary
+            while clean_summary.startswith("Error: "):
+                clean_summary = clean_summary[7:]
+            steps_html = ""
+            if err.solutions:
+                items = "".join(f"<li>{step}</li>" for step in err.solutions)
+                steps_html = f"<p><b>What to try:</b></p><ol>{items}</ol>"
+            error_label = QLabel(
+                f"<b>{err.title}:</b> {clean_summary}{steps_html}"
+            )
             error_label.setWordWrap(True)
-            error_label.setStyleSheet("padding: 5px; background-color: rgba(255, 100, 100, 0.3); border-radius: 4px; color: #ff6666;")
+            error_label.setTextFormat(Qt.TextFormat.RichText)
+            error_label.setStyleSheet(
+                "padding: 8px; background-color: rgba(255, 100, 100, 0.3); "
+                "border-radius: 4px; color: #ffaaaa;"
+            )
             layout.addWidget(error_label)
         
         # Log text area
