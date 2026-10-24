@@ -25,6 +25,14 @@ python -m handforge.app
 
 - From the preset dropdown, select **"MP3 192k"** (or create a custom preset)
 - This preset converts to MP3 at 192 kbps CBR
+- Or open **Settings → Preset Template Library**, pick **Music HiFi MP3 320k**, and **Apply to My Presets**
+
+### 3b. Headless alternative (CLI)
+
+```bash
+python -m handforge list-templates --category Music -v
+python -m handforge convert ./flac-album --preset music-hifi-mp3-320 -o ./mp3-out
+```
 
 ### 4. Configure Options
 

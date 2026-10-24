@@ -134,7 +134,18 @@ Use the search box to find files by name in the queue.
 
 1. Go to **Settings** → **Manage Presets**
 2. Create, edit, or delete presets
-3. Presets are saved automatically
+3. Use **Import JSON** / **Export JSON** to share or back up custom presets
+4. Presets are saved when you click OK
+
+### Preset Template Library
+
+Browse curated, purpose-built templates (Podcast, Speech, Music, Archive, Video) with real platform-aligned settings (for example Apple Podcasts AAC 128k stereo and YouTube 1080p H.264 ~8 Mbps):
+
+1. Go to **Settings** → **Preset Template Library**
+2. Filter by category and review the description / source
+3. Click **Apply to My Presets** to install into your custom presets (appears in the preset dropdown)
+
+CLI equivalents: `python -m handforge list-templates` and `apply-template` — see [cli.md](cli.md).
 
 ### Preset Options
 
@@ -273,8 +284,8 @@ Export conversion summary:
 
 ### Export/Import Presets
 
-- **Settings** → **Export Presets (CSV/JSON)**
-- **Settings** → **Import Presets (CSV/JSON)**
+- **Settings** → **Manage Presets** → **Export JSON** / **Import JSON**
+- Or CLI: `python -m handforge export-presets ./presets.json` / `import-presets ./presets.json`
 
 ### Export/Import Patterns
 

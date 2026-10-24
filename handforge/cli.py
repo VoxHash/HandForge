@@ -7,6 +7,7 @@ Requires a Qt event loop (QCoreApplication) but no window or DISPLAY.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
@@ -15,7 +16,18 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from . import __version__
 from .core.models import Job
 from .core.orchestrator import Orchestrator
-from .core.presets import BUILTIN_PRESETS, all_presets, get_preset
+from .core.presets import (
+    BUILTIN_PRESETS,
+    all_presets,
+    apply_template,
+    export_presets,
+    export_template_library,
+    get_preset,
+    import_presets,
+    known_preset_names,
+    list_template_categories,
+    list_templates,
+)
 from .core.settings import load_settings
 from .util.ffmpeg import find_ffmpeg, is_audio_file, is_video_file
 
@@ -60,7 +72,7 @@ def resolve_conversion_options(args: argparse.Namespace) -> Dict[str, Any]:
         try:
             options.update(get_preset(args.preset))
         except KeyError as exc:
-            known = ", ".join(sorted(all_presets().keys()))
+            known = ", ".join(known_preset_names())
             raise ValueError(
                 f"Unknown preset: {exc.args[0]!r}\nKnown presets: {known}"
             ) from exc
@@ -259,19 +271,112 @@ def run_batch(
     return succeeded, failed
 
 
-def cmd_list_presets(_args: argparse.Namespace) -> int:
+def _format_preset_line(name: str, tag: str, preset: Dict[str, Any]) -> str:
+    fmt = preset.get("format", "?")
+    mode = preset.get("mode", "")
+    rate = preset.get("bitrate") or preset.get("vbrq") or ""
+    extra = f"  {mode}" if mode else ""
+    if rate:
+        extra += f"  {rate}"
+    return f"{name}\t[{tag}]\tformat={fmt}{extra}"
+
+
+def cmd_list_presets(args: argparse.Namespace) -> int:
     presets = all_presets()
     builtin_names = set(BUILTIN_PRESETS)
     for name in sorted(presets.keys()):
         tag = "builtin" if name in builtin_names else "custom"
-        preset = presets[name]
-        fmt = preset.get("format", "?")
-        mode = preset.get("mode", "")
-        rate = preset.get("bitrate") or preset.get("vbrq") or ""
-        extra = f"  {mode}" if mode else ""
-        if rate:
-            extra += f"  {rate}"
-        print(f"{name}\t[{tag}]\tformat={fmt}{extra}")
+        print(_format_preset_line(name, tag, presets[name]))
+    if getattr(args, "include_templates", False):
+        for template in list_templates():
+            name = str(template.get("name") or template.get("id"))
+            print(
+                _format_preset_line(
+                    name, "template", template.get("options") or {}
+                )
+            )
+    return EXIT_OK
+
+
+def cmd_list_templates(args: argparse.Namespace) -> int:
+    templates = list_templates(category=args.category)
+    if not templates:
+        if args.category:
+            known = ", ".join(list_template_categories())
+            print(
+                f"No templates in category {args.category!r}. "
+                f"Known categories: {known}",
+                file=sys.stderr,
+            )
+            return EXIT_USAGE
+        print("No templates found.", file=sys.stderr)
+        return EXIT_FAIL
+    for template in templates:
+        tid = template.get("id", "")
+        name = template.get("name", "")
+        cat = template.get("category", "")
+        opts = template.get("options") or {}
+        fmt = opts.get("format", "?")
+        desc = (template.get("description") or "").strip()
+        print(f"{tid}\t{name}\t[{cat}]\tformat={fmt}")
+        if args.verbose and desc:
+            print(f"  {desc}")
+    return EXIT_OK
+
+
+def cmd_apply_template(args: argparse.Namespace) -> int:
+    try:
+        saved_name, options = apply_template(
+            args.template,
+            as_name=args.as_name,
+            overwrite=args.overwrite,
+        )
+    except KeyError as exc:
+        known = ", ".join(t["id"] for t in list_templates())
+        print(
+            f"Unknown template: {exc.args[0]!r}\nKnown ids: {known}",
+            file=sys.stderr,
+        )
+        return EXIT_USAGE
+    except FileExistsError as exc:
+        print(str(exc), file=sys.stderr)
+        return EXIT_USAGE
+    except (ValueError, OSError) as exc:
+        print(str(exc), file=sys.stderr)
+        return EXIT_FAIL
+    print(
+        f"Applied template → custom preset {saved_name!r} "
+        f"(format={options.get('format')})"
+    )
+    return EXIT_OK
+
+
+def cmd_export_presets(args: argparse.Namespace) -> int:
+    try:
+        if args.templates:
+            path = export_template_library(args.path)
+            print(f"Exported template library to {path}")
+        else:
+            path = export_presets(
+                args.path, include_builtin=args.include_builtin
+            )
+            print(f"Exported presets to {path}")
+    except (OSError, ValueError) as exc:
+        print(str(exc), file=sys.stderr)
+        return EXIT_FAIL
+    return EXIT_OK
+
+
+def cmd_import_presets(args: argparse.Namespace) -> int:
+    try:
+        customs = import_presets(args.path, replace=args.replace)
+    except FileNotFoundError:
+        print(f"File not found: {args.path}", file=sys.stderr)
+        return EXIT_USAGE
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        print(str(exc), file=sys.stderr)
+        return EXIT_FAIL
+    print(f"Imported presets ({len(customs)} custom preset(s) now saved).")
     return EXIT_OK
 
 
@@ -356,8 +461,81 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_list = sub.add_parser("list-presets", help="List built-in and custom presets")
+    p_list = sub.add_parser(
+        "list-presets",
+        help="List built-in and custom presets",
+    )
+    p_list.add_argument(
+        "--include-templates",
+        action="store_true",
+        help="Also list curated library templates",
+    )
     p_list.set_defaults(func=cmd_list_presets)
+
+    p_tmpl = sub.add_parser(
+        "list-templates",
+        help="Browse the curated preset template library",
+    )
+    p_tmpl.add_argument(
+        "--category",
+        help="Filter by category (Podcast, Speech, Music, Archive, Video)",
+    )
+    p_tmpl.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Include template descriptions",
+    )
+    p_tmpl.set_defaults(func=cmd_list_templates)
+
+    p_apply = sub.add_parser(
+        "apply-template",
+        help="Install a library template into custom presets",
+    )
+    p_apply.add_argument(
+        "template",
+        help="Template id or display name (see list-templates)",
+    )
+    p_apply.add_argument(
+        "--as",
+        dest="as_name",
+        help="Save under a custom preset name",
+    )
+    p_apply.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Replace an existing custom preset with the same name",
+    )
+    p_apply.set_defaults(func=cmd_apply_template)
+
+    p_export = sub.add_parser(
+        "export-presets",
+        help="Export custom presets (or the template library) to JSON",
+    )
+    p_export.add_argument("path", help="Output JSON path")
+    p_export.add_argument(
+        "--include-builtin",
+        action="store_true",
+        help="Include built-in presets in the export",
+    )
+    p_export.add_argument(
+        "--templates",
+        action="store_true",
+        help="Export the curated template library instead of custom presets",
+    )
+    p_export.set_defaults(func=cmd_export_presets)
+
+    p_import = sub.add_parser(
+        "import-presets",
+        help="Import presets from a JSON file into custom presets",
+    )
+    p_import.add_argument("path", help="Input JSON path")
+    p_import.add_argument(
+        "--replace",
+        action="store_true",
+        help="Replace all custom presets (default: merge / overwrite by name)",
+    )
+    p_import.set_defaults(func=cmd_import_presets)
 
     p_conv = sub.add_parser(
         "convert",
@@ -376,7 +554,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_conv.add_argument(
         "-p",
         "--preset",
-        help='Named preset, e.g. "MP3 192k" or "AAC 256k"',
+        help=(
+            'Named preset or template id/name, e.g. "MP3 192k" '
+            'or "podcast-aac-128"'
+        ),
     )
     p_conv.add_argument(
         "-f",

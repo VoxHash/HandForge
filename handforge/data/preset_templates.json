@@ -1,0 +1,196 @@
+{
+  "version": 1,
+  "title": "HandForge Preset Template Library",
+  "description": "Curated conversion templates based on platform publisher guidance (Apple Podcasts, YouTube) and common archival / delivery workflows.",
+  "templates": [
+    {
+      "id": "podcast-aac-128",
+      "name": "Podcast AAC 128k",
+      "category": "Podcast",
+      "description": "Stereo AAC at 128 kbps — Apple Podcasts RSS baseline for 44.1/48 kHz stereo (recommended range 128–256 kbps). Uses .m4a for efficient streaming/seeking.",
+      "source": "https://podcasters.apple.com/support/893-audio-requirements",
+      "options": {
+        "format": "m4a",
+        "mode": "CBR",
+        "bitrate": "128"
+      }
+    },
+    {
+      "id": "podcast-aac-160",
+      "name": "Podcast AAC 160k",
+      "category": "Podcast",
+      "description": "Stereo AAC at 160 kbps — common high-quality podcast encode within Apple's 128–256 kbps stereo RSS guidance.",
+      "source": "https://podcasters.apple.com/support/893-audio-requirements",
+      "options": {
+        "format": "m4a",
+        "mode": "CBR",
+        "bitrate": "160"
+      }
+    },
+    {
+      "id": "podcast-mp3-128",
+      "name": "Podcast MP3 128k",
+      "category": "Podcast",
+      "description": "Stereo MP3 at 128 kbps for maximum RSS/player compatibility when AAC is not preferred.",
+      "source": "https://podcasters.apple.com/support/893-audio-requirements",
+      "options": {
+        "format": "mp3",
+        "mode": "CBR",
+        "bitrate": "128"
+      }
+    },
+    {
+      "id": "voice-speech-mp3-96",
+      "name": "Voice / Speech MP3 96k",
+      "category": "Speech",
+      "description": "Compact speech delivery near Apple's mono MP3 recommended band (96–128 kbps). Suitable for interviews, notes, and narration.",
+      "source": "https://podcasters.apple.com/support/893-audio-requirements",
+      "options": {
+        "format": "mp3",
+        "mode": "CBR",
+        "bitrate": "96"
+      }
+    },
+    {
+      "id": "audiobook-aac-64",
+      "name": "Audiobook AAC 64k",
+      "category": "Speech",
+      "description": "Small AAC files for spoken-word / audiobook distribution (aligned with Apple mono RSS 64–128 kbps guidance).",
+      "source": "https://podcasters.apple.com/support/893-audio-requirements",
+      "options": {
+        "format": "m4a",
+        "mode": "CBR",
+        "bitrate": "64"
+      }
+    },
+    {
+      "id": "music-streaming-aac-256",
+      "name": "Music Streaming AAC 256k",
+      "category": "Music",
+      "description": "High-quality lossy music delivery at 256 kbps AAC CBR.",
+      "source": "HandForge built-in AAC 256k workflow",
+      "options": {
+        "format": "aac",
+        "mode": "CBR",
+        "bitrate": "256"
+      }
+    },
+    {
+      "id": "music-hifi-mp3-320",
+      "name": "Music HiFi MP3 320k",
+      "category": "Music",
+      "description": "Maximum common MP3 CBR bitrate for archival-friendly lossy music sharing.",
+      "source": "Industry-standard MP3 CBR ceiling (320 kbps)",
+      "options": {
+        "format": "mp3",
+        "mode": "CBR",
+        "bitrate": "320"
+      }
+    },
+    {
+      "id": "music-archive-flac",
+      "name": "Music Archive FLAC",
+      "category": "Archive",
+      "description": "Lossless FLAC for music library archival and CD rips.",
+      "source": "HandForge built-in FLAC Lossless workflow",
+      "options": {
+        "format": "flac",
+        "mode": "Lossless"
+      }
+    },
+    {
+      "id": "archive-master-wav",
+      "name": "Archive Master WAV",
+      "category": "Archive",
+      "description": "Uncompressed PCM WAV for masters and further editing (Apple accepts WAV/FLAC as source uploads).",
+      "source": "https://podcasters.apple.com/support/893-audio-requirements",
+      "options": {
+        "format": "wav",
+        "mode": "Lossless"
+      }
+    },
+    {
+      "id": "extract-audio-wav",
+      "name": "Extract Audio WAV",
+      "category": "Archive",
+      "description": "Pull audio from video into lossless WAV for editing.",
+      "source": "HandForge extract-audio workflow",
+      "options": {
+        "format": "wav",
+        "mode": "Lossless",
+        "extract_audio_only": true
+      }
+    },
+    {
+      "id": "youtube-1080p-h264",
+      "name": "YouTube 1080p H.264",
+      "category": "Video",
+      "description": "MP4 H.264 ~8 Mbps with AAC stereo ~384 kbps — YouTube SDR 1080p standard-frame-rate upload guidance.",
+      "source": "https://support.google.com/youtube/answer/1722171",
+      "options": {
+        "format": "mp4",
+        "mode": "CBR",
+        "video_codec": "libx264",
+        "video_bitrate": "8000",
+        "bitrate": "384"
+      }
+    },
+    {
+      "id": "youtube-720p-h264",
+      "name": "YouTube 720p H.264",
+      "category": "Video",
+      "description": "MP4 H.264 ~5 Mbps with AAC stereo — YouTube SDR 720p standard-frame-rate upload guidance.",
+      "source": "https://support.google.com/youtube/answer/1722171",
+      "options": {
+        "format": "mp4",
+        "mode": "CBR",
+        "video_codec": "libx264",
+        "video_bitrate": "5000",
+        "bitrate": "384"
+      }
+    },
+    {
+      "id": "web-delivery-webm-vp9",
+      "name": "Web Delivery WebM VP9",
+      "category": "Video",
+      "description": "VP9 WebM for web playback with moderate quality CRF-style target.",
+      "source": "HandForge built-in WebM VP9 workflow",
+      "options": {
+        "format": "webm",
+        "mode": "CBR",
+        "video_codec": "libvpx-vp9",
+        "video_quality": "30",
+        "bitrate": "192"
+      }
+    },
+    {
+      "id": "mobile-compact-h265",
+      "name": "Mobile Compact H.265",
+      "category": "Video",
+      "description": "HEVC smart compression (~7× size reduction) for mobile storage and sharing.",
+      "source": "HandForge H.265 smart compression workflow",
+      "options": {
+        "format": "mp4",
+        "mode": "CBR",
+        "video_codec": "libx265",
+        "reduce_size": true,
+        "use_hevc": true,
+        "size_reduction_factor": 7.0,
+        "bitrate": "192"
+      }
+    },
+    {
+      "id": "extract-audio-mp3-192",
+      "name": "Extract Audio MP3 192k",
+      "category": "Video",
+      "description": "Extract soundtrack from video as CBR MP3 192 kbps.",
+      "source": "HandForge Extract Audio (MP3) workflow",
+      "options": {
+        "format": "mp3",
+        "mode": "CBR",
+        "bitrate": "192",
+        "extract_audio_only": true
+      }
+    }
+  ]
+}

@@ -24,6 +24,34 @@ presets = settings.load_custom_presets()
 settings.save_custom_presets({"My Preset": {...}})
 ```
 
+### handforge.core.presets
+
+Built-in presets, curated template library, and import/export.
+
+```python
+from handforge.core.presets import (
+    list_templates,
+    get_template,
+    get_preset,
+    apply_template,
+    export_presets,
+    import_presets,
+)
+
+# Browse curated templates (Apple Podcasts / YouTube-aligned, etc.)
+for t in list_templates(category="Podcast"):
+    print(t["id"], t["name"], t["options"])
+
+# Resolve built-in, custom, or template by id/name
+opts = get_preset("podcast-aac-128")
+
+# Install a template into ~/.handforge/presets.json
+name, opts = apply_template("youtube-1080p-h264", as_name="YT 1080p")
+
+export_presets("backup.json")
+import_presets("backup.json", replace=False)
+```
+
 ### handforge.core.models
 
 Data models.

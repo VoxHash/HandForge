@@ -24,6 +24,9 @@ Issues = "https://github.com/VoxHash/HandForge/issues"
 include = ["handforge*"]
 exclude = ["tests*", "native*"]
 
+[tool.setuptools.package-data]
+handforge = ["data/*.json", "i18n/locales/*.json"]
+
 [tool.black]
 line-length = 127
 target-version = ['py39', 'py310', 'py311', 'py312']

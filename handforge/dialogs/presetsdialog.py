@@ -1,12 +1,26 @@
 """Presets manager dialog."""
 
-from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QDialogButtonBox, QComboBox, QTableWidget,
-    QTableWidgetItem, QMessageBox
-)
+import json
+from pathlib import Path
+from typing import Any, Dict
+
 from PyQt6.QtCore import Qt
-from typing import Dict, Any
+from PyQt6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFileDialog,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+)
+
+from ..core.presets import export_presets, parse_preset_file_payload
 
 
 class PresetsDialog(QDialog):
@@ -46,6 +60,14 @@ class PresetsDialog(QDialog):
         btn_delete = QPushButton("Delete")
         btn_delete.clicked.connect(self.delete_preset)
         btn_layout.addWidget(btn_delete)
+
+        btn_import = QPushButton("Import JSON")
+        btn_import.clicked.connect(self.import_json)
+        btn_layout.addWidget(btn_import)
+
+        btn_export = QPushButton("Export JSON")
+        btn_export.clicked.connect(self.export_json)
+        btn_layout.addWidget(btn_export)
         
         btn_layout.addStretch()
         
@@ -123,6 +145,50 @@ class PresetsDialog(QDialog):
     def get_presets(self) -> Dict[str, Dict[str, Any]]:
         """Get all presets."""
         return self.presets
+
+    def export_json(self):
+        """Export current dialog presets to a JSON file."""
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Presets",
+            str(Path.home() / "handforge-presets.json"),
+            "JSON Files (*.json)",
+        )
+        if not path:
+            return
+        try:
+            export_presets(path, self.presets)
+        except (OSError, ValueError) as exc:
+            QMessageBox.critical(self, "Export Failed", str(exc))
+            return
+        QMessageBox.information(self, "Exported", f"Presets saved to:\n{path}")
+
+    def import_json(self):
+        """Import presets from a JSON file into this dialog (merge by name)."""
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import Presets",
+            str(Path.home()),
+            "JSON Files (*.json)",
+        )
+        if not path:
+            return
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                raw = json.load(fh)
+            incoming = parse_preset_file_payload(raw)
+            if not incoming:
+                raise ValueError("No presets found in file")
+            self.presets.update(incoming)
+            self.update_table()
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            QMessageBox.critical(self, "Import Failed", str(exc))
+            return
+        QMessageBox.information(
+            self,
+            "Imported",
+            f"Merged {len(incoming)} preset(s). Click OK to save.",
+        )
 
 
 class PresetEditDialog(QDialog):

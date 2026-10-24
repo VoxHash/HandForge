@@ -284,6 +284,26 @@ Custom conversion presets are stored in `presets.json`:
 - `mode`: Encoding mode (CBR, VBR, Lossless)
 - `bitrate`: Bitrate in kbps (for CBR)
 - `vbrq`: VBR quality (0-9, or "-" for default)
+- Video templates may also include `video_codec`, `video_bitrate`, `video_quality`, `reduce_size`, `use_hevc`, `size_reduction_factor`, `extract_audio_only`
+
+### Preset Template Library
+
+Packaged curated templates live in `handforge/data/preset_templates.json` (shipped with the app; not user-edited). Apply copies into `presets.json`:
+
+- GUI: **Settings → Preset Template Library**
+- CLI: `list-templates`, `apply-template`, `export-presets --templates`
+
+Export/import of user presets uses a JSON envelope:
+
+```json
+{
+  "version": 1,
+  "type": "handforge-presets",
+  "presets": {
+    "My Preset": { "format": "mp3", "mode": "CBR", "bitrate": "192" }
+  }
+}
+```
 
 ## Filename Patterns
 
@@ -331,17 +351,10 @@ Or manually delete the `~/.handforge/` directory.
 
 ## Export/Import
 
-### Export Settings
+### Export / Import Presets
 
-Settings can be exported via the UI:
-- **Settings** → **Export Presets (JSON)**
-- **Settings** → **Export Patterns (JSON)**
-
-### Import Settings
-
-Import previously exported settings:
-- **Settings** → **Import Presets (JSON)**
-- **Settings** → **Import Patterns (JSON)**
+- **Settings** → **Manage Presets** → **Export JSON** / **Import JSON**
+- CLI: `python -m handforge export-presets PATH` / `import-presets PATH`
 
 ## Advanced Configuration
 

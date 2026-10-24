@@ -26,10 +26,12 @@ from ..dialogs.metadata import MetadataDialog
 from ..dialogs.batch_metadata import BatchMetadataDialog
 from ..dialogs.audio_quality import AudioQualityDialog
 from ..dialogs.presetsdialog import PresetsDialog
+from ..dialogs.preset_template_library import PresetTemplateLibraryDialog
 from ..dialogs.patternmanagerdialog import PatternManagerDialog
 from ..dialogs.auto_retry import AutoRetryDialog
 from ..dialogs.preferences import PreferencesDialog
 from ..i18n import get_translator
+from ..core.presets import BUILTIN_PRESETS, get_preset as resolve_preset
 
 
 class MainWindow(QMainWindow):
@@ -374,6 +376,10 @@ class MainWindow(QMainWindow):
         # Settings menu
         settings_menu = menubar.addMenu(t.tr("menu_settings"))
         settings_menu.addAction(t.tr("menu_manage_presets"), self.manage_presets)
+        settings_menu.addAction(
+            t.tr("menu_preset_library", "Preset Template Library"),
+            self.open_preset_template_library,
+        )
         settings_menu.addAction(t.tr("menu_manage_patterns"), self.manage_patterns)
         settings_menu.addAction(t.tr("menu_autoretry"), self.manage_autoretry)
         settings_menu.addSeparator()
@@ -861,35 +867,38 @@ class MainWindow(QMainWindow):
                     job.subtitle_track = None
     
     def get_preset(self, name: str) -> Dict[str, Any]:
-        """Get preset by name."""
-        # Remove emoji prefix if present
-        if " " in name:
-            parts = name.split(" ", 1)
-            first_part = parts[0]
-            # If first part is not ASCII (likely emoji), remove it
-            if first_part and not first_part.isascii():
-                name_clean = parts[1]
-            else:
-                name_clean = name
-        else:
-            name_clean = name
-        
-        if name_clean in self.presets:
-            return self.presets[name_clean]
-        
-        # Default presets (audio and video)
-        defaults = {
-            "MP3 192k": {"format": "mp3", "mode": "CBR", "bitrate": "192"},
-            "AAC 256k": {"format": "aac", "mode": "CBR", "bitrate": "256"},
-            "FLAC Lossless": {"format": "flac", "mode": "Lossless"},
-            "MP4 H.264": {"format": "mp4", "mode": "CBR", "video_codec": "libx264", "video_bitrate": "5000", "bitrate": "192"},
-            "MKV H.264": {"format": "mkv", "mode": "CBR", "video_codec": "libx264", "video_bitrate": "5000", "bitrate": "192"},
-            "MP4 H.265 (Smart Compression)": {"format": "mp4", "mode": "CBR", "video_codec": "libx265", "reduce_size": True, "use_hevc": True, "size_reduction_factor": 7.0, "bitrate": "192"},
-            "MKV H.265 (Smart Compression)": {"format": "mkv", "mode": "CBR", "video_codec": "libx265", "reduce_size": True, "use_hevc": True, "size_reduction_factor": 7.0, "bitrate": "192"},
-            "WebM VP9": {"format": "webm", "mode": "CBR", "video_codec": "libvpx-vp9", "video_quality": "30", "bitrate": "192"},
-            "Extract Audio (MP3)": {"format": "mp3", "mode": "CBR", "bitrate": "192", "extract_audio_only": True},
-        }
-        return defaults.get(name_clean, defaults["MP3 192k"])
+        """Get preset by name (custom, built-in, or curated template)."""
+        try:
+            return resolve_preset(name)
+        except KeyError:
+            return dict(BUILTIN_PRESETS["MP3 192k"])
+
+    def _refresh_preset_combo(self) -> None:
+        """Rebuild the preset dropdown from builtins + custom presets."""
+        current = self.combo_preset.currentText()
+        self.combo_preset.blockSignals(True)
+        self.combo_preset.clear()
+        for name in BUILTIN_PRESETS:
+            self.combo_preset.addItem(name)
+        for name in self.presets.keys():
+            if name not in BUILTIN_PRESETS:
+                self.combo_preset.addItem(name)
+        idx = self.combo_preset.findText(current)
+        if idx >= 0:
+            self.combo_preset.setCurrentIndex(idx)
+        self.combo_preset.blockSignals(False)
+
+    def open_preset_template_library(self):
+        """Browse curated templates and optionally install them as customs."""
+        dialog = PresetTemplateLibraryDialog(self)
+        dialog.exec()
+        if dialog.applied_preset_names():
+            self.presets = load_custom_presets()
+            self._refresh_preset_combo()
+            applied = ", ".join(dialog.applied_preset_names())
+            self.statusBar().showMessage(
+                f"✅ Template(s) applied: {applied}", 4000
+            )
     
     def stop_conversion(self):
         """Stop conversion."""
@@ -1360,17 +1369,7 @@ class MainWindow(QMainWindow):
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.presets = dialog.get_presets()
             save_custom_presets(self.presets)
-            # Update combo box
-            self.combo_preset.clear()
-            self.combo_preset.addItem("MP3 192k")
-            self.combo_preset.addItem("AAC 256k")
-            self.combo_preset.addItem("FLAC Lossless")
-            self.combo_preset.addItem("MP4 H.264")
-            self.combo_preset.addItem("MKV H.264")
-            self.combo_preset.addItem("WebM VP9")
-            self.combo_preset.addItem("Extract Audio (MP3)")
-            for name in self.presets.keys():
-                self.combo_preset.addItem(name)
+            self._refresh_preset_combo()
     
     def manage_patterns(self):
         """Open pattern manager dialog."""

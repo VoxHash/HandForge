@@ -26,6 +26,34 @@ List built-in presets and any custom presets from `~/.handforge/presets.json`.
 
 ```bash
 python -m handforge list-presets
+python -m handforge list-presets --include-templates
+```
+
+### `list-templates`
+
+Browse the curated preset template library (Podcast, Speech, Music, Archive, Video).
+
+```bash
+python -m handforge list-templates
+python -m handforge list-templates --category Podcast -v
+```
+
+### `apply-template`
+
+Install a library template into `~/.handforge/presets.json` as a custom preset.
+
+```bash
+python -m handforge apply-template podcast-aac-128
+python -m handforge apply-template youtube-1080p-h264 --as "YT Upload" --overwrite
+```
+
+### `export-presets` / `import-presets`
+
+```bash
+python -m handforge export-presets ./my-presets.json
+python -m handforge export-presets ./library.json --templates
+python -m handforge import-presets ./my-presets.json
+python -m handforge import-presets ./my-presets.json --replace
 ```
 
 ### `convert`
@@ -33,8 +61,9 @@ python -m handforge list-presets
 Convert one or more files or directories (directories are scanned recursively for audio/video).
 
 ```bash
-# Preset-based
+# Preset-based (built-in, custom, or template id/name)
 python -m handforge convert input.mp3 --preset "MP3 192k"
+python -m handforge convert episode.wav --preset podcast-aac-128 -o ./out
 
 # Batch directory
 python -m handforge convert ./music --preset "AAC 256k" --output-dir ./output
@@ -55,7 +84,7 @@ python -m handforge convert ./batch -f flac --mode Lossless --parallel 4 --no-ad
 | Option | Description |
 |--------|-------------|
 | `-o`, `--output-dir` | Output directory (default: settings `output_dir` or `~/HandForge_Output`) |
-| `-p`, `--preset` | Named preset (see `list-presets`) |
+| `-p`, `--preset` | Named preset or template id/name (see `list-presets` / `list-templates`) |
 | `-f`, `--format` | Output format (overrides preset) |
 | `--mode` | `CBR`, `VBR`, or `Lossless` |
 | `--bitrate` / `--vbrq` | Audio bitrate or VBR quality |
@@ -96,7 +125,7 @@ echo $?
 | WebM VP9 | VP9 |
 | Extract Audio (MP3) | Audio-only from video |
 
-Custom presets saved in the GUI appear in `list-presets` and work with `--preset`.
+Custom presets saved in the GUI appear in `list-presets` and work with `--preset`. Template ids/names from `list-templates` also work with `--preset` without installing.
 
 ## Related
 

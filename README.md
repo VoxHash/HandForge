@@ -15,6 +15,7 @@
 - **Two-Pass Encoding**: Optional two-pass encoding for optimal quality/size ratio
 - **Parallel Processing**: Parallel encodes with per-codec thread caps and optional Rust adaptive scheduling (RAM/load aware)
 - **Presets System**: Save and load custom conversion presets (audio and video)
+- **Preset Template Library**: Curated Podcast / Speech / Music / Archive / Video templates (browse/apply in GUI; CLI `list-templates` / `apply-template`)
 - **Metadata Management**: Copy or strip metadata, per-file overrides
 - **Multi-Language Support**: Full internationalization with 11 languages
 - **System Tray**: Minimize to tray with conversion notifications
@@ -49,6 +50,8 @@ python -m handforge.app
 # Or convert headlessly (no display required)
 python -m handforge convert input.mp3 --preset "MP3 192k" -o ./output
 python -m handforge list-presets
+python -m handforge list-templates --category Podcast -v
+python -m handforge apply-template podcast-aac-128
 ```
 
 ## 💿 Installation
