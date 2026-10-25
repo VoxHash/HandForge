@@ -39,26 +39,29 @@
 ## 🚀 Quick Start
 
 ```bash
-# 1) Install dependencies
+# 1) Project venv + install (Windows: python -m venv .venv && .\.venv\Scripts\Activate.ps1)
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+pip install -e .
 
 # 2) Ensure FFmpeg is installed and on PATH
 # Windows: winget install ffmpeg
 # Linux: sudo apt install ffmpeg
+# macOS: brew install ffmpeg
 
 # 3) Run the GUI
 python -m handforge.app
 
 # Or convert headlessly (no display required)
-python -m handforge convert input.mp3 --preset "MP3 192k" -o ./output
-python -m handforge list-presets
-python -m handforge list-templates --category Podcast -v
-python -m handforge apply-template podcast-aac-128
+handforge convert input.mp3 --preset "MP3 192k" -o ./output
+handforge list-presets
+handforge list-templates --category Podcast -v
+handforge apply-template podcast-aac-128
 ```
 
 ## 💿 Installation
 
-See [docs/installation.md](docs/installation.md) for platform-specific installation instructions.
+See **[docs/desktop.md](docs/desktop.md)** for Windows / Linux / macOS install **and** post-install GUI/CLI usage. Platform reference: [docs/installation.md](docs/installation.md).
 
 Optional native scheduler (reduces peak RAM under heavy batches):
 
@@ -67,6 +70,8 @@ cd native/handforge_scheduler && cargo build --release
 ```
 
 ## 🛠 Usage
+
+**Desktop (install → first convert)**: [docs/desktop.md](docs/desktop.md).
 
 **GUI**: Add files to the queue, select a preset, and start conversion. Details: [docs/usage.md](docs/usage.md).
 

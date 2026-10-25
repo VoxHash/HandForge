@@ -61,6 +61,12 @@ These are **not** near-term ports of the desktop PyQt6 UI. They depend on a shar
 - ✅ Ship multi-ABI bundled `libffmpeg.so` inside the APK (`scripts/fetch-android-ffmpeg.sh` + jniLibs layout; Termux fallback)
 - ✅ On-headset heavy encodes on Quest (Android APK LocalEncode + heavy presets; see `companions/quest/`)
 
+## E2E Workflow & Ops
+
+Next-phase ops/docs milestone after feature ROADMAP items are complete: make desktop install and day-to-day use reliable for any compatible OS.
+
+- ✅ **Desktop install + usage guide (Windows / Linux / macOS)** — end-to-end project `.venv` + `pip install -e .`, FFmpeg per OS, GUI (`python -m handforge.app`) and CLI (`handforge` / `python -m handforge`) post-install use; [docs/desktop.md](docs/desktop.md); linked from [docs/index.md](docs/index.md), [README.md](README.md), [docs/installation.md](docs/installation.md), [docs/getting-started.md](docs/getting-started.md)
+
 ## Completed Milestones
 
 ### Unreleased (Q4 2026)
@@ -89,6 +95,7 @@ These are **not** near-term ports of the desktop PyQt6 UI. They depend on a shar
 - ✅ Quest / store HTTPS packaging: Meta Bubblewrap 2D TWA templates + `quest-https-package.sh`, Digital Asset Links route, Caddy/nginx TLS examples (`companions/quest/bubblewrap/`)
 - ✅ Bundled multi-ABI Android FFmpeg: reproducible fetch script + SHA256 pins, jniLibs `libffmpeg.so` + libav* deps, LocalEncode prefers bundled when present
 - ✅ On-headset heavy encodes on Quest: same Android APK (`LocalEncodeActivity`, heavy tier presets, `HandForgeNative` from `/quest.html`); Termux fallback; thermal honesty + LAN host for long jobs (`companions/quest/README.md`)
+- ✅ Desktop install + usage guide for Windows / Linux / macOS (`docs/desktop.md`; canonical `.venv` + editable install; GUI and CLI post-install paths)
 
 ### v1.3.2 (Q4 2026)
 - ✅ Permission-aware output directory handling and pre-conversion write checks

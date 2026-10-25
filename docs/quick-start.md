@@ -5,8 +5,10 @@ Get HandForge up and running in minutes!
 ## Installation
 
 ```bash
-# Install dependencies
+# Project venv (recommended)
+python3 -m venv .venv && source .venv/bin/activate   # Windows: python -m venv .venv && .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+pip install -e .
 
 # Ensure FFmpeg is installed
 # Windows: winget install ffmpeg
@@ -14,10 +16,13 @@ pip install -r requirements.txt
 # macOS: brew install ffmpeg
 ```
 
+Full desktop walkthrough (all OSes + post-install use): [desktop.md](desktop.md).
+
 ## Run
 
 ```bash
 python -m handforge.app
+# or: handforge convert input.mp3 --preset "MP3 192k" -o ./output
 ```
 
 ## Convert Your First File

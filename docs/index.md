@@ -4,6 +4,7 @@ Welcome to the HandForge documentation! HandForge is a cross-platform audio and 
 
 ## Getting Started
 
+- [Desktop install & usage](desktop.md) - Windows / Linux / macOS: install + post-install GUI and CLI
 - [Quick Start Guide](quick-start.md) - Get up and running in minutes
 - [Installation](installation.md) - Detailed installation instructions
 - [Getting Started](getting-started.md) - Comprehensive getting started guide

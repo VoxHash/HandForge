@@ -1,91 +1,88 @@
 # Getting Started with HandForge
 
-This guide will help you get started with HandForge, from installation to your first audio or video conversion.
+From a fresh machine to your first conversion. For the full cross-platform install + day-to-day GUI/CLI checklist, see [Desktop install & usage](desktop.md).
 
 ## Prerequisites
 
-Before installing HandForge, ensure you have:
+- **Python 3.9+**
+- **FFmpeg** on PATH (`ffmpeg -version`)
+- **pip** / **venv**
 
-- **Python 3.9 or higher** installed
-- **FFmpeg** installed and available in your system PATH
-- **pip** (Python package manager)
-
-## Installation
-
-### Step 1: Install Python Dependencies
+## Installation (canonical project `.venv`)
 
 ```bash
+git clone https://github.com/VoxHash/HandForge.git
+cd HandForge
+
+# Linux / macOS
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Windows PowerShell:
+#   python -m venv .venv
+#   .\.venv\Scripts\Activate.ps1
+
+python -m pip install --upgrade pip
 pip install -r requirements.txt
+pip install -e .
 ```
 
-### Step 2: Install FFmpeg
-
-#### Windows
+FFmpeg (if missing):
 
 ```bash
-winget install ffmpeg
+# Windows: winget install ffmpeg
+# Linux (Debian/Ubuntu): sudo apt install ffmpeg
+# macOS: brew install ffmpeg
 ```
 
-Or download from [ffmpeg.org](https://ffmpeg.org/download.html) and add to PATH.
-
-#### Linux
+Verify:
 
 ```bash
-sudo apt install ffmpeg
-```
-
-#### macOS
-
-```bash
-brew install ffmpeg
-```
-
-### Step 3: Verify Installation
-
-```bash
-# Verify Python
-python --version
-
-# Verify FFmpeg
+python -c "import PyQt6; import handforge; print('HandForge OK')"
+handforge --version
 ffmpeg -version
-
-# Verify PyQt6
-python -c "import PyQt6; print('PyQt6 installed')"
 ```
+
+Platform detail: [installation.md](installation.md) · end-to-end: [desktop.md](desktop.md).
 
 ## Running HandForge
 
-### Basic Usage
+### GUI
 
 ```bash
 python -m handforge.app
 ```
 
-The application window should open, and you're ready to start converting audio and video files!
+### CLI (no display)
 
-## Your First Conversion
+```bash
+handforge convert input.mp3 --preset "MP3 192k" -o ./output
+handforge list-presets
+handforge list-templates --category Podcast -v
+```
 
-1. **Add Files**: Click "Add Files" or drag and drop audio/video files into the queue
-2. **Select Preset**: Choose a conversion preset from the dropdown (e.g., "MP3 192k" for audio, "MP4 H.264" for video)
-3. **Configure Options**: For video files with subtitles, select subtitle track in the queue table
-4. **Start Conversion**: Click the "Start Conversion" button
-5. **Monitor Progress**: Watch the progress bars with ETA in the Active Conversions table
-6. **Find Output**: Converted files are saved to `~/HandForge_Output` by default (or `%USERPROFILE%\HandForge_Output` on Windows). Location is shown in status bar when conversion completes.
+## Your First Conversion (GUI)
+
+1. **Add Files** or drag-and-drop into the queue
+2. Select a **preset** (e.g. "MP3 192k" or a video preset)
+3. For video with subtitles, pick the subtitle track in the queue table if needed
+4. **Start Conversion** (Ctrl+Return)
+5. Watch **Active Conversions**; find output under `~/HandForge_Output` by default (`%USERPROFILE%\HandForge_Output` on Windows)
 
 ## Next Steps
 
-- Read the [Usage Guide](usage.md) for detailed instructions
-- Check out [Configuration](configuration.md) to customize HandForge
-- Explore [Examples](examples/) for common use cases
-- Visit [Troubleshooting](troubleshooting.md) if you encounter issues
+- [Desktop install & usage](desktop.md)
+- [Usage Guide](usage.md)
+- [CLI](cli.md)
+- [Configuration](configuration.md)
+- [Examples](examples/)
+- [Troubleshooting](troubleshooting.md)
 
 ## Getting Help
 
-- [FAQ](faq.md) - Common questions
-- [Troubleshooting](troubleshooting.md) - Problem solving
-- [Support](../SUPPORT.md) - Additional support options
+- [FAQ](faq.md)
+- [Support](../SUPPORT.md) — contact@voxhash.dev
 
 ---
 
-**Welcome to HandForge!** We hope you enjoy using it.
-
+© 2026 VoxHash Technologies

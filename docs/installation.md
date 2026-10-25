@@ -1,12 +1,13 @@
 # Installation Guide
 
-This guide provides detailed installation instructions for HandForge on different platforms.
+Detailed installation for HandForge on Windows, Linux, and macOS. For a single end-to-end walkthrough (install **and** first use of GUI + CLI), prefer [Desktop install & usage](desktop.md).
 
 ## System Requirements
 
 - **Python**: 3.9 or higher
-- **FFmpeg**: Latest stable version
+- **FFmpeg**: On `PATH` (`ffmpeg -version`)
 - **Operating System**: Windows 10+, Linux (most distributions), macOS 10.14+
+- **GUI**: A display session (PyQt6). CLI works headless.
 
 ## Python Installation
 
@@ -14,7 +15,7 @@ This guide provides detailed installation instructions for HandForge on differen
 
 1. Download Python from [python.org](https://www.python.org/downloads/)
 2. Run the installer
-3. Check "Add Python to PATH" during installation
+3. Check **Add Python to PATH**
 4. Verify: `python --version`
 
 ### Linux
@@ -22,42 +23,34 @@ This guide provides detailed installation instructions for HandForge on differen
 ```bash
 # Ubuntu/Debian
 sudo apt update
-sudo apt install python3 python3-pip
+sudo apt install python3 python3-pip python3-venv
 
-# Verify
 python3 --version
 ```
 
 ### macOS
 
 ```bash
-# Using Homebrew
 brew install python3
-
 # Or download from python.org
+python3 --version
 ```
 
 ## FFmpeg Installation
 
 ### Windows
 
-**Option 1: Using winget**
-```bash
+```powershell
 winget install ffmpeg
 ```
 
-**Option 2: Manual Installation**
-1. Download from [ffmpeg.org](https://ffmpeg.org/download.html)
-2. Extract to a folder (e.g., `C:\ffmpeg`)
-3. Add `C:\ffmpeg\bin` to your system PATH
-4. Verify: `ffmpeg -version`
+Or download from [ffmpeg.org](https://ffmpeg.org/download.html), extract, add `bin` to PATH, then `ffmpeg -version`.
 
 ### Linux
 
 ```bash
 # Ubuntu/Debian
-sudo apt update
-sudo apt install ffmpeg
+sudo apt update && sudo apt install -y ffmpeg
 
 # Fedora
 sudo dnf install ffmpeg
@@ -69,76 +62,72 @@ sudo pacman -S ffmpeg
 ### macOS
 
 ```bash
-# Using Homebrew
 brew install ffmpeg
 ```
 
 ## HandForge Installation
 
-### Step 1: Clone or Download
+### Step 1: Clone or download
 
 ```bash
 git clone https://github.com/VoxHash/HandForge.git
 cd HandForge
 ```
 
-Or download and extract the ZIP file.
+### Step 2: Project virtualenv (recommended)
 
-### Step 2: Install Dependencies
+Use `.venv` in the repo root so GUI and CLI share one install.
 
-```bash
+**Windows (PowerShell):**
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
 pip install -r requirements.txt
+pip install -e .
 ```
 
-Or using a virtual environment (recommended):
+**Linux / macOS:**
 
 ```bash
-# Create virtual environment
-python -m venv venv
-
-# Activate (Windows)
-venv\Scripts\activate
-
-# Activate (Linux/macOS)
-source venv/bin/activate
-
-# Install dependencies
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
 pip install -r requirements.txt
+pip install -e .
 ```
 
-### Step 3: Verify Installation
+`pip install -e .` installs the package and the `handforge` console script from `pyproject.toml`.
+
+### Step 3: Verify
 
 ```bash
-# Check Python version
 python --version
-
-# Check FFmpeg
 ffmpeg -version
-
-# Check PyQt6
-python -c "import PyQt6; print('PyQt6 installed successfully')"
+python -c "import PyQt6; import handforge; print('HandForge OK')"
+handforge --version
 ```
 
 ## Running HandForge
 
 ```bash
+# GUI
 python -m handforge.app
+
+# Headless CLI
+handforge --help
+python -m handforge convert input.mp3 --preset "MP3 192k" -o ./output
 ```
 
 ## Optional: Native Adaptive Scheduler (Rust)
-
-HandForge can use a small Rust library to cap parallel FFmpeg jobs from free RAM and CPU load, so batches leave headroom for other apps. The PyQt6 UI is unchanged; if the library is missing, a pure-Python fallback applies the same rules.
-
-**Requirements:** [Rust toolchain](https://rustup.rs/) (`cargo`, `rustc`)
 
 ```bash
 cd native/handforge_scheduler
 cargo build --release
 ```
 
-This produces `target/release/libhandforge_scheduler.so` (Linux), `.dylib` (macOS), or `handforge_scheduler.dll` (Windows). The Python package loads it automatically from that path, or from `HANDFORGE_NATIVE_LIB` if set.
-
-Verify:
+Produces `target/release/libhandforge_scheduler.so` (Linux), `.dylib` (macOS), or `handforge_scheduler.dll` (Windows). Override path with `HANDFORGE_NATIVE_LIB` if needed.
 
 ```bash
 python -c "from handforge.core.native_scheduler import native_available, system_snapshot; print(native_available(), system_snapshot(4))"
@@ -148,32 +137,30 @@ python -c "from handforge.core.native_scheduler import native_available, system_
 
 ### FFmpeg Not Found
 
-- Ensure FFmpeg is in your system PATH
-- Restart your terminal/command prompt after installing FFmpeg
+- Ensure FFmpeg is on PATH; restart the terminal after install
 - Verify with `ffmpeg -version`
 
-### PyQt6 Installation Issues
+### PyQt6 / handforge import issues
 
 ```bash
-# Try upgrading pip first
 pip install --upgrade pip
-
-# Then install PyQt6
-pip install PyQt6
+pip install -r requirements.txt
+pip install -e .
 ```
 
 ### Python Version Issues
 
-- Ensure Python 3.9+ is installed
-- Use `python3` instead of `python` on Linux/macOS if needed
+- Require Python 3.9+
+- On Linux/macOS prefer `python3` when creating the venv
 
 ## Next Steps
 
+- [Desktop install & usage](desktop.md) — full install + post-install GUI/CLI
 - [Getting Started](getting-started.md)
 - [Usage Guide](usage.md)
+- [CLI](cli.md)
 - [Configuration](configuration.md)
 
 ---
 
-**Installation complete!** You're ready to use HandForge.
-
+**Installation complete.** Contact: contact@voxhash.dev — VoxHash Technologies.
