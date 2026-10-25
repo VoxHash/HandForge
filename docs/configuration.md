@@ -119,10 +119,15 @@ For **rclone** `remote:path` outputs, prefer the CLI (`--cloud-output` or `-o re
 | `rclone_enabled` | Allow `remote:path` inputs/outputs when rclone is installed | `true` |
 | `rclone_remote` | Default rclone remote name (without required trailing colon) | `""` |
 | `rclone_binary` | Optional path to the rclone binary; empty uses `PATH` | `""` |
+| `proton_drive_backup_enabled` | Opt-in Proton Drive backup via real `proton-drive` CLI | `false` |
+| `proton_drive_remote_folder` | Remote parent path (e.g. `/my-files/HandForge`) | `/my-files/HandForge` |
+| `proton_drive_binary` | Optional path to `proton-drive`; empty uses `PATH` | `""` |
+| `proton_drive_backup_config` | Also upload `settings.json` / `presets.json` with backups | `false` |
+| `proton_drive_after_convert` | When backup is enabled, upload after a successful batch | `true` |
 
 HandForge also **auto-detects** common sync client folders (e.g. `~/Dropbox`, `~/OneDrive`, macOS `~/Library/CloudStorage/…`) and merges them with `cloud_roots` for browsing and `list-cloud`.
 
-Configure remotes with the real rclone CLI (`rclone config`). HandForge never invents credentials.
+Configure remotes with the real rclone CLI (`rclone config`). Proton Drive uses the real `proton-drive` CLI session (`proton-drive auth login`) — HandForge never invents credentials. Ops guide: [cloud.md](cloud.md).
 
 ### Default Video Quality
 

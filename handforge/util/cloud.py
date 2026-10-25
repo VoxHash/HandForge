@@ -543,4 +543,13 @@ def format_cloud_status(settings: Optional[Dict[str, Any]] = None) -> str:
     input_root = settings.get(SETTING_CLOUD_INPUT_ROOT)
     if input_root:
         lines.append(f"settings cloud_input_root: {input_root}")
+
+    # Proton Drive (opt-in backup via real proton-drive CLI)
+    try:
+        from .proton_drive import format_proton_status
+
+        lines.append(format_proton_status(settings))
+    except Exception as exc:  # pragma: no cover — defensive
+        lines.append(f"proton-drive: status unavailable ({exc})")
+
     return "\n".join(lines)

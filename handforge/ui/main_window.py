@@ -1341,12 +1341,15 @@ class MainWindow(QMainWindow):
             total_count = len(self.workers_data)
 
             analytics_line = self._finish_analytics_session()
-            
+            proton_line = self._maybe_proton_drive_backup()
+
             if failed_count > 0:
                 # Some conversions failed
                 msg = f"⚠️ Completed: {total_count - failed_count} succeeded, {failed_count} failed"
                 if analytics_line:
                     msg = f"{msg} — {analytics_line}"
+                if proton_line:
+                    msg = f"{msg} — {proton_line}"
                 self.statusBar().showMessage(msg)
                 if self.tray_icon:
                     self.tray_icon.showMessage(
@@ -1360,11 +1363,15 @@ class MainWindow(QMainWindow):
                 msg = t.tr("msg_all_complete")
                 if analytics_line:
                     msg = f"{msg} — {analytics_line}"
+                if proton_line:
+                    msg = f"{msg} — {proton_line}"
                 self.statusBar().showMessage(msg)
                 if self.tray_icon:
                     tray_body = "All files have been converted successfully"
                     if analytics_line:
                         tray_body = f"{tray_body}\n{analytics_line}"
+                    if proton_line:
+                        tray_body = f"{tray_body}\n{proton_line}"
                     self.tray_icon.showMessage(
                         "All Conversions Complete",
                         tray_body,
@@ -1374,6 +1381,26 @@ class MainWindow(QMainWindow):
             
             self.btn_start.setEnabled(True)
             self.btn_stop.setEnabled(False)
+
+    def _maybe_proton_drive_backup(self) -> Optional[str]:
+        """Opt-in Proton Drive upload of successful outputs after a batch."""
+        from ..util.proton_drive import after_convert_enabled, backup_outputs
+
+        if not after_convert_enabled(self.settings):
+            return None
+        outputs = [
+            data.get("output_path")
+            for data in self.workers_data.values()
+            if data.get("status") == "Done" and data.get("output_path")
+        ]
+        if not outputs:
+            return None
+        try:
+            self.statusBar().showMessage("☁ Uploading to Proton Drive…")
+            result = backup_outputs(outputs, settings=self.settings)
+            return f"Proton Drive: {result['uploaded']} → {result['remote']}"
+        except Exception as exc:
+            return f"Proton Drive backup failed: {exc}"
 
     def _finish_analytics_session(self) -> Optional[str]:
         """Persist local batch analytics (if enabled) and return a one-line summary."""

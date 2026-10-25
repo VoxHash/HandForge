@@ -137,6 +137,35 @@ HandForge maps common failures to an actionable summary plus **What to try** ste
 2. Re-run upload manually: `rclone copy /path/to/local/out remote:path`
 3. Prefer writing directly to a mounted sync folder if rclone auth is unreliable
 
+## Proton Drive backup
+
+### proton-drive Not Found
+
+**Problem**: `list-cloud` says proton-drive is missing, or backup fails.
+
+**Solutions**:
+1. Install Proton Drive CLI from https://proton.me/download/drive/cli/index.html and ensure `proton-drive` is on `PATH`
+2. Or set Preferences → Cloud → **proton-drive binary** to the full path
+3. Confirm with `proton-drive version` and `handforge list-cloud`
+
+### Not Authenticated
+
+**Problem**: CLI found but status says not authenticated / upload fails with auth error.
+
+**Solutions**:
+1. Run `proton-drive auth login` and complete the browser / device flow
+2. Verify `proton-drive filesystem list /my-files -j` returns JSON
+3. Optional: keep `proton-drive-desktop` running for day-to-day sync UI (uploads still use the CLI)
+
+### Backup Failed After Convert
+
+**Problem**: Encode succeeded but Proton Drive backup failed.
+
+**Solutions**:
+1. Re-run `handforge backup-proton <output files…> --proton-folder /my-files/HandForge`
+2. Ensure the remote parent exists or let HandForge create it under `/my-files/…`
+3. Check network / Proton service status; retry once
+
 ## Performance Analytics
 
 ### No Analytics Summary After a Batch

@@ -12,6 +12,11 @@ from .cloud import (
     list_rclone_remotes,
     rclone_available,
 )
+from .proton_drive import (
+    backup_enabled as proton_drive_backup_enabled,
+    format_proton_status,
+    proton_drive_available,
+)
 from .errors import ActionableError, classify_error, format_actionable_error
 from .ffmpeg import build_ffmpeg_cmd, run_ffmpeg, out_path
 from .hwaccel import (
@@ -35,10 +40,13 @@ __all__ = [
     "format_batch_summary",
     "format_cloud_status",
     "format_detection_report",
+    "format_proton_status",
     "join_audio_filters",
     "join_video_filters",
     "list_rclone_remotes",
     "out_path",
+    "proton_drive_available",
+    "proton_drive_backup_enabled",
     "rclone_available",
     "resolve_hw_encode",
     "run_ffmpeg",

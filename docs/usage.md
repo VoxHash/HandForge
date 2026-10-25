@@ -68,6 +68,8 @@ On the **Audio** tab, enable advanced filters only when needed (all off by defau
 
 **Optional rclone**: if `rclone` is on `PATH` (or you set the binary path), enable rclone support, pick a default remote from `rclone listremotes`, and use the CLI for `remote:path` pick-up/save (`list-cloud`, `convert --cloud-output`). Without rclone, local sync folders still work; remote paths are refused with a clear message.
 
+**Optional Proton Drive backup**: under the same Cloud tab, enable **Proton Drive backup**, set the remote folder (default `/my-files/HandForge`), and ensure `proton-drive auth login` has an active session. Successful batches can upload outputs automatically; CLI also supports `backup-proton` and `convert --proton-backup`. See [cloud.md](cloud.md).
+
 Settings are saved automatically and persist between sessions.
 
 ### Language Selection

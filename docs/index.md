@@ -13,6 +13,7 @@ Welcome to the HandForge documentation! HandForge is a cross-platform audio and 
 
 - [Usage](usage.md) - How to use HandForge
 - [Configuration](configuration.md) - Configuration options and settings
+- [Cloud & Proton Drive](cloud.md) - Sync folders, rclone, opt-in Proton Drive backup
 - [CLI](cli.md) - Headless command-line interface for batch conversion and companion `serve`
 
 ## Technical Documentation

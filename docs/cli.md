@@ -78,10 +78,19 @@ python -m handforge list-hw-accel --no-probe   # compiled encoders only
 
 ### `list-cloud`
 
-Show rclone availability/remotes and local cloud sync roots (detected + configured). Safe when rclone is missing — prints install guidance and still lists local roots.
+Show rclone availability/remotes, local cloud sync roots (detected + configured), and Proton Drive CLI status. Safe when rclone / proton-drive is missing — prints install / auth guidance and still lists local roots.
 
 ```bash
 python -m handforge list-cloud
+```
+
+### `backup-proton`
+
+Upload local conversion outputs (or a directory) to Proton Drive using the real `proton-drive` CLI. Requires an authenticated CLI session (`proton-drive auth login`).
+
+```bash
+python -m handforge backup-proton /path/to/out.mp3 --proton-folder /my-files/HandForge
+python -m handforge backup-proton -d ~/HandForge_Output --include-config
 ```
 
 ### `list-analytics`
@@ -187,6 +196,9 @@ python -m handforge convert ./local -f flac --cloud-remote gdrive --cloud-output
 | `--cloud-remote` | Default rclone remote name for this run |
 | `--cloud-output` | rclone `remote:path` for outputs (local stage → `rclone copy`) |
 | `--no-rclone` | Disable `remote:path` handling for this run |
+| `--proton-backup` | After success, upload outputs via `proton-drive` CLI |
+| `--no-proton-backup` | Disable Proton Drive backup for this run |
+| `--proton-folder` | Proton Drive remote folder for this run |
 | `-p`, `--preset` | Named preset or template id/name (see `list-presets` / `list-templates`) |
 | `-f`, `--format` | Output format (overrides preset) |
 | `--mode` | `CBR`, `VBR`, or `Lossless` |

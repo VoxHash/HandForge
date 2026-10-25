@@ -288,8 +288,8 @@ def run_batch(
     companion_port: Optional[int] = None,
     companion_token: Optional[str] = None,
     companion_lan: bool = False,
-) -> Tuple[int, int]:
-    """Run jobs through Orchestrator; return (succeeded, failed)."""
+) -> Tuple[int, int, List[str]]:
+    """Run jobs through Orchestrator; return (succeeded, failed, output_paths)."""
     from PyQt6.QtCore import QCoreApplication
 
     from .companion import QueueStatusHub
@@ -315,6 +315,7 @@ def run_batch(
     completed = 0
     succeeded = 0
     failed = 0
+    successful_outputs: List[str] = []
     # Map worker id -> (index, basename) once started
     job_labels: Dict[int, Tuple[int, str]] = {}
     start_order = {id(job): i for i, job in enumerate(jobs, start=1)}
@@ -407,6 +408,8 @@ def run_batch(
         if success:
             succeeded += 1
             dest = output_path or ""
+            if dest:
+                successful_outputs.append(dest)
             if not quiet:
                 print(
                     f"[{idx}/{total}] {name}  ok  {dest}",
@@ -440,7 +443,7 @@ def run_batch(
     if total == 0:
         if companion_server is not None:
             companion_server.stop()
-        return 0, 0
+        return 0, 0, []
     app.exec()
     if companion_server is not None:
         companion_server.stop()
@@ -448,7 +451,7 @@ def run_batch(
         summary = analytics.finish(persist=True)
         # Always print analytics summary when the feature is enabled (even with --quiet).
         print(format_batch_summary(summary, detailed=verbose), file=sys.stderr)
-    return succeeded, failed
+    return succeeded, failed, successful_outputs
 
 
 def _format_preset_line(name: str, tag: str, preset: Dict[str, Any]) -> str:
@@ -630,9 +633,59 @@ def cmd_list_hw_accel(args: argparse.Namespace) -> int:
 
 
 def cmd_list_cloud(args: argparse.Namespace) -> int:
-    """Show rclone availability/remotes and local cloud sync roots."""
+    """Show rclone / Proton Drive status and local cloud sync roots."""
     settings = load_settings()
     print(format_cloud_status(settings))
+    return EXIT_OK
+
+
+def cmd_backup_proton(args: argparse.Namespace) -> int:
+    """Upload local outputs (or a directory) to Proton Drive via proton-drive CLI."""
+    from .util.proton_drive import (
+        backup_directory,
+        backup_outputs,
+        normalize_remote_folder,
+        remote_folder_from_settings,
+    )
+
+    settings = load_settings()
+    if getattr(args, "proton_folder", None):
+        settings["proton_drive_remote_folder"] = normalize_remote_folder(
+            str(args.proton_folder)
+        )
+    if getattr(args, "proton_binary", None):
+        settings["proton_drive_binary"] = str(args.proton_binary).strip()
+    if getattr(args, "include_config", False):
+        settings["proton_drive_backup_config"] = True
+
+    remote = remote_folder_from_settings(settings)
+    paths = list(getattr(args, "paths", None) or [])
+    try:
+        if getattr(args, "directory", None):
+            result = backup_directory(
+                str(args.directory),
+                settings=settings,
+                remote_folder=remote,
+            )
+        elif paths:
+            result = backup_outputs(
+                paths,
+                settings=settings,
+                remote_folder=remote,
+                include_config=bool(getattr(args, "include_config", False)),
+            )
+        else:
+            # Default: settings output_dir or ~/HandForge_Output
+            out = settings.get("output_dir") or _default_output_dir()
+            result = backup_directory(str(out), settings=settings, remote_folder=remote)
+    except (FileNotFoundError, RuntimeError, ValueError, OSError) as exc:
+        print(format_actionable_error(str(exc), exc=exc), file=sys.stderr)
+        return EXIT_FAIL
+
+    print(
+        f"Proton Drive backup: uploaded {result['uploaded']} item(s) → {result['remote']}",
+        flush=True,
+    )
     return EXIT_OK
 
 
@@ -800,7 +853,7 @@ def cmd_watch(args: argparse.Namespace) -> int:
                         f"Watch-folder: converting {len(jobs)} new file(s)",
                         file=sys.stderr,
                     )
-                _ok, fail = run_batch(
+                _ok, fail, _outs = run_batch(
                     jobs,
                     settings,
                     quiet=quiet,
@@ -1069,6 +1122,18 @@ def cmd_convert(args: argparse.Namespace) -> int:
         settings["rclone_remote"] = str(args.cloud_remote).strip()
     if getattr(args, "no_rclone", False):
         settings["rclone_enabled"] = False
+    if getattr(args, "proton_backup", False):
+        settings["proton_drive_backup_enabled"] = True
+        settings["proton_drive_after_convert"] = True
+    if getattr(args, "no_proton_backup", False):
+        settings["proton_drive_backup_enabled"] = False
+        settings["proton_drive_after_convert"] = False
+    if getattr(args, "proton_folder", None):
+        from .util.proton_drive import normalize_remote_folder
+
+        settings["proton_drive_remote_folder"] = normalize_remote_folder(
+            str(args.proton_folder)
+        )
     if getattr(args, "analytics", False):
         settings["performance_analytics"] = True
     if getattr(args, "no_analytics", False):
@@ -1159,7 +1224,7 @@ def cmd_convert(args: argparse.Namespace) -> int:
                 flush=True,
             )
 
-        _ok, failed = run_batch(
+        _ok, failed, successful_outputs = run_batch(
             jobs,
             settings,
             quiet=args.quiet,
@@ -1187,6 +1252,35 @@ def cmd_convert(args: argparse.Namespace) -> int:
                 print(
                     format_actionable_error(
                         f"Conversion succeeded locally but rclone upload failed: {exc}",
+                        exc=exc,
+                    ),
+                    file=sys.stderr,
+                )
+                return EXIT_FAIL
+
+        from .util.proton_drive import after_convert_enabled, backup_outputs
+
+        if after_convert_enabled(settings) and successful_outputs:
+            try:
+                if not args.quiet:
+                    print(
+                        "Backing up outputs to Proton Drive…",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                result = backup_outputs(successful_outputs, settings=settings)
+                if not args.quiet:
+                    print(
+                        f"Proton Drive backup: {result['uploaded']} file(s) → "
+                        f"{result['remote']}",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+            except (FileNotFoundError, RuntimeError, ValueError, OSError) as exc:
+                print(
+                    format_actionable_error(
+                        f"Conversion succeeded locally but Proton Drive backup "
+                        f"failed: {exc}",
                         exc=exc,
                     ),
                     file=sys.stderr,
@@ -1320,11 +1414,43 @@ def build_parser() -> argparse.ArgumentParser:
     p_cloud = sub.add_parser(
         "list-cloud",
         help=(
-            "Show rclone availability/remotes and local cloud sync roots "
+            "Show rclone / Proton Drive status and local cloud sync roots "
             "(Dropbox / Google Drive / OneDrive / Nextcloud / configured)"
         ),
     )
     p_cloud.set_defaults(func=cmd_list_cloud)
+
+    p_proton = sub.add_parser(
+        "backup-proton",
+        help=(
+            "Upload conversion outputs (or a directory) to Proton Drive "
+            "via the real proton-drive CLI (requires auth session)"
+        ),
+    )
+    p_proton.add_argument(
+        "paths",
+        nargs="*",
+        help="Local file(s) to upload (default: settings output_dir as a folder)",
+    )
+    p_proton.add_argument(
+        "-d",
+        "--directory",
+        help="Upload an entire local directory (folder merge on Proton Drive)",
+    )
+    p_proton.add_argument(
+        "--proton-folder",
+        help="Remote Proton Drive folder (default: settings or /my-files/HandForge)",
+    )
+    p_proton.add_argument(
+        "--proton-binary",
+        help="Path to proton-drive binary (default: PATH)",
+    )
+    p_proton.add_argument(
+        "--include-config",
+        action="store_true",
+        help="Also upload ~/.handforge/settings.json and presets.json",
+    )
+    p_proton.set_defaults(func=cmd_backup_proton)
 
     p_analytics = sub.add_parser(
         "list-analytics",
@@ -1515,6 +1641,23 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-rclone",
         action="store_true",
         help="Disable rclone remote:path handling for this run",
+    )
+    p_conv.add_argument(
+        "--proton-backup",
+        action="store_true",
+        help=(
+            "After a successful batch, upload outputs to Proton Drive "
+            "(requires proton-drive CLI auth session)"
+        ),
+    )
+    p_conv.add_argument(
+        "--no-proton-backup",
+        action="store_true",
+        help="Disable Proton Drive backup for this run even if enabled in settings",
+    )
+    p_conv.add_argument(
+        "--proton-folder",
+        help="Proton Drive remote folder for this run (e.g. /my-files/HandForge/Out)",
     )
     p_conv.add_argument(
         "-p",

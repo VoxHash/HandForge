@@ -275,11 +275,22 @@ Full CLI reference: [cli.md](cli.md). Settings file and keys: [configuration.md]
 
 More cases: [troubleshooting.md](troubleshooting.md).
 
+## 8. Cloud backup (ops)
+
+Local sync folders and optional rclone are covered in [cloud.md](cloud.md). For **Proton Drive**:
+
+1. Install / authenticate the real CLI: `proton-drive auth login` (optional: run `proton-drive-desktop`).
+2. Preferences → **Cloud → Proton Drive backup** (opt-in) or CLI `handforge backup-proton` / `convert --proton-backup`.
+3. Confirm with `handforge list-cloud` (shows Proton Drive auth + remote folder).
+
+HandForge does not store Proton credentials.
+
 ## Related docs
 
 - [Installation (reference)](installation.md)
 - [Getting started](getting-started.md)
 - [Usage (GUI)](usage.md)
+- [Cloud & Proton Drive](cloud.md)
 - [CLI](cli.md)
 - [Quick start](quick-start.md)
 

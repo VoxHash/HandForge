@@ -567,6 +567,66 @@ class PreferencesDialog(QDialog):
         rclone_layout.addRow("", refresh_rclone_btn)
 
         layout.addWidget(rclone_group)
+
+        # Proton Drive (opt-in backup via real proton-drive CLI)
+        proton_group = QGroupBox("Proton Drive backup (optional)")
+        proton_layout = QFormLayout(proton_group)
+        proton_hint = QLabel(
+            "Upload conversion outputs to Proton Drive using the real "
+            "proton-drive CLI on this machine. Opt-in only. HandForge never "
+            "stores Proton credentials — run `proton-drive auth login` "
+            "(or use proton-drive-desktop) first."
+        )
+        proton_hint.setWordWrap(True)
+        proton_layout.addRow(proton_hint)
+
+        self.proton_backup_enabled_check = QCheckBox(
+            "Enable Proton Drive backup after conversion"
+        )
+        self.proton_backup_enabled_check.setToolTip(
+            "When enabled, successful outputs are uploaded to the remote folder "
+            "after a batch (and via CLI backup-proton / convert --proton-backup)"
+        )
+        proton_layout.addRow("", self.proton_backup_enabled_check)
+
+        self.proton_after_convert_check = QCheckBox(
+            "Upload automatically after each successful batch"
+        )
+        self.proton_after_convert_check.setToolTip(
+            "If unchecked, backup only runs when you use CLI `backup-proton` "
+            "or convert --proton-backup"
+        )
+        proton_layout.addRow("", self.proton_after_convert_check)
+
+        self.proton_backup_config_check = QCheckBox(
+            "Also back up settings.json / presets.json"
+        )
+        self.proton_backup_config_check.setToolTip(
+            "Uploads ~/.handforge/settings.json and presets.json with outputs "
+            "(no Proton tokens — those stay in the CLI session)"
+        )
+        proton_layout.addRow("", self.proton_backup_config_check)
+
+        self.proton_remote_folder_edit = QLineEdit()
+        self.proton_remote_folder_edit.setPlaceholderText("/my-files/HandForge")
+        self.proton_remote_folder_edit.setToolTip(
+            "Remote Proton Drive folder (e.g. /my-files/HandForge/Out)"
+        )
+        proton_layout.addRow("Remote folder:", self.proton_remote_folder_edit)
+
+        self.proton_binary_edit = QLineEdit()
+        self.proton_binary_edit.setPlaceholderText("proton-drive (PATH) or full path")
+        proton_layout.addRow("proton-drive binary:", self.proton_binary_edit)
+
+        self.proton_status_label = QLabel("")
+        self.proton_status_label.setWordWrap(True)
+        proton_layout.addRow("Status:", self.proton_status_label)
+
+        refresh_proton_btn = QPushButton("Refresh Proton Drive status")
+        refresh_proton_btn.clicked.connect(self.refresh_proton_drive_status)
+        proton_layout.addRow("", refresh_proton_btn)
+
+        layout.addWidget(proton_group)
         layout.addStretch()
         return widget
 
@@ -817,7 +877,22 @@ class PreferencesDialog(QDialog):
             else:
                 self.rclone_remote_combo.setEditText(current)
         self.rclone_remote_combo.blockSignals(False)
-    
+
+    def refresh_proton_drive_status(self):
+        """Update Proton Drive CLI availability / auth from the real binary."""
+        from ..util.proton_drive import get_status
+
+        probe = dict(self.settings)
+        probe["proton_drive_backup_enabled"] = self.proton_backup_enabled_check.isChecked()
+        probe["proton_drive_remote_folder"] = (
+            self.proton_remote_folder_edit.text().strip() or "/my-files/HandForge"
+        )
+        probe["proton_drive_binary"] = self.proton_binary_edit.text().strip()
+        probe["proton_drive_after_convert"] = self.proton_after_convert_check.isChecked()
+        probe["proton_drive_backup_config"] = self.proton_backup_config_check.isChecked()
+        st = get_status(probe)
+        self.proton_status_label.setText(st.message)
+
     def load_settings(self):
         """Load settings into UI."""
         # General
@@ -937,7 +1012,24 @@ class PreferencesDialog(QDialog):
                 self.rclone_remote_combo.setCurrentIndex(idx)
             else:
                 self.rclone_remote_combo.setEditText(remote.rstrip(":"))
-        
+
+        self.proton_backup_enabled_check.setChecked(
+            bool(self.settings.get("proton_drive_backup_enabled", False))
+        )
+        self.proton_after_convert_check.setChecked(
+            bool(self.settings.get("proton_drive_after_convert", True))
+        )
+        self.proton_backup_config_check.setChecked(
+            bool(self.settings.get("proton_drive_backup_config", False))
+        )
+        self.proton_remote_folder_edit.setText(
+            str(self.settings.get("proton_drive_remote_folder") or "/my-files/HandForge")
+        )
+        self.proton_binary_edit.setText(
+            str(self.settings.get("proton_drive_binary") or "")
+        )
+        self.refresh_proton_drive_status()
+
         # Advanced
         self.auto_retry_check.setChecked(self.settings.get("auto_retry_enabled", True))
         self.ewma_alpha_spin.setValue(self.settings.get("ewma_alpha", 0.3))
@@ -1038,7 +1130,19 @@ class PreferencesDialog(QDialog):
         settings["rclone_enabled"] = self.rclone_enabled_check.isChecked()
         settings["rclone_binary"] = self.rclone_binary_edit.text().strip()
         settings["rclone_remote"] = self.rclone_remote_combo.currentText().strip()
-        
+        settings["proton_drive_backup_enabled"] = (
+            self.proton_backup_enabled_check.isChecked()
+        )
+        settings["proton_drive_after_convert"] = (
+            self.proton_after_convert_check.isChecked()
+        )
+        settings["proton_drive_backup_config"] = (
+            self.proton_backup_config_check.isChecked()
+        )
+        folder = self.proton_remote_folder_edit.text().strip()
+        settings["proton_drive_remote_folder"] = folder or "/my-files/HandForge"
+        settings["proton_drive_binary"] = self.proton_binary_edit.text().strip()
+
         # Advanced
         settings["auto_retry_enabled"] = self.auto_retry_check.isChecked()
         settings["ewma_alpha"] = self.ewma_alpha_spin.value()

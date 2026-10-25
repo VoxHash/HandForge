@@ -66,6 +66,7 @@ These are **not** near-term ports of the desktop PyQt6 UI. They depend on a shar
 Next-phase ops/docs milestone after feature ROADMAP items are complete: make desktop install and day-to-day use reliable for any compatible OS.
 
 - ✅ **Desktop install + usage guide (Windows / Linux / macOS)** — end-to-end project `.venv` + `pip install -e .`, FFmpeg per OS, GUI (`python -m handforge.app`) and CLI (`handforge` / `python -m handforge`) post-install use; [docs/desktop.md](docs/desktop.md); linked from [docs/index.md](docs/index.md), [README.md](README.md), [docs/installation.md](docs/installation.md), [docs/getting-started.md](docs/getting-started.md)
+- ✅ **Proton Drive cloud backup** — opt-in backup of conversion outputs (and optionally `~/.handforge` config) via the real **proton-drive** CLI (`filesystem upload` / `create-folder`); Preferences → Cloud → Proton Drive; CLI `backup-proton`, `convert --proton-backup` / `--no-proton-backup`; status in `list-cloud`; docs in [docs/cloud.md](docs/cloud.md) + [docs/desktop.md](docs/desktop.md); no API keys stored in HandForge (uses existing CLI auth session)
 
 ## 2027 Continuity → Desktop polish
 
@@ -110,6 +111,7 @@ Ops/polish after E2E desktop docs: ship a polished day-to-day GUI on Linux/Windo
 - ✅ Desktop polish: Linux `.desktop` launcher (`handforge install-desktop`, `handforge-gui`, hicolor icons, `packaging/linux/handforge.desktop`)
 - ✅ Desktop polish: CI packaging for desktop wheels (`.github/workflows/packaging.yml`; sdist/wheel + package data; artifacts; optional PyPI OIDC)
 - ✅ Desktop polish: modern media desktop shell (sidebar + Convert/Library stages, forge theme, Manrope, motion)
+- ✅ Proton Drive cloud backup (opt-in via real `proton-drive` CLI; Preferences → Cloud; `backup-proton` / `convert --proton-backup`; [docs/cloud.md](docs/cloud.md))
 
 ### v1.3.2 (Q4 2026)
 - ✅ Permission-aware output directory handling and pre-conversion write checks

@@ -117,6 +117,12 @@ def load_settings() -> Dict[str, Any]:
         "rclone_enabled": True,  # allow remote:path when rclone is installed
         "rclone_remote": "",  # default remote name (e.g. "gdrive")
         "rclone_binary": "",  # optional path to rclone; empty = PATH lookup
+        # Opt-in Proton Drive backup via real proton-drive CLI (no tokens in HandForge)
+        "proton_drive_backup_enabled": False,
+        "proton_drive_remote_folder": "/my-files/HandForge",
+        "proton_drive_binary": "",  # optional path; empty = PATH lookup
+        "proton_drive_backup_config": False,  # also upload settings.json / presets.json
+        "proton_drive_after_convert": True,  # when backup enabled, upload after batch
         # Opt-in local performance analytics (never uploaded)
         "performance_analytics": False,
         # Opt-in companion remote queue monitor (HTTP + mobile web UI)

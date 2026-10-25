@@ -283,7 +283,7 @@ print(plan.backend, plan.encoder, plan.used_hw)
 
 ### handforge.util.cloud
 
-Local cloud sync roots and optional rclone helpers (no API keys stored).
+Local cloud sync roots and optional rclone helpers (no API keys stored). `format_cloud_status` also appends Proton Drive status.
 
 ```python
 from handforge.util.cloud import (
@@ -300,6 +300,22 @@ print(format_cloud_status(settings))
 print(rclone_available(settings), list_rclone_remotes(settings))
 for root in all_cloud_roots(settings):
     print(root.kind, root.path)
+```
+
+### handforge.util.proton_drive
+
+Opt-in Proton Drive backup via the real `proton-drive` CLI (no tokens stored in HandForge).
+
+```python
+from handforge.util.proton_drive import (
+    backup_outputs,
+    format_proton_status,
+    get_status,
+    proton_drive_available,
+)
+
+print(format_proton_status(settings))
+print(get_status(settings).authenticated)
 ```
 
 ### handforge.util.analytics
