@@ -103,6 +103,20 @@ python -m handforge watch ~/Inbox -o ~/HandForge_Output -f mp3 --bitrate 192 --o
 python -m handforge watch ~/Inbox --preset "MP3 192k" --interval 5
 ```
 
+### `install-desktop` (Linux)
+
+Install a FreeDesktop `.desktop` launcher and hicolor icons so HandForge appears in the application menu. Uses the absolute `handforge-gui` path from the active install / `.venv`.
+
+```bash
+handforge install-desktop
+handforge install-desktop --dry-run
+handforge install-desktop --uninstall
+# optional system-wide (needs write access to /usr/share):
+handforge install-desktop --system
+```
+
+See [desktop.md](desktop.md) for paths and troubleshooting. Non-Linux platforms exit with a usage error.
+
 ### `serve`
 
 Start the companion HTTP server with shared-workstation control (web UI + `GET /api/status` + live `GET /api/events` SSE + mutating `/api/control/*` wired to a live Orchestrator). Restores unfinished jobs from `~/.handforge/queue.json` when present. Default bind is localhost; use `--lan` for phone-on-LAN. A token is always minted for `serve` so control writes work; keep it private.

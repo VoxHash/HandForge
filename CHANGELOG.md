@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Added
+- Linux FreeDesktop launcher: `handforge install-desktop` (or `scripts/install-desktop.sh`) installs `dev.voxhash.HandForge.desktop` + hicolor icons under `~/.local/share` (optional `--system` / `--prefix` / `--uninstall`); `handforge-gui` console script for absolute `Exec=`; template in `packaging/linux/handforge.desktop`; see [docs/desktop.md](docs/desktop.md)
 - Desktop GUI / system-tray icon: multi-size PNGs in `handforge/resources/`, `handforge.util.icons` loads them (QPainter fallback if missing), window + tray + `QApplication` icon set before tray `show()`; regenerate with `scripts/generate-app-icons.py`; package-data includes `resources/*.png`; see [docs/desktop.md](docs/desktop.md)
 - Desktop install & usage guide for Windows / Linux / macOS: canonical project `.venv`, `pip install -e .`, FFmpeg per OS, GUI and CLI post-install paths in [docs/desktop.md](docs/desktop.md); ROADMAP **E2E Workflow & Ops** milestone; linked from README, docs index, installation, getting-started, quick-start
 - On-headset heavy encodes for Meta Quest: reuse Android companion APK on Quest (Horizon OS is Android) — `LocalEncodeActivity` with `tier: "heavy"` presets (720p HQ / 1080p / 8 Mbps capture + high-bitrate audio), Quest chrome + thermal note, `HandForgeNative` JS bridge from `/quest.html` WebView; Quest Browser still drives LAN host encode; docs in `companions/quest/` + `docs/companions.md`; pytest + Kotlin unit coverage

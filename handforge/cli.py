@@ -825,6 +825,81 @@ def cmd_watch(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_install_desktop(args: argparse.Namespace) -> int:
+    """Install (or remove) a Linux FreeDesktop .desktop launcher + icons."""
+    from .util import desktop_linux as desk
+
+    if not desk.is_linux():
+        print(
+            "install-desktop is only supported on Linux "
+            "(FreeDesktop .desktop + hicolor icons).",
+            file=sys.stderr,
+        )
+        return EXIT_USAGE
+
+    prefix = Path(args.prefix).expanduser() if getattr(args, "prefix", None) else None
+    system = bool(getattr(args, "system", False))
+    dry_run = bool(getattr(args, "dry_run", False))
+
+    if getattr(args, "uninstall", False):
+        removed = desk.uninstall_desktop(
+            system=system, prefix=prefix, dry_run=dry_run
+        )
+        if not removed:
+            print("No HandForge desktop entry or icons found to remove.")
+            return EXIT_OK
+        action = "Would remove" if dry_run else "Removed"
+        for path in removed:
+            print(f"{action}: {path}")
+        return EXIT_OK
+
+    try:
+        result = desk.install_desktop(
+            system=system, prefix=prefix, dry_run=dry_run
+        )
+    except OSError as exc:
+        print(f"install-desktop failed: {exc}", file=sys.stderr)
+        return EXIT_FAIL
+    except PermissionError as exc:
+        print(
+            f"Permission denied writing desktop entry: {exc}\n"
+            "Use the default user install (~/.local/share) or run with "
+            "appropriate privileges for --system.",
+            file=sys.stderr,
+        )
+        return EXIT_FAIL
+
+    action = "Would write" if dry_run else "Installed"
+    print(f"{action} desktop entry: {result.desktop_path}")
+    print(f"  Exec={result.exec_line}")
+    for icon in result.icon_paths:
+        print(f"{action} icon: {icon}")
+    if not result.icon_paths:
+        print(
+            "Warning: no packaged icons found under handforge/resources/; "
+            "Icon=dev.voxhash.HandForge may be missing until reinstall.",
+            file=sys.stderr,
+        )
+
+    if not dry_run and result.desktop_path.is_file():
+        ok, msg = desk.validate_desktop_file(result.desktop_path)
+        if ok:
+            if msg and msg != "OK":
+                print(f"desktop-file-validate: {msg}")
+            else:
+                print("desktop-file-validate: OK")
+        else:
+            print(f"desktop-file-validate reported issues:\n{msg}", file=sys.stderr)
+            return EXIT_FAIL
+
+    if not dry_run:
+        print(
+            "HandForge should appear in your application menu. "
+            "Log out/in or refresh the menu if it does not show yet."
+        )
+    return EXIT_OK
+
+
 def cmd_serve(args: argparse.Namespace) -> int:
     """Start the companion HTTP server with shared-workstation control."""
     import time
@@ -1379,6 +1454,34 @@ def build_parser() -> argparse.ArgumentParser:
         help="Bind 0.0.0.0 for phone-on-LAN access (auto-mints token if unset)",
     )
     p_serve.set_defaults(func=cmd_serve)
+
+    p_desk = sub.add_parser(
+        "install-desktop",
+        help=(
+            "Linux: install FreeDesktop .desktop launcher + hicolor icons "
+            "(user app menu after pip install)"
+        ),
+    )
+    p_desk.add_argument(
+        "--system",
+        action="store_true",
+        help="Install under /usr/share (requires write access; prefer user install)",
+    )
+    p_desk.add_argument(
+        "--prefix",
+        help="Install under PREFIX/applications and PREFIX/icons (overrides --system)",
+    )
+    p_desk.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print paths that would be written without installing",
+    )
+    p_desk.add_argument(
+        "--uninstall",
+        action="store_true",
+        help="Remove a previously installed HandForge .desktop and icons",
+    )
+    p_desk.set_defaults(func=cmd_install_desktop)
 
     p_conv = sub.add_parser(
         "convert",

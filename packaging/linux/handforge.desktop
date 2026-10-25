@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=HandForge
+GenericName=Media Converter
+Comment=Convert audio and video with FFmpeg
+# Placeholders filled by `handforge install-desktop` (absolute venv-aware paths).
+# Do not copy this template into ~/.local/share/applications/ unchanged.
+Exec=@HANDFORGE_GUI@
+TryExec=@HANDFORGE_GUI_TRYEXEC@
+Icon=dev.voxhash.HandForge
+Terminal=false
+Categories=AudioVideo;AudioVideoEditing;
+Keywords=convert;ffmpeg;audio;video;encoder;HandForge;
+StartupNotify=true
+StartupWMClass=HandForge

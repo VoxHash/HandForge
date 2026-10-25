@@ -133,15 +133,36 @@ python -c "from handforge.core.native_scheduler import native_available, system_
 From the activated `.venv` (or with the venv `python` on PATH):
 
 ```bash
+handforge-gui
+# equivalent:
 python -m handforge.app
 ```
 
 The GUI sets a packaged HandForge icon on the window and system tray before the tray is shown (so Qt does not warn `QSystemTrayIcon::setVisible: No Icon set`). Minimize-to-tray still follows Preferences → General.
 
+### Linux application menu (`.desktop`)
+
+After `pip install -e .`, register HandForge in the FreeDesktop app menu (user install, no root):
+
+```bash
+handforge install-desktop
+# or from the repo without activating PATH:
+./scripts/install-desktop.sh
+```
+
+This writes:
+
+| Path | Purpose |
+|------|---------|
+| `~/.local/share/applications/dev.voxhash.HandForge.desktop` | Start-menu launcher |
+| `~/.local/share/icons/hicolor/*/apps/dev.voxhash.HandForge.png` | Menu / taskbar icon |
+
+`Exec=` uses the absolute path to `handforge-gui` next to the active interpreter (project `.venv` when you run from that venv), so the menu entry works without activating the shell. Options: `--dry-run`, `--uninstall`, `--system` (`/usr/share`, needs write access), `--prefix DIR`. Template (placeholders): [packaging/linux/handforge.desktop](../packaging/linux/handforge.desktop).
+
 Linux tip: if you are on a remote/SSH session but have a local display:
 
 ```bash
-DISPLAY=:0 python -m handforge.app
+DISPLAY=:0 handforge-gui
 ```
 
 ### First conversion in the GUI
@@ -202,7 +223,7 @@ Full CLI reference: [cli.md](cli.md). Settings file and keys: [configuration.md]
 
 1. Activate `.venv` (or call `.venv`’s `python` / `handforge` directly).
 2. Confirm `ffmpeg -version` still works after OS updates.
-3. GUI: `python -m handforge.app` — or CLI: `handforge convert …`.
+3. GUI: `handforge-gui` / `python -m handforge.app` (Linux menu: `handforge install-desktop`) — or CLI: `handforge convert …`.
 4. Outputs land in the configured output directory; queue can persist in `~/.handforge/queue.json` across restarts.
 5. Companion / Quest / Android shells are separate from desktop install — see [companions.md](companions.md).
 
@@ -216,6 +237,7 @@ Full CLI reference: [cli.md](cli.md). Settings file and keys: [configuration.md]
 | `handforge: command not found` | Use `python -m handforge …` or ensure `.venv` is activated after `pip install -e .` |
 | Permission errors writing output | Change output dir in Preferences, or pick a writable folder with `-o` / `--output-dir` |
 | Tray shows blank / `No Icon set` | Reinstall editable package so `handforge/resources/*.png` is included (`pip install -e .`); icons regenerate via `python scripts/generate-app-icons.py` (Pillow) |
+| App menu entry missing / wrong Python | Re-run `handforge install-desktop` from the `.venv` you use day-to-day; check `Exec=` in `~/.local/share/applications/dev.voxhash.HandForge.desktop` |
 
 More cases: [troubleshooting.md](troubleshooting.md).
 

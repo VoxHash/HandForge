@@ -72,7 +72,7 @@ Next-phase ops/docs milestone after feature ROADMAP items are complete: make des
 Ops/polish after E2E desktop docs: ship a clean day-to-day GUI on Linux/Windows/macOS (icons, launchers, packaging, then a versioned release).
 
 - ✅ **System tray / window icon** — packaged multi-size PNGs under `handforge/resources/`; `handforge.util.icons.app_icon()` / `ensure_tray_icon()` set a non-null `QIcon` before `QSystemTrayIcon.show()` (fixes `QSystemTrayIcon::setVisible: No Icon set`); window + `QApplication` icon; duplicate tray removed from `handforge/app.py`; regenerate via `scripts/generate-app-icons.py`; tests in `tests/test_tray_icon.py`
-- ⬜ **Linux `.desktop` launcher / start-menu integration** — installable `.desktop` + icon path for app menus after `pip install`
+- ✅ **Linux `.desktop` launcher / start-menu integration** — `packaging/linux/handforge.desktop` template; `handforge install-desktop` (or `scripts/install-desktop.sh`) writes FreeDesktop entry + hicolor icons under `~/.local/share` (optional `--system` / `--prefix`); `handforge-gui` console script for absolute `Exec=`; tests in `tests/test_desktop_linux.py`; see [docs/desktop.md](docs/desktop.md)
 - ⬜ **CI packaging for desktop wheels** — GitHub Actions build/publish sdists/wheels with package data (resources icons)
 - ⬜ **Versioned release from Unreleased** — bump past 1.3.2, fold CHANGELOG Unreleased → tagged release
 
@@ -106,6 +106,7 @@ Ops/polish after E2E desktop docs: ship a clean day-to-day GUI on Linux/Windows/
 - ✅ On-headset heavy encodes on Quest: same Android APK (`LocalEncodeActivity`, heavy tier presets, `HandForgeNative` from `/quest.html`); Termux fallback; thermal honesty + LAN host for long jobs (`companions/quest/README.md`)
 - ✅ Desktop install + usage guide for Windows / Linux / macOS (`docs/desktop.md`; canonical `.venv` + editable install; GUI and CLI post-install paths)
 - ✅ Desktop polish: system tray / window icon (`handforge/resources/*.png`, `handforge/util/icons.py`; no Qt “No Icon set” on tray show)
+- ✅ Desktop polish: Linux `.desktop` launcher (`handforge install-desktop`, `handforge-gui`, hicolor icons, `packaging/linux/handforge.desktop`)
 
 ### v1.3.2 (Q4 2026)
 - ✅ Permission-aware output directory handling and pre-conversion write checks
