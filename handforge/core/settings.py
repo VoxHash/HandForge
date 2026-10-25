@@ -108,6 +108,9 @@ def load_settings() -> Dict[str, Any]:
         # Video HW acceleration: auto | software | nvenc | qsv | vaapi | videotoolbox
         "hw_accel": "auto",
         "language": None,  # None = auto-detect, or locale code like 'en', 'ru', etc.
+        # Plugins: ~/.handforge/plugins + HANDFORGE_PLUGIN_DIRS + plugin_dirs
+        "plugins_enabled": True,
+        "plugin_dirs": [],
     }
     
     settings = load_json_file("settings.json", {})

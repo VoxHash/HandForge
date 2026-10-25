@@ -294,6 +294,22 @@ Optional FFmpeg video filters (Preferences → **Video**). All disabled by defau
 
 Full `-vf` order in encodes: deshake → crop → eq → scale → HW upload (when applicable). Multi-pass `vidstab*` is not used (requires a separate analysis pass).
 
+### Plugins
+
+```json
+{
+  "plugins_enabled": true,
+  "plugin_dirs": []
+}
+```
+
+| Key | Default | Notes |
+|-----|---------|-------|
+| `plugins_enabled` | `true` | When false, skip directory and entry-point loading |
+| `plugin_dirs` | `[]` | Extra directories scanned for `<name>/plugin.py` |
+
+Also searched: `~/.handforge/plugins/` and `HANDFORGE_PLUGIN_DIRS`. Full guide: [plugins.md](plugins.md).
+
 ### Codec Thread Caps
 
 Thread count per codec:

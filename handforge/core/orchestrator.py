@@ -59,6 +59,47 @@ class Worker(QThread):
         self._wait_condition.wakeAll()
         self._mutex.unlock()
 
+    def _run_plugin_hooks(
+        self,
+        *,
+        phase: str,
+        dst: str,
+        success: bool,
+        message: str = "",
+    ) -> None:
+        """Run plugin pre/post-convert hooks; log errors without failing the job."""
+        try:
+            from ..plugins import ConvertHookContext, get_registry
+
+            ctx = ConvertHookContext(
+                src=self.job.src,
+                dst=dst or "",
+                format=self.job.format,
+                success=success,
+                job=self.job,
+                settings=self.settings,
+                message=message,
+            )
+            registry = get_registry()
+            if phase == "pre":
+                errors = registry.run_pre_convert(ctx)
+            else:
+                errors = registry.run_post_convert(ctx)
+            for err in errors:
+                self.sig_log.emit(self.wid, f"Plugin {phase}_convert warning: {err}")
+        except Exception as exc:  # noqa: BLE001 — never break encodes for plugins
+            self.sig_log.emit(self.wid, f"Plugin {phase}_convert error: {exc}")
+
+    def _emit_done(self, success: bool, message: str, output_path: str = "") -> None:
+        """Run post-convert hooks, then emit ``sig_done``."""
+        self._run_plugin_hooks(
+            phase="post",
+            dst=output_path,
+            success=success,
+            message=message,
+        )
+        self.sig_done.emit(self.wid, success, message, output_path)
+
     def _fail(
         self,
         message: str,
@@ -72,7 +113,7 @@ class Worker(QThread):
             message, stderr=stderr, exc=exc, include_solutions=True
         )
         self.sig_log.emit(self.wid, f"Error: {user_msg.splitlines()[0]}")
-        self.sig_done.emit(self.wid, False, user_msg, output_path)
+        self._emit_done(False, user_msg, output_path)
 
     def _build_ffmpeg_command(
         self,
@@ -245,7 +286,7 @@ class Worker(QThread):
             if os.path.exists(dst):
                 on_exists = self.settings.get("on_exists", "overwrite")
                 if on_exists == "skip":
-                    self.sig_done.emit(self.wid, True, "Skipped (file exists)", dst)
+                    self._emit_done(True, "Skipped (file exists)", dst)
                     return
                 elif on_exists == "rename":
                     base, ext = os.path.splitext(dst)
@@ -262,6 +303,9 @@ class Worker(QThread):
                     except (PermissionError, OSError):
                         # If we can't fix permissions, FFmpeg will fail with a clear error
                         pass
+
+            # Plugin pre-convert hooks may adjust job fields before FFmpeg runs.
+            self._run_plugin_hooks(phase="pre", dst=dst, success=True)
             
             # For two-pass encoding, first pass outputs to null device
             first_pass_dst = dst
@@ -340,8 +384,7 @@ class Worker(QThread):
                         dst, stderr_hint=error_text
                     )
                     if fb_rc == 0:
-                        self.sig_done.emit(
-                            self.wid,
+                        self._emit_done(
                             True,
                             f"Conversion completed successfully (software fallback)\nSaved to: {dst}",
                             dst,
@@ -680,11 +723,23 @@ class Worker(QThread):
                 if self.job.delete_original and os.path.exists(self.job.src):
                     try:
                         os.remove(self.job.src)
-                        self.sig_done.emit(self.wid, True, f"Conversion completed, original file deleted\nSaved to: {dst}", dst)
+                        self._emit_done(
+                            True,
+                            f"Conversion completed, original file deleted\nSaved to: {dst}",
+                            dst,
+                        )
                     except Exception as e:
-                        self.sig_done.emit(self.wid, True, f"Conversion completed, but failed to delete original: {str(e)}\nSaved to: {dst}", dst)
+                        self._emit_done(
+                            True,
+                            f"Conversion completed, but failed to delete original: {str(e)}\nSaved to: {dst}",
+                            dst,
+                        )
                 else:
-                    self.sig_done.emit(self.wid, True, f"Conversion completed successfully\nSaved to: {dst}", dst)
+                    self._emit_done(
+                        True,
+                        f"Conversion completed successfully\nSaved to: {dst}",
+                        dst,
+                    )
             else:
                 # Prefer buffered stderr (already consumed by the reader thread)
                 stderr_text = "\n".join(stderr_buffer)
@@ -703,8 +758,7 @@ class Worker(QThread):
                     if fb_rc == 0:
                         # Minimal success verification for fallback path
                         if os.path.exists(dst) and os.path.getsize(dst) > 0:
-                            self.sig_done.emit(
-                                self.wid,
+                            self._emit_done(
                                 True,
                                 f"Conversion completed successfully (software fallback)\nSaved to: {dst}",
                                 dst,

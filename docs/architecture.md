@@ -114,6 +114,16 @@ Probes `ffmpeg -encoders` and runs a short lavfi encode to verify NVENC, Quick S
 
 `build_video_filter_graph()` assembles real FFmpeg filters: `deshake` (single-pass stabilization) and `eq` (brightness / contrast / saturation). `build_ffmpeg_cmd` inserts them into the software `-vf` chain before scale and HW upload (`format` / `hwupload`), so color/stabilize work with both software and HW encoders. Multi-pass `vidstabdetect`/`vidstabtransform` is not used (needs a separate analysis pass); `deshake` is the practical single-pass default. Defaults are all off.
 
+### Plugins (`plugins/`)
+
+Lightweight extensibility without forking:
+
+- **Discovery** — `~/.handforge/plugins/<name>/plugin.py`, `HANDFORGE_PLUGIN_DIRS` / settings `plugin_dirs`, and packaging entry points (`handforge.plugins`)
+- **Presets** — `register_preset()` merges into `all_presets()` (custom presets still win on name clash)
+- **Hooks** — `register_pre_convert` / `register_post_convert` run inside Orchestrator workers around each encode; failures are logged only
+
+See [plugins.md](plugins.md) and the in-repo example under `examples/plugins/archive_flac_sidecar/`.
+
 ## Data Flow
 
 ```

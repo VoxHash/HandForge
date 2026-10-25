@@ -133,8 +133,14 @@ def template_options(template: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def all_presets() -> Dict[str, Dict[str, Any]]:
-    """Return built-in presets merged with user custom presets (custom wins)."""
+    """Return built-in + plugin + custom presets (custom wins on name clash)."""
     merged = dict(BUILTIN_PRESETS)
+    try:
+        from ..plugins import get_registry
+
+        merged.update(get_registry().presets)
+    except Exception:
+        pass
     merged.update(load_custom_presets())
     return merged
 

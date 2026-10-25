@@ -18,6 +18,7 @@ Welcome to the HandForge documentation! HandForge is a cross-platform audio and 
 
 - [API Reference](api.md) - API documentation
 - [Architecture](architecture.md) - System architecture and design
+- [Plugins](plugins.md) - Extensibility: presets and convert hooks
 
 ## Examples
 

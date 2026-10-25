@@ -24,6 +24,33 @@ presets = settings.load_custom_presets()
 settings.save_custom_presets({"My Preset": {...}})
 ```
 
+### handforge.plugins
+
+Plugin discovery and extension hooks (presets + pre/post-convert). See [plugins.md](plugins.md).
+
+```python
+from handforge.plugins import (
+    ensure_plugins_loaded,
+    get_registry,
+    ConvertHookContext,
+    PluginInfo,
+)
+
+ensure_plugins_loaded({"plugins_enabled": True, "plugin_dirs": []})
+registry = get_registry()
+print(registry.presets)
+print(len(registry.post_convert_hooks))
+```
+
+A plugin module exposes:
+
+```python
+def register(registry):
+    registry.register_preset("Name", {"format": "mp3", "mode": "CBR", "bitrate": "128"})
+    registry.register_post_convert(lambda ctx: None)
+    return PluginInfo(name="my_plugin", version="1.0.0")
+```
+
 ### handforge.core.presets
 
 Built-in presets, curated template library, and import/export.
@@ -274,6 +301,10 @@ handforge/
 │   ├── models.py          # Data models (Job)
 │   ├── orchestrator.py    # Conversion orchestrator
 │   └── settings.py        # Settings management
+├── plugins/
+│   ├── api.py             # PluginInfo, ConvertHookContext
+│   ├── loader.py          # Directory + entry-point discovery
+│   └── registry.py        # Preset / hook registry
 ├── dialogs/
 │   ├── auto_retry.py      # Auto-retry dialog
 │   ├── metadata.py        # Metadata editor
@@ -283,7 +314,6 @@ handforge/
 │   └── main_window.py     # Main application window
 └── util/
     ├── audio_filters.py   # EQ / compressor / limiter / denoise graphs
-    ├── video_filters.py   # brightness / contrast / saturation / deshake
     ├── video_filters.py   # brightness / contrast / saturation / deshake
     ├── errors.py          # Actionable error classification / formatting
     ├── ffmpeg.py          # FFmpeg command builder

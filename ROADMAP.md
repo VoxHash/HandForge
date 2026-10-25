@@ -21,7 +21,7 @@ High-level milestones and planned features for HandForge.
 - ✅ Hardware acceleration support (NVENC, QuickSync, VAAPI)
 - ✅ Advanced audio filters (EQ, compressor, limiter, noise reduction)
 - ✅ Video filters (brightness, contrast, saturation, stabilization)
-- Plugin system architecture for extensibility
+- ✅ Plugin system architecture for extensibility
 
 ### Platform & Integration
 - Cloud storage integration (pick up / save to remote folders)
@@ -57,6 +57,7 @@ These are **not** near-term ports of the desktop PyQt6 UI. They depend on a shar
 - ✅ Hardware acceleration for video encodes (`handforge/util/hwaccel.py`): probe FFmpeg for NVENC / Quick Sync / VAAPI / VideoToolbox; Preferences + CLI `--hw-accel` / `list-hw-accel`; Auto selects a working backend and falls back to libx264/libx265 on failure
 - ✅ Advanced audio filters (`handforge/util/audio_filters.py`): FFmpeg `equalizer` (3-band), `acompressor`, `alimiter`, `afftdn`; Preferences Audio tab + CLI `--eq` / `--compressor` / `--limiter` / `--denoise`; off by default
 - ✅ Video filters (`handforge/util/video_filters.py`): FFmpeg `eq` (brightness / contrast / saturation) and single-pass `deshake` stabilization; Preferences Video tab + CLI `--video-color` / `--brightness` / `--contrast` / `--saturation` / `--stabilize`; off by default; CPU filters before HW upload
+- ✅ Plugin system (`handforge/plugins/`): directory + `handforge.plugins` entry-point discovery; extension points for presets and pre/post-convert hooks wired into Orchestrator workers and `all_presets()`; example `examples/plugins/archive_flac_sidecar/`; CLI `list-plugins`; see [docs/plugins.md](docs/plugins.md)
 
 ### v1.3.2 (Q4 2026)
 - ✅ Permission-aware output directory handling and pre-conversion write checks

@@ -387,10 +387,22 @@ def _format_preset_line(name: str, tag: str, preset: Dict[str, Any]) -> str:
 
 
 def cmd_list_presets(args: argparse.Namespace) -> int:
+    from .core.settings import load_custom_presets
+    from .plugins import get_registry
+
     presets = all_presets()
     builtin_names = set(BUILTIN_PRESETS)
+    plugin_names = set(get_registry().presets)
+    custom_names = set(load_custom_presets())
     for name in sorted(presets.keys()):
-        tag = "builtin" if name in builtin_names else "custom"
+        if name in custom_names:
+            tag = "custom"
+        elif name in plugin_names:
+            tag = "plugin"
+        elif name in builtin_names:
+            tag = "builtin"
+        else:
+            tag = "custom"
         print(_format_preset_line(name, tag, presets[name]))
     if getattr(args, "include_templates", False):
         for template in list_templates():
@@ -400,6 +412,45 @@ def cmd_list_presets(args: argparse.Namespace) -> int:
                     name, "template", template.get("options") or {}
                 )
             )
+    return EXIT_OK
+
+
+def cmd_list_plugins(args: argparse.Namespace) -> int:
+    """List discovered plugins and their contributions."""
+    from .plugins import ensure_plugins_loaded, get_registry
+
+    ensure_plugins_loaded(load_settings(), reload=True)
+    registry = get_registry()
+    plugins = registry.loaded_plugins
+    if not plugins:
+        print("No plugins loaded.")
+        print(
+            "Install under ~/.handforge/plugins/<name>/plugin.py, "
+            "set HANDFORGE_PLUGIN_DIRS, or use entry points "
+            "(group handforge.plugins).",
+            file=sys.stderr,
+        )
+        return EXIT_OK
+    for loaded in plugins:
+        info = loaded.info
+        status = "ok" if not loaded.errors else "error"
+        print(
+            f"{info.name}\tv={info.version}\t[{info.source}]\t{status}"
+            + (f"\t{info.path}" if info.path else "")
+        )
+        if info.description:
+            print(f"  {info.description}")
+        for err in loaded.errors:
+            print(f"  error: {err}", file=sys.stderr)
+    if getattr(args, "verbose", False):
+        presets = registry.presets
+        print(
+            f"presets={len(presets)} "
+            f"pre_convert={len(registry.pre_convert_hooks)} "
+            f"post_convert={len(registry.post_convert_hooks)}"
+        )
+        for name in sorted(presets):
+            print(f"  preset: {name} → format={presets[name].get('format')}")
     return EXIT_OK
 
 
@@ -687,6 +738,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_hw.set_defaults(func=cmd_list_hw_accel)
 
+    p_plugins = sub.add_parser(
+        "list-plugins",
+        help="List discovered HandForge plugins (directory + entry points)",
+    )
+    p_plugins.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Show registered presets and hook counts",
+    )
+    p_plugins.set_defaults(func=cmd_list_plugins)
+
     p_conv = sub.add_parser(
         "convert",
         help="Convert one or more media files or directories",
@@ -872,6 +935,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
+    from .plugins import ensure_plugins_loaded
+
+    ensure_plugins_loaded(load_settings())
     parser = build_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
     return int(args.func(args))

@@ -22,12 +22,23 @@ GUI remains: `python -m handforge.app`
 
 ### `list-presets`
 
-List built-in presets and any custom presets from `~/.handforge/presets.json`.
+List built-in, plugin, and custom presets from `~/.handforge/presets.json`.
 
 ```bash
 python -m handforge list-presets
 python -m handforge list-presets --include-templates
 ```
+
+### `list-plugins`
+
+List discovered plugins (directory + entry points) and optionally their presets/hooks.
+
+```bash
+python -m handforge list-plugins
+python -m handforge list-plugins -v
+```
+
+See [plugins.md](plugins.md).
 
 ### `list-templates`
 
