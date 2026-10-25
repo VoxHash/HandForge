@@ -110,6 +110,10 @@ Probes `ffmpeg -encoders` and runs a short lavfi encode to verify NVENC, Quick S
 
 `build_audio_filter_graph()` assembles real FFmpeg filters: `afftdn` (denoise), `equalizer` (3-band EQ), `acompressor`, `alimiter`, plus existing fade / `loudnorm`. `build_ffmpeg_cmd` applies the joined `-af` chain for audio and video jobs when any filter is enabled. Defaults are all off.
 
+### Video filters (`util/video_filters.py`)
+
+`build_video_filter_graph()` assembles real FFmpeg filters: `deshake` (single-pass stabilization) and `eq` (brightness / contrast / saturation). `build_ffmpeg_cmd` inserts them into the software `-vf` chain before scale and HW upload (`format` / `hwupload`), so color/stabilize work with both software and HW encoders. Multi-pass `vidstabdetect`/`vidstabtransform` is not used (needs a separate analysis pass); `deshake` is the practical single-pass default. Defaults are all off.
+
 ## Data Flow
 
 ```

@@ -966,6 +966,18 @@ class MainWindow(QMainWindow):
             job.denoise_nr = self.settings.get("denoise_nr", 12.0)
             job.denoise_nf = self.settings.get("denoise_nf", -50.0)
             job.denoise_track_noise = self.settings.get("denoise_track_noise", True)
+            job.video_color_enabled = self.settings.get("video_color_enabled", False)
+            job.video_brightness = self.settings.get("video_brightness", 0.0)
+            job.video_contrast = self.settings.get("video_contrast", 1.0)
+            job.video_saturation = self.settings.get("video_saturation", 1.0)
+            job.video_stabilize_enabled = self.settings.get(
+                "video_stabilize_enabled", False
+            )
+            job.video_stabilize_rx = int(self.settings.get("video_stabilize_rx", 16))
+            job.video_stabilize_ry = int(self.settings.get("video_stabilize_ry", 16))
+            job.video_stabilize_edge = self.settings.get(
+                "video_stabilize_edge", "mirror"
+            )
             
             # Video conversion options
             if src_is_video and dst_is_video:

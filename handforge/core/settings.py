@@ -75,6 +75,15 @@ def load_settings() -> Dict[str, Any]:
         "denoise_nr": 12.0,
         "denoise_nf": -50.0,
         "denoise_track_noise": True,
+        # Advanced video filters (disabled by default — see util/video_filters.py)
+        "video_color_enabled": False,
+        "video_brightness": 0.0,
+        "video_contrast": 1.0,
+        "video_saturation": 1.0,
+        "video_stabilize_enabled": False,
+        "video_stabilize_rx": 16,
+        "video_stabilize_ry": 16,
+        "video_stabilize_edge": "mirror",
         "delete_original": False,  # Delete original file after conversion
         "codec_threads": {
             "mp3": 1,

@@ -46,6 +46,15 @@ class Job:
     denoise_nr: float = 12.0
     denoise_nf: float = -50.0
     denoise_track_noise: bool = True
+    # Advanced video filters (FFmpeg eq / deshake)
+    video_color_enabled: bool = False
+    video_brightness: float = 0.0
+    video_contrast: float = 1.0
+    video_saturation: float = 1.0
+    video_stabilize_enabled: bool = False
+    video_stabilize_rx: int = 16
+    video_stabilize_ry: int = 16
+    video_stabilize_edge: str = "mirror"
     threads: int = 1
     custom_args: Optional[str] = None
     # Video conversion options
@@ -125,6 +134,14 @@ class Job:
             "denoise_nr": self.denoise_nr,
             "denoise_nf": self.denoise_nf,
             "denoise_track_noise": self.denoise_track_noise,
+            "video_color_enabled": self.video_color_enabled,
+            "video_brightness": self.video_brightness,
+            "video_contrast": self.video_contrast,
+            "video_saturation": self.video_saturation,
+            "video_stabilize_enabled": self.video_stabilize_enabled,
+            "video_stabilize_rx": self.video_stabilize_rx,
+            "video_stabilize_ry": self.video_stabilize_ry,
+            "video_stabilize_edge": self.video_stabilize_edge,
             "threads": self.threads,
             "custom_args": self.custom_args,
             "video_codec": self.video_codec,

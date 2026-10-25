@@ -147,6 +147,40 @@ cmd = build_ffmpeg_cmd(
     limiter_enabled=True,
     denoise_enabled=True,
 )
+
+# Video color + stabilize (also accepted by build_ffmpeg_cmd)
+cmd = build_ffmpeg_cmd(
+    src="clip.mkv",
+    dst="out.mp4",
+    fmt="mp4",
+    video_color_enabled=True,
+    video_brightness=0.05,
+    video_contrast=1.1,
+    video_saturation=0.95,
+    video_stabilize_enabled=True,
+)
+```
+
+### handforge.util.video_filters
+
+Build ordered FFmpeg `-vf` fragments (deshake → eq). Callers typically wrap with crop / scale / HW upload.
+
+```python
+from handforge.util.video_filters import (
+    build_video_filter_graph,
+    join_video_filters,
+)
+
+parts = build_video_filter_graph(
+    video_color_enabled=True,
+    video_brightness=0.05,
+    video_contrast=1.1,
+    video_saturation=0.95,
+    video_stabilize_enabled=True,
+    video_stabilize_rx=16,
+    video_stabilize_ry=16,
+)
+vf = join_video_filters(parts)  # ready for -vf
 ```
 
 ### handforge.util.audio_filters
@@ -249,6 +283,8 @@ handforge/
 │   └── main_window.py     # Main application window
 └── util/
     ├── audio_filters.py   # EQ / compressor / limiter / denoise graphs
+    ├── video_filters.py   # brightness / contrast / saturation / deshake
+    ├── video_filters.py   # brightness / contrast / saturation / deshake
     ├── errors.py          # Actionable error classification / formatting
     ├── ffmpeg.py          # FFmpeg command builder
     └── hwaccel.py         # HW encoder probe / selection

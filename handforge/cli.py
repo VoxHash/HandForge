@@ -137,6 +137,27 @@ def resolve_conversion_options(args: argparse.Namespace) -> Dict[str, Any]:
         options["denoise_enabled"] = True
         options["denoise_nf"] = args.denoise_nf
 
+    # Advanced video filters — CLI flags override settings when present
+    if getattr(args, "video_color", False):
+        options["video_color_enabled"] = True
+    if getattr(args, "brightness", None) is not None:
+        options["video_color_enabled"] = True
+        options["video_brightness"] = args.brightness
+    if getattr(args, "contrast", None) is not None:
+        options["video_color_enabled"] = True
+        options["video_contrast"] = args.contrast
+    if getattr(args, "saturation", None) is not None:
+        options["video_color_enabled"] = True
+        options["video_saturation"] = args.saturation
+    if getattr(args, "stabilize", False):
+        options["video_stabilize_enabled"] = True
+    if getattr(args, "stabilize_rx", None) is not None:
+        options["video_stabilize_enabled"] = True
+        options["video_stabilize_rx"] = args.stabilize_rx
+    if getattr(args, "stabilize_ry", None) is not None:
+        options["video_stabilize_enabled"] = True
+        options["video_stabilize_ry"] = args.stabilize_ry
+
     if "format" not in options:
         options["format"] = "mp3"
     if "mode" not in options:
@@ -195,6 +216,14 @@ def build_job(
         denoise_nr=float(_af("denoise_nr", 12.0)),
         denoise_nf=float(_af("denoise_nf", -50.0)),
         denoise_track_noise=bool(_af("denoise_track_noise", True)),
+        video_color_enabled=bool(_af("video_color_enabled", False)),
+        video_brightness=float(_af("video_brightness", 0.0)),
+        video_contrast=float(_af("video_contrast", 1.0)),
+        video_saturation=float(_af("video_saturation", 1.0)),
+        video_stabilize_enabled=bool(_af("video_stabilize_enabled", False)),
+        video_stabilize_rx=int(_af("video_stabilize_rx", 16)),
+        video_stabilize_ry=int(_af("video_stabilize_ry", 16)),
+        video_stabilize_edge=str(_af("video_stabilize_edge", "mirror")),
         meta_title=meta.get("title"),
         meta_artist=meta.get("artist"),
         meta_album=meta.get("album"),
@@ -768,6 +797,41 @@ def build_parser() -> argparse.ArgumentParser:
         "--denoise-nf",
         type=float,
         help="Denoise noise floor in dB; enables denoise",
+    )
+    p_conv.add_argument(
+        "--video-color",
+        action="store_true",
+        help="Enable video color adjust (eq brightness/contrast/saturation)",
+    )
+    p_conv.add_argument(
+        "--brightness",
+        type=float,
+        help="Video brightness (−1.0…1.0); enables color adjust",
+    )
+    p_conv.add_argument(
+        "--contrast",
+        type=float,
+        help="Video contrast (typically 0…2); enables color adjust",
+    )
+    p_conv.add_argument(
+        "--saturation",
+        type=float,
+        help="Video saturation (0…3); enables color adjust",
+    )
+    p_conv.add_argument(
+        "--stabilize",
+        action="store_true",
+        help="Enable single-pass video stabilization (deshake)",
+    )
+    p_conv.add_argument(
+        "--stabilize-rx",
+        type=int,
+        help="Stabilization horizontal search range 0–64; enables stabilize",
+    )
+    p_conv.add_argument(
+        "--stabilize-ry",
+        type=int,
+        help="Stabilization vertical search range 0–64; enables stabilize",
     )
     p_conv.add_argument(
         "--parallel",

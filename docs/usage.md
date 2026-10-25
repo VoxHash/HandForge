@@ -355,6 +355,15 @@ Configure EBU R128 normalization:
 
 CLI equivalents: `--eq`, `--compressor`, `--limiter`, `--denoise` (see [CLI](cli.md)).
 
+### Video Filters
+
+1. Open **Settings** → **Preferences** → **Video**
+2. Enable **Color Adjust** and set brightness / contrast / saturation, and/or enable **Stabilization**
+3. Stabilization uses single-pass FFmpeg `deshake` (milder than multi-pass vidstab; works with HW encode because filters run on CPU before upload)
+4. Start a video-to-video conversion — filters apply only when enabled (defaults leave encodes unchanged)
+
+CLI equivalents: `--video-color`, `--brightness`, `--contrast`, `--saturation`, `--stabilize` (see [CLI](cli.md)).
+
 ### EWMA Smoothing
 
 Configure ETA smoothing:

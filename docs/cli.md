@@ -89,6 +89,10 @@ python -m handforge convert clip.mkv -f mp4 --hw-accel software -o ./out
 python -m handforge convert podcast.wav -f mp3 --bitrate 192 \
   --eq --eq-bass=2 --eq-treble=-1 --compressor --limiter --denoise -o ./out
 
+# Video color + single-pass stabilize
+python -m handforge convert clip.mkv -f mp4 \
+  --brightness 0.05 --contrast 1.1 --saturation 0.95 --stabilize -o ./out
+
 # Metadata overrides
 python -m handforge convert input.mp3 --preset "MP3 192k" \
   --title "Song Title" --artist "Artist Name"
@@ -113,6 +117,8 @@ python -m handforge convert ./batch -f flac --mode Lossless --parallel 4 --no-ad
 | `--compressor` / `--compressor-threshold` / `--compressor-ratio` | Dynamics compressor (`acompressor`) |
 | `--limiter` / `--limiter-limit` | Peak limiter (`alimiter`) |
 | `--denoise` / `--denoise-nr` / `--denoise-nf` | FFT noise reduction (`afftdn`) |
+| `--video-color` / `--brightness` / `--contrast` / `--saturation` | Video color via `eq` (brightness −1…1; contrast ~0…2; saturation 0…3) |
+| `--stabilize` / `--stabilize-rx` / `--stabilize-ry` | Single-pass stabilization (`deshake`; rx/ry snapped to multiples of 16) |
 | `--parallel` | Max concurrent jobs (hard ceiling) |
 | `--no-adaptive` | Disable RAM/load-aware concurrency |
 | `--on-exists` | `overwrite`, `skip`, or `rename` |

@@ -241,6 +241,15 @@ def build_ffmpeg_cmd(
     denoise_nr: float = 12.0,
     denoise_nf: float = -50.0,
     denoise_track_noise: bool = True,
+    # Advanced video filters (color / stabilize) — all off by default
+    video_color_enabled: bool = False,
+    video_brightness: float = 0.0,
+    video_contrast: float = 1.0,
+    video_saturation: float = 1.0,
+    video_stabilize_enabled: bool = False,
+    video_stabilize_rx: int = 16,
+    video_stabilize_ry: int = 16,
+    video_stabilize_edge: str = "mirror",
 ) -> List[str]:
     """Build FFmpeg command for audio or video conversion."""
     
@@ -556,12 +565,30 @@ def build_ffmpeg_cmd(
                     cmd.extend(["-preset", quality_preset_x264 or "medium"])
 
         # Software filters first; HW upload filters last (VAAPI/QSV).
+        # Order: stabilize → crop → color (eq) → scale → hwupload.
+        from .video_filters import build_video_filter_graph
+
+        advanced_vf = build_video_filter_graph(
+            video_color_enabled=video_color_enabled,
+            video_brightness=video_brightness,
+            video_contrast=video_contrast,
+            video_saturation=video_saturation,
+            video_stabilize_enabled=video_stabilize_enabled,
+            video_stabilize_rx=video_stabilize_rx,
+            video_stabilize_ry=video_stabilize_ry,
+            video_stabilize_edge=video_stabilize_edge,
+        )
+        # Split stabilize vs color so crop sits between them.
+        stab_vf = [f for f in advanced_vf if f.startswith("deshake=")]
+        color_vf = [f for f in advanced_vf if f.startswith("eq=")]
         sw_vf: List[str] = []
+        sw_vf.extend(stab_vf)
         if crop_width and crop_height:
             crop_filter = f"crop={crop_width}:{crop_height}"
             if crop_x is not None and crop_y is not None:
                 crop_filter += f":{crop_x}:{crop_y}"
             sw_vf.append(crop_filter)
+        sw_vf.extend(color_vf)
         if resolution:
             sw_vf.append(f"scale={resolution.replace('x', ':')}")
         hw_vf = list(hw_plan.vf_filters) if hw_plan and hw_plan.vf_filters else []

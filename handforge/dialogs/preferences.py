@@ -418,6 +418,67 @@ class PreferencesDialog(QDialog):
         reduction_layout.addRow("", self.default_two_pass_check)
         
         layout.addWidget(reduction_group)
+
+        # Color adjust (FFmpeg eq)
+        color_group = QGroupBox("Color Adjust (brightness / contrast / saturation)")
+        color_layout = QFormLayout(color_group)
+        self.video_color_enabled_check = QCheckBox("Enable color adjust")
+        self.video_color_enabled_check.setToolTip(
+            "Apply FFmpeg eq filter (brightness, contrast, saturation) on video encodes"
+        )
+        color_layout.addRow("", self.video_color_enabled_check)
+        self.video_brightness_spin = QDoubleSpinBox()
+        self.video_brightness_spin.setRange(-1.0, 1.0)
+        self.video_brightness_spin.setSingleStep(0.05)
+        self.video_brightness_spin.setDecimals(2)
+        self.video_brightness_spin.setToolTip("Brightness (−1.0 … 1.0; default 0)")
+        color_layout.addRow("Brightness:", self.video_brightness_spin)
+        self.video_contrast_spin = QDoubleSpinBox()
+        self.video_contrast_spin.setRange(0.0, 2.0)
+        self.video_contrast_spin.setSingleStep(0.05)
+        self.video_contrast_spin.setDecimals(2)
+        self.video_contrast_spin.setToolTip("Contrast (typically 0 … 2; default 1)")
+        color_layout.addRow("Contrast:", self.video_contrast_spin)
+        self.video_saturation_spin = QDoubleSpinBox()
+        self.video_saturation_spin.setRange(0.0, 3.0)
+        self.video_saturation_spin.setSingleStep(0.05)
+        self.video_saturation_spin.setDecimals(2)
+        self.video_saturation_spin.setToolTip("Saturation (0 … 3; default 1)")
+        color_layout.addRow("Saturation:", self.video_saturation_spin)
+        layout.addWidget(color_group)
+
+        # Stabilization (FFmpeg deshake — single-pass)
+        stab_group = QGroupBox("Stabilization")
+        stab_layout = QFormLayout(stab_group)
+        self.video_stabilize_enabled_check = QCheckBox("Enable stabilization")
+        self.video_stabilize_enabled_check.setToolTip(
+            "Single-pass shake reduction via FFmpeg deshake. Milder than multi-pass "
+            "vidstab; works with software and HW encode paths (CPU filter before upload)."
+        )
+        stab_layout.addRow("", self.video_stabilize_enabled_check)
+        self.video_stabilize_rx_spin = QSpinBox()
+        self.video_stabilize_rx_spin.setRange(0, 64)
+        self.video_stabilize_rx_spin.setSingleStep(16)
+        self.video_stabilize_rx_spin.setToolTip(
+            "Horizontal search range (deshake rx; snapped to multiple of 16)"
+        )
+        stab_layout.addRow("Search range X:", self.video_stabilize_rx_spin)
+        self.video_stabilize_ry_spin = QSpinBox()
+        self.video_stabilize_ry_spin.setRange(0, 64)
+        self.video_stabilize_ry_spin.setSingleStep(16)
+        self.video_stabilize_ry_spin.setToolTip(
+            "Vertical search range (deshake ry; snapped to multiple of 16)"
+        )
+        stab_layout.addRow("Search range Y:", self.video_stabilize_ry_spin)
+        self.video_stabilize_edge_combo = QComboBox()
+        self.video_stabilize_edge_combo.addItems(
+            ["mirror", "clamp", "original", "blank"]
+        )
+        self.video_stabilize_edge_combo.setToolTip(
+            "How to fill edges after motion compensation"
+        )
+        stab_layout.addRow("Edge fill:", self.video_stabilize_edge_combo)
+        layout.addWidget(stab_group)
         
         layout.addStretch()
         return widget
@@ -557,6 +618,22 @@ class PreferencesDialog(QDialog):
         
         self.default_reduction_factor_spin.setValue(self.settings.get("default_reduction_factor", 7.0))
         self.default_two_pass_check.setChecked(self.settings.get("default_two_pass", False))
+
+        self.video_color_enabled_check.setChecked(
+            self.settings.get("video_color_enabled", False)
+        )
+        self.video_brightness_spin.setValue(self.settings.get("video_brightness", 0.0))
+        self.video_contrast_spin.setValue(self.settings.get("video_contrast", 1.0))
+        self.video_saturation_spin.setValue(self.settings.get("video_saturation", 1.0))
+        self.video_stabilize_enabled_check.setChecked(
+            self.settings.get("video_stabilize_enabled", False)
+        )
+        self.video_stabilize_rx_spin.setValue(self.settings.get("video_stabilize_rx", 16))
+        self.video_stabilize_ry_spin.setValue(self.settings.get("video_stabilize_ry", 16))
+        edge = self.settings.get("video_stabilize_edge", "mirror")
+        edge_index = self.video_stabilize_edge_combo.findText(edge)
+        if edge_index >= 0:
+            self.video_stabilize_edge_combo.setCurrentIndex(edge_index)
         
         # Advanced
         self.auto_retry_check.setChecked(self.settings.get("auto_retry_enabled", True))
@@ -620,6 +697,16 @@ class PreferencesDialog(QDialog):
             settings["hw_accel"] = "auto"
         settings["default_reduction_factor"] = self.default_reduction_factor_spin.value()
         settings["default_two_pass"] = self.default_two_pass_check.isChecked()
+        settings["video_color_enabled"] = self.video_color_enabled_check.isChecked()
+        settings["video_brightness"] = self.video_brightness_spin.value()
+        settings["video_contrast"] = self.video_contrast_spin.value()
+        settings["video_saturation"] = self.video_saturation_spin.value()
+        settings["video_stabilize_enabled"] = (
+            self.video_stabilize_enabled_check.isChecked()
+        )
+        settings["video_stabilize_rx"] = self.video_stabilize_rx_spin.value()
+        settings["video_stabilize_ry"] = self.video_stabilize_ry_spin.value()
+        settings["video_stabilize_edge"] = self.video_stabilize_edge_combo.currentText()
         
         # Advanced
         settings["auto_retry_enabled"] = self.auto_retry_check.isChecked()
@@ -670,6 +757,14 @@ class PreferencesDialog(QDialog):
                 "hw_accel": "auto",
                 "default_reduction_factor": 7.0,
                 "default_two_pass": False,
+                "video_color_enabled": False,
+                "video_brightness": 0.0,
+                "video_contrast": 1.0,
+                "video_saturation": 1.0,
+                "video_stabilize_enabled": False,
+                "video_stabilize_rx": 16,
+                "video_stabilize_ry": 16,
+                "video_stabilize_edge": "mirror",
                 "auto_retry_enabled": True,
                 "ewma_alpha": 0.3,
             }

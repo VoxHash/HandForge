@@ -270,6 +270,30 @@ Optional FFmpeg audio filters (Preferences → **Audio**). All disabled by defau
 
 Filter order in the graph: denoise → EQ → compressor → limiter → fade → loudnorm.
 
+### Video Filters
+
+Optional FFmpeg video filters (Preferences → **Video**). All disabled by default.
+
+```json
+{
+  "video_color_enabled": false,
+  "video_brightness": 0.0,
+  "video_contrast": 1.0,
+  "video_saturation": 1.0,
+  "video_stabilize_enabled": false,
+  "video_stabilize_rx": 16,
+  "video_stabilize_ry": 16,
+  "video_stabilize_edge": "mirror"
+}
+```
+
+| Filter | FFmpeg | Notes |
+|--------|--------|-------|
+| Color | `eq` | Brightness (−1…1), contrast (~0…2), saturation (0…3) |
+| Stabilize | `deshake` | Single-pass; `rx`/`ry` search range 0–64 (multiples of 16); edge fill mode |
+
+Full `-vf` order in encodes: deshake → crop → eq → scale → HW upload (when applicable). Multi-pass `vidstab*` is not used (requires a separate analysis pass).
+
 ### Codec Thread Caps
 
 Thread count per codec:

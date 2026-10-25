@@ -15,6 +15,11 @@ def test_load_settings_merges_defaults(isolated_config_dir):
     assert loaded["compressor_enabled"] is False
     assert loaded["limiter_enabled"] is False
     assert loaded["denoise_enabled"] is False
+    assert loaded["video_color_enabled"] is False
+    assert loaded["video_stabilize_enabled"] is False
+    assert loaded["video_brightness"] == 0.0
+    assert loaded["video_contrast"] == 1.0
+    assert loaded["video_saturation"] == 1.0
     assert "auto_retry_patterns" in loaded
     assert (isolated_config_dir / "settings.json").exists() is False  # not written yet
 
