@@ -105,7 +105,7 @@ python -m handforge watch ~/Inbox --preset "MP3 192k" --interval 5
 
 ### `serve`
 
-Start the companion HTTP server with shared-workstation control (web UI + `GET /api/status` + mutating `/api/control/*` wired to a live Orchestrator). Default bind is localhost; use `--lan` for phone-on-LAN. A token is always minted for `serve` so control writes work; keep it private.
+Start the companion HTTP server with shared-workstation control (web UI + `GET /api/status` + live `GET /api/events` SSE + mutating `/api/control/*` wired to a live Orchestrator). Restores unfinished jobs from `~/.handforge/queue.json` when present. Default bind is localhost; use `--lan` for phone-on-LAN. A token is always minted for `serve` so control writes work; keep it private.
 
 ```bash
 python -m handforge serve

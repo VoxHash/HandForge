@@ -25,11 +25,16 @@ Open the printed URL (`?token=…`) on a phone, Quest Browser, or the Android We
 
 | Endpoint | Purpose |
 | --- | --- |
+| `GET /api/events` | Live status via Server-Sent Events (same token auth as `/api/status`; UIs fall back to 1s polling) |
 | `POST /api/control/preview` | Real FFmpeg short clip / thumbnail (`path` or active `wid`) |
 | `GET /api/preview/{id}` | Fetch generated preview bytes |
 | `GET /api/presets` / `export` | List / export custom presets for LAN sharing |
 | `POST /api/presets/import` | Import shared preset JSON (token required) |
 | `GET /api/analytics/report` | Advanced local-only aggregate analytics |
+
+## Crash-safe queue
+
+Unfinished pending/queued/active jobs are persisted to `~/.handforge/queue.json` (atomic replace). The desktop GUI and `handforge serve` restore existing media paths on startup. Clearing the queue or finishing with an empty work set removes the file.
 
 ## Privacy
 

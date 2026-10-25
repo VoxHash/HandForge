@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import queue
 import threading
 import time
 from dataclasses import dataclass, field
@@ -11,6 +12,8 @@ from typing import Any, Callable, Dict, List, Optional, Sequence
 from ..core.models import Job
 
 MAX_RECENT = 30
+# Cap progress SSE flood while still feeling live on phone UIs.
+_NOTIFY_MIN_INTERVAL_S = 0.25
 
 
 def serialize_job_summary(job: Job, *, position: Optional[int] = None) -> Dict[str, Any]:
@@ -85,6 +88,10 @@ class QueueStatusHub:
         self._recent: List[RecentJobState] = []
         self._batch_started_at: Optional[float] = None
         self._app_label: str = "HandForge"
+        self._version: int = 0
+        self._subscribers: List[queue.Queue] = []
+        self._last_notify_mono: float = 0.0
+        self._notify_pending: bool = False
 
     def attach(
         self,
@@ -108,6 +115,56 @@ class QueueStatusHub:
             self._active.clear()
             self._recent.clear()
             self._batch_started_at = None
+        self.notify(force=True)
+
+    def subscribe(self, maxsize: int = 8) -> "queue.Queue[int]":
+        """Register for version bumps (SSE). Queue items are monotonic versions."""
+        q: queue.Queue = queue.Queue(maxsize=max(1, int(maxsize)))
+        with self._lock:
+            self._subscribers.append(q)
+            version = self._version
+        try:
+            q.put_nowait(version)
+        except queue.Full:
+            pass
+        return q
+
+    def unsubscribe(self, q: "queue.Queue[int]") -> None:
+        with self._lock:
+            try:
+                self._subscribers.remove(q)
+            except ValueError:
+                pass
+
+    def notify(self, *, force: bool = False) -> None:
+        """Wake SSE subscribers. Progress updates are rate-limited unless ``force``."""
+        now = time.monotonic()
+        with self._lock:
+            if not force and (now - self._last_notify_mono) < _NOTIFY_MIN_INTERVAL_S:
+                self._notify_pending = True
+                return
+            self._last_notify_mono = now
+            self._notify_pending = False
+            self._version += 1
+            version = self._version
+            subs = list(self._subscribers)
+        for sub in subs:
+            try:
+                while not sub.empty():
+                    try:
+                        sub.get_nowait()
+                    except queue.Empty:
+                        break
+                sub.put_nowait(version)
+            except queue.Full:
+                try:
+                    sub.get_nowait()
+                except queue.Empty:
+                    pass
+                try:
+                    sub.put_nowait(version)
+                except queue.Full:
+                    pass
 
     def on_started(self, wid: int, file_path: str) -> None:
         fmt = ""
@@ -126,6 +183,7 @@ class QueueStatusHub:
                 format=fmt,
                 mode=mode,
             )
+        self.notify(force=True)
 
     def on_progress(
         self,
@@ -148,6 +206,7 @@ class QueueStatusHub:
             if speed:
                 state.speed = str(speed)
             state.status = "running"
+        self.notify(force=False)
 
     def on_done(
         self,
@@ -173,6 +232,7 @@ class QueueStatusHub:
                 queued = list(getattr(orch, "job_queue", []) or []) if orch else []
                 if not queued:
                     self._batch_started_at = None
+        self.notify(force=True)
 
     def snapshot(self) -> Dict[str, Any]:
         """Build a JSON-serializable status dict from live Orchestrator state."""
@@ -183,6 +243,7 @@ class QueueStatusHub:
             batch_started = self._batch_started_at
             app_label = self._app_label
             pending_provider = self._pending_provider
+            version = self._version
 
         queued: List[Dict[str, Any]] = []
         active_from_orch: List[Dict[str, Any]] = []
@@ -249,6 +310,7 @@ class QueueStatusHub:
             "batch_started_at": batch_started,
             "parallel": parallel,
             "adaptive_parallel": adaptive,
+            "version": version,
             "counts": {
                 "pending": pending_count,
                 "queued": queued_count,

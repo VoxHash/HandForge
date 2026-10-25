@@ -418,7 +418,11 @@ Opt-in HTTP status API + shared-workstation web UI so you can watch and control 
 
 **CLI**: `handforge serve [--lan]` (controllable session); `convert … --companion` / `--companion-lan` (monitor during batch).
 
-**Endpoints**: `GET /` (shared UI), `GET /api/status`, `GET /api/control`, `POST /api/control/start|stop|jobs|options|…`, `GET /api/health` (unauthenticated probe).
+**Endpoints**: `GET /` (shared UI), `GET /api/status`, `GET /api/events` (SSE live push), `GET /api/control`, `POST /api/control/start|stop|jobs|options|…`, `GET /api/health` (unauthenticated probe).
+
+### Crash-safe queue persistence
+
+Unfinished conversion jobs are stored under the config directory as `queue.json` (atomic write). Restored automatically by the GUI and `handforge serve` when source files still exist. Cleared when the queue is empty or the user clears pending jobs.
 
 ### Auto-Retry
 

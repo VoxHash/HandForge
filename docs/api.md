@@ -138,6 +138,7 @@ server = CompanionServer(
 server.start()
 print(companion_url("127.0.0.1", 8765, "secret"))
 # GET  /api/status?token=secret     → live queue JSON
+# GET  /api/events?token=secret     → SSE status stream (event: status)
 # GET  /api/control?token=secret    → presets / output / control snapshot
 # POST /api/control/start|stop      → Orchestrator start/stop (token required)
 # POST /api/control/jobs            → {"paths":["/media/a.wav"]} add pending

@@ -48,8 +48,8 @@ These are **not** near-term ports of the desktop PyQt6 UI. They depend on a shar
 
 ### Automation
 - ✅ Watch-folder / hotfolder auto-convert — CLI `handforge watch` polls directories, settles size/mtime, tracks `seen_files.json`, converts via Orchestrator (`handforge/util/watchfolder.py`)
-- Crash-safe queue persistence across GUI/CLI restarts
-- Companion live updates (SSE/WebSocket) instead of 1s polling
+- ✅ Crash-safe queue persistence across GUI/CLI restarts — atomic `~/.handforge/queue.json` (`handforge/core/queue_persist.py`); GUI + `handforge serve` restore pending/queued/active on startup; empty/cleared queues remove the file
+- ✅ Companion live updates (SSE/WebSocket) instead of 1s polling — `GET /api/events` Server-Sent Events (token auth); `index.html` / `quest.html` prefer EventSource with 1s `/api/status` polling fallback
 
 ## Completed Milestones
 
@@ -73,6 +73,8 @@ These are **not** near-term ports of the desktop PyQt6 UI. They depend on a shar
 - ✅ Meta Quest 3 companion (`/quest.html`, `companions/quest/`): Quest Browser UI for queue monitor + shared control
 - ✅ Real-time conversion preview (FFmpeg), collaborative LAN preset sharing, advanced local analytics reporting
 - ✅ Watch-folder / hotfolder auto-convert (`handforge watch` + `seen_files.json`)
+- ✅ Crash-safe queue persistence (`~/.handforge/queue.json`; GUI + `serve` restore)
+- ✅ Companion live status via SSE (`GET /api/events`) with polling fallback
 
 ### v1.3.2 (Q4 2026)
 - ✅ Permission-aware output directory handling and pre-conversion write checks

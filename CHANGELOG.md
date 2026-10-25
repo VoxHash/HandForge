@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Added
+- Crash-safe conversion queue persistence: atomic `~/.handforge/queue.json` stores pending/queued/active jobs (+ light session meta); GUI and `handforge serve` restore unfinished work on startup; clearing an empty queue removes the file (`handforge/core/queue_persist.py`)
+- Companion live status push: token-gated `GET /api/events` Server-Sent Events from `QueueStatusHub`; phone/Quest UIs use EventSource first and keep 1s `/api/status` polling as fallback
 - Android / GrapheneOS companion scaffold (`companions/android/`): PWA connector + native WebView APK (Gradle/Kotlin, **no Google Play Services**); optional Capacitor `package.json` / `www/`; sideload-oriented; see [docs/companions.md](docs/companions.md)
 - Meta Quest 3 companion UI (`/quest.html`) with large hit targets and shared control; docs in `companions/quest/`; Quest Browser → LAN HandForge host
 - Real-time conversion preview: `POST /api/control/preview` runs real FFmpeg for short audio/video clips + thumbnails (`handforge/companion/preview.py`); companion UI preview panel

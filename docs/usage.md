@@ -29,7 +29,7 @@ Use **Detect Hardware Encoders…** on the Video tab to probe FFmpeg on this mac
 1. Open **Settings** → **Preferences** → **Advanced** → **Companion**.
 2. Enable the companion server (off by default). Leave host at `127.0.0.1` for this machine only.
 3. For LAN shared control: set host to `0.0.0.0` (or use CLI `--lan`), keep the shared token private (auto-minted on save if empty). Control writes always need the token.
-4. Open the status-bar URL (includes `?token=…`). The page polls live queue / active progress and exposes Start / Stop, add/remove jobs, output/preset, **real-time FFmpeg preview**, **LAN preset share**, and **advanced analytics**.
+4. Open the status-bar URL (includes `?token=…`). The page uses live SSE (`/api/events`) with 1s polling fallback for queue / active progress, and exposes Start / Stop, add/remove jobs, output/preset, **real-time FFmpeg preview**, **LAN preset share**, and **advanced analytics**. Pending work survives a crash via `~/.handforge/queue.json`.
 5. Or run `handforge serve` / `handforge serve --lan` for a headless controllable session.
 6. **Install as PWA** from the browser, open **Quest UI** (`/quest.html`) on Meta Quest 3 Browser, or build the Android / GrapheneOS WebView APK under `companions/android/` (no Play Services). See [docs/companions.md](companions.md).
 

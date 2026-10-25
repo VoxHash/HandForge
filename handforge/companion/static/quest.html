@@ -271,7 +271,7 @@
     <h2>Recent</h2>
     <div id="recent"><div class="empty">No recent jobs</div></div>
   </section>
-  <footer id="footer">Quest Browser companion · large hit targets · polls every 1s</footer>
+  <footer id="footer">Quest Browser companion · large hit targets · live SSE</footer>
 
   <script>
     function tokenFromPage() {
@@ -370,26 +370,35 @@
       }
     }
 
+    let liveMode = "poll";
+
+    async function applyStatus(data) {
+      const err = document.getElementById("error");
+      err.style.display = "none";
+      const st = document.getElementById("state");
+      st.textContent = data.state || "idle";
+      st.className = "pill " + (data.state || "idle");
+      document.getElementById("c-pending").textContent = (data.counts && data.counts.pending) || 0;
+      document.getElementById("c-queued").textContent = (data.counts && data.counts.queued) || 0;
+      document.getElementById("c-active").textContent = (data.counts && data.counts.active) || 0;
+      const agg = data.aggregate_progress != null ? data.aggregate_progress : 0;
+      document.getElementById("c-agg").textContent = Number(agg).toFixed(0) + "%";
+      renderJobs(document.getElementById("active-list"), data.active, "No active jobs", { progress: true });
+      renderJobs(document.getElementById("queued"), data.queued, "Queue empty", { removeScope: "queued" });
+      renderJobs(document.getElementById("pending"), data.pending, "Nothing pending", { removeScope: "pending" });
+      renderJobs(document.getElementById("recent"), data.recent, "No recent jobs", { recent: true });
+      const channel = data.live || liveMode || "poll";
+      document.getElementById("footer").textContent =
+        "Quest · " + channel + " · " + (data.control_available ? "shared control on" : "status only");
+      if (data.control_available) loadControl();
+    }
+
     async function tick() {
       const err = document.getElementById("error");
       try {
         const data = await api("/api/status");
-        err.style.display = "none";
-        const st = document.getElementById("state");
-        st.textContent = data.state || "idle";
-        st.className = "pill " + (data.state || "idle");
-        document.getElementById("c-pending").textContent = (data.counts && data.counts.pending) || 0;
-        document.getElementById("c-queued").textContent = (data.counts && data.counts.queued) || 0;
-        document.getElementById("c-active").textContent = (data.counts && data.counts.active) || 0;
-        const agg = data.aggregate_progress != null ? data.aggregate_progress : 0;
-        document.getElementById("c-agg").textContent = Number(agg).toFixed(0) + "%";
-        renderJobs(document.getElementById("active-list"), data.active, "No active jobs", { progress: true });
-        renderJobs(document.getElementById("queued"), data.queued, "Queue empty", { removeScope: "queued" });
-        renderJobs(document.getElementById("pending"), data.pending, "Nothing pending", { removeScope: "pending" });
-        renderJobs(document.getElementById("recent"), data.recent, "No recent jobs", { recent: true });
-        document.getElementById("footer").textContent =
-          "Quest · poll 1s · " + (data.control_available ? "shared control on" : "status only");
-        if (data.control_available) loadControl();
+        data.live = liveMode;
+        await applyStatus(data);
       } catch (e) {
         err.style.display = "block";
         err.textContent = e.status === 401
@@ -457,8 +466,56 @@
       } catch (e) { showFlash(e.message, true); }
     });
 
-    tick();
-    setInterval(tick, 1000);
+    let pollTimer = null;
+
+    function startPollingFallback() {
+      liveMode = "poll";
+      if (pollTimer) return;
+      pollTimer = setInterval(tick, 1000);
+      tick();
+    }
+
+    function startLive() {
+      if (typeof EventSource === "undefined") {
+        startPollingFallback();
+        return;
+      }
+      let es;
+      try {
+        es = new EventSource(withToken("/api/events"));
+      } catch (e) {
+        startPollingFallback();
+        return;
+      }
+      let opened = false;
+      const failTimer = setTimeout(function () {
+        if (!opened) {
+          try { es.close(); } catch (e) {}
+          startPollingFallback();
+        }
+      }, 4000);
+      es.addEventListener("status", function (ev) {
+        opened = true;
+        clearTimeout(failTimer);
+        liveMode = "sse";
+        if (pollTimer) {
+          clearInterval(pollTimer);
+          pollTimer = null;
+        }
+        try {
+          applyStatus(JSON.parse(ev.data));
+        } catch (e) {
+          tick();
+        }
+      });
+      es.onerror = function () {
+        try { es.close(); } catch (e) {}
+        clearTimeout(failTimer);
+        if (!pollTimer) startPollingFallback();
+      };
+    }
+
+    startLive();
   </script>
 </body>
 </html>

@@ -2,15 +2,18 @@
 
 Default-safe: opt-in, localhost bind, shared token required for LAN binds.
 Mutating control endpoints always require a configured shared token (even on
-localhost). Uses stdlib only (no extra deps). Clients poll ``GET /api/status``.
+localhost). Uses stdlib only (no extra deps). Clients prefer ``GET /api/events``
+(SSE) for live status; ``GET /api/status`` remains for polling fallback.
 """
 
 from __future__ import annotations
 
 import json
+import queue
 import secrets
 import socket
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
@@ -248,6 +251,50 @@ class CompanionServer:
                     raise ValueError("body_must_be_object")
                 return data
 
+            def _stream_status_events(self) -> None:
+                """Server-Sent Events: push status snapshots on hub notify."""
+                sub = hub.subscribe()
+                try:
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+                    self.send_header("Cache-Control", "no-cache")
+                    self.send_header("Connection", "keep-alive")
+                    self.send_header("X-Accel-Buffering", "no")
+                    self.end_headers()
+
+                    def _write_event(event: str, payload: Any) -> None:
+                        data = json.dumps(payload, ensure_ascii=False)
+                        chunk = f"event: {event}\ndata: {data}\n\n".encode("utf-8")
+                        self.wfile.write(chunk)
+                        self.wfile.flush()
+
+                    # Immediate snapshot so clients do not wait for the next mutate.
+                    snap = hub.snapshot()
+                    snap["control_available"] = controller is not None
+                    snap["live"] = "sse"
+                    _write_event("status", snap)
+                    last_heartbeat = time.monotonic()
+                    while True:
+                        try:
+                            sub.get(timeout=1.0)
+                        except queue.Empty:
+                            pass
+                        else:
+                            snap = hub.snapshot()
+                            snap["control_available"] = controller is not None
+                            snap["live"] = "sse"
+                            _write_event("status", snap)
+                            last_heartbeat = time.monotonic()
+                            continue
+                        if time.monotonic() - last_heartbeat >= 15.0:
+                            self.wfile.write(b": heartbeat\n\n")
+                            self.wfile.flush()
+                            last_heartbeat = time.monotonic()
+                except (BrokenPipeError, ConnectionResetError, OSError):
+                    return
+                finally:
+                    hub.unsubscribe(sub)
+
             def do_GET(self) -> None:  # noqa: N802
                 parsed = urlparse(self.path)
                 path = parsed.path or "/"
@@ -270,6 +317,13 @@ class CompanionServer:
                     snap = hub.snapshot()
                     snap["control_available"] = controller is not None
                     self._send_json(snap)
+                    return
+
+                if path in {"/api/events", "/api/events/"}:
+                    if not self._check_auth():
+                        self._unauthorized()
+                        return
+                    self._stream_status_events()
                     return
 
                 if path in {"/api/control", "/api/control/"}:

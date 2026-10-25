@@ -487,50 +487,59 @@
       }
     }
 
+    let liveMode = "poll";
+
+    async function applyStatus(data) {
+      const err = document.getElementById("error");
+      err.style.display = "none";
+
+      const state = data.state || "idle";
+      const pill = document.getElementById("state");
+      pill.textContent = state;
+      pill.className = "pill " + state;
+
+      const c = data.counts || {};
+      document.getElementById("c-pending").textContent = c.pending || 0;
+      document.getElementById("c-queued").textContent = c.queued || 0;
+      document.getElementById("c-active").textContent = c.active || 0;
+      document.getElementById("c-agg").textContent = (Number(data.aggregate_progress) || 0).toFixed(0) + "%";
+
+      renderList(document.getElementById("active"), data.active, "No active jobs", renderActive);
+      renderList(
+        document.getElementById("queued"),
+        data.queued,
+        "Queue empty",
+        function (j) { return renderQueued(j, "queued"); }
+      );
+      renderList(
+        document.getElementById("pending"),
+        data.pending,
+        "Nothing pending",
+        function (j) { return renderQueued(j, "pending"); }
+      );
+      renderList(document.getElementById("recent"), data.recent, "No recent jobs", renderRecent);
+
+      if (data.control_available) {
+        await loadControl();
+      } else {
+        document.getElementById("control-panel").hidden = true;
+      }
+
+      const when = data.updated_at ? new Date(data.updated_at * 1000).toLocaleTimeString() : "";
+      const channel = data.live || liveMode || "poll";
+      document.getElementById("footer").textContent =
+        "Updated " + when + " · parallel " + (data.parallel || "?") +
+        (data.adaptive_parallel ? " (adaptive)" : "") +
+        (data.control_available ? " · shared control on" : " · status only") +
+        " · " + channel + " · local companion";
+    }
+
     async function tick() {
       const err = document.getElementById("error");
       try {
         const data = await api("/api/status");
-        err.style.display = "none";
-
-        const state = data.state || "idle";
-        const pill = document.getElementById("state");
-        pill.textContent = state;
-        pill.className = "pill " + state;
-
-        const c = data.counts || {};
-        document.getElementById("c-pending").textContent = c.pending || 0;
-        document.getElementById("c-queued").textContent = c.queued || 0;
-        document.getElementById("c-active").textContent = c.active || 0;
-        document.getElementById("c-agg").textContent = (Number(data.aggregate_progress) || 0).toFixed(0) + "%";
-
-        renderList(document.getElementById("active"), data.active, "No active jobs", renderActive);
-        renderList(
-          document.getElementById("queued"),
-          data.queued,
-          "Queue empty",
-          function (j) { return renderQueued(j, "queued"); }
-        );
-        renderList(
-          document.getElementById("pending"),
-          data.pending,
-          "Nothing pending",
-          function (j) { return renderQueued(j, "pending"); }
-        );
-        renderList(document.getElementById("recent"), data.recent, "No recent jobs", renderRecent);
-
-        if (data.control_available) {
-          await loadControl();
-        } else {
-          document.getElementById("control-panel").hidden = true;
-        }
-
-        const when = data.updated_at ? new Date(data.updated_at * 1000).toLocaleTimeString() : "";
-        document.getElementById("footer").textContent =
-          "Updated " + when + " · parallel " + (data.parallel || "?") +
-          (data.adaptive_parallel ? " (adaptive)" : "") +
-          (data.control_available ? " · shared control on" : " · status only") +
-          " · local companion";
+        data.live = liveMode;
+        await applyStatus(data);
       } catch (e) {
         err.style.display = "block";
         err.textContent = "Cannot reach HandForge companion: " + e.message;
@@ -734,8 +743,57 @@
     });
 
     refreshPresets();
-    tick();
-    setInterval(tick, 1000);
+
+    let pollTimer = null;
+
+    function startPollingFallback() {
+      liveMode = "poll";
+      if (pollTimer) return;
+      pollTimer = setInterval(tick, 1000);
+      tick();
+    }
+
+    function startLive() {
+      if (typeof EventSource === "undefined") {
+        startPollingFallback();
+        return;
+      }
+      let es;
+      try {
+        es = new EventSource(withToken("/api/events"));
+      } catch (e) {
+        startPollingFallback();
+        return;
+      }
+      let opened = false;
+      const failTimer = setTimeout(function () {
+        if (!opened) {
+          try { es.close(); } catch (e) {}
+          startPollingFallback();
+        }
+      }, 4000);
+      es.addEventListener("status", function (ev) {
+        opened = true;
+        clearTimeout(failTimer);
+        liveMode = "sse";
+        if (pollTimer) {
+          clearInterval(pollTimer);
+          pollTimer = null;
+        }
+        try {
+          applyStatus(JSON.parse(ev.data));
+        } catch (e) {
+          tick();
+        }
+      });
+      es.onerror = function () {
+        try { es.close(); } catch (e) {}
+        clearTimeout(failTimer);
+        if (!pollTimer) startPollingFallback();
+      };
+    }
+
+    startLive();
   </script>
 </body>
 </html>

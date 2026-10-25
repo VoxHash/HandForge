@@ -77,6 +77,7 @@ presets.json
 patterns.json
 autoretry.json
 seen_files.json
+queue.json
 AudioForge_Output/
 HandForge_Output/
 output/

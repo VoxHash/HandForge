@@ -869,6 +869,37 @@ def cmd_serve(args: argparse.Namespace) -> int:
     hub = QueueStatusHub()
     controller = SessionController()
     pending: list = []
+
+    from .core.queue_persist import (
+        clear_queue_state,
+        jobs_for_restore,
+        load_queue_state,
+        persist_live_queue,
+    )
+
+    restored = jobs_for_restore(load_queue_state(), require_existing=True)
+    if restored:
+        pending.extend(restored)
+        print(
+            f"Restored {len(restored)} job(s) from crash-safe queue "
+            f"(~/.handforge/queue.json).",
+            file=sys.stderr,
+        )
+
+    def _persist_serve() -> None:
+        persist_live_queue(
+            pending=pending,
+            orchestrator=orch,
+            session={
+                "output_dir": str(settings.get("output_dir") or ""),
+                "preset": "MP3 192k",
+            },
+        )
+
+    def _serve_notify() -> None:
+        hub.notify(force=True)
+        _persist_serve()
+
     hub.attach(
         orch,
         pending_provider=lambda: list(pending),
@@ -879,10 +910,12 @@ def cmd_serve(args: argparse.Namespace) -> int:
         settings,
         pending=pending,
         preset_name="MP3 192k",
+        notify=_serve_notify,
     )
 
     def on_started(wid: int, file_path: str) -> None:
         hub.on_started(wid, file_path)
+        _persist_serve()
 
     def on_progress(
         wid: int,
@@ -896,10 +929,12 @@ def cmd_serve(args: argparse.Namespace) -> int:
 
     def on_done(wid: int, success: bool, message: str, output_path: str) -> None:
         hub.on_done(wid, success, message, output_path)
+        _persist_serve()
 
     orch.sig_worker_started.connect(on_started)
     orch.sig_worker_progress.connect(on_progress)
     orch.sig_worker_done.connect(on_done)
+    _persist_serve()
 
     try:
         server = CompanionServer(
@@ -927,8 +962,13 @@ def cmd_serve(args: argparse.Namespace) -> int:
     except KeyboardInterrupt:
         print("\nStopping companion…", file=sys.stderr)
         orch.stop_all()
+        _persist_serve()
     finally:
         server.stop()
+        if not pending and not orch.job_queue and not orch.workers:
+            clear_queue_state()
+        else:
+            _persist_serve()
         # Drain Qt events after stop
         if QCoreApplication.instance() is not None:
             app.processEvents()

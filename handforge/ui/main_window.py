@@ -123,8 +123,67 @@ class MainWindow(QMainWindow):
         
         self.init_ui()
         self.apply_settings()
+        self._restore_persisted_queue()
         self._sync_companion_server()
         self.load_window_state()
+
+    def _queue_session_meta(self) -> dict:
+        preset_name = ""
+        if hasattr(self, "combo_preset"):
+            preset_name = self.combo_preset.currentText() or ""
+            if " " in preset_name:
+                parts = preset_name.split(" ", 1)
+                if parts[0] and not parts[0].isascii():
+                    preset_name = parts[1]
+        return {
+            "output_dir": str(self.settings.get("output_dir") or ""),
+            "preset": preset_name,
+        }
+
+    def _persist_queue(self) -> None:
+        """Write unfinished / pending jobs to ~/.handforge/queue.json."""
+        try:
+            from ..core.queue_persist import persist_live_queue
+
+            persist_live_queue(
+                pending=self.queue,
+                orchestrator=self.orchestrator,
+                session=self._queue_session_meta(),
+            )
+        except Exception:  # noqa: BLE001 — never break UI for persistence
+            pass
+
+    def _restore_persisted_queue(self) -> None:
+        """Restore pending/queued/active jobs after a crash or clean restart."""
+        try:
+            from ..core.queue_persist import jobs_for_restore, load_queue_state
+
+            state = load_queue_state()
+            jobs = jobs_for_restore(state, require_existing=True)
+            if not jobs:
+                return
+            existing = {os.path.realpath(j.src) for j in self.queue if j.src}
+            added = 0
+            for job in jobs:
+                key = os.path.realpath(job.src) if job.src else job.src
+                if key in existing:
+                    continue
+                self.queue.append(job)
+                existing.add(key)
+                added += 1
+            if added:
+                self.update_queue_table()
+                self.update_queue_count()
+                self.statusBar().showMessage(
+                    f"Restored {added} job(s) from crash-safe queue", 6000
+                )
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _companion_notify(self) -> None:
+        if self._companion_hub is not None:
+            self._companion_hub.notify(force=True)
+        self._persist_queue()
     
     def init_ui(self):
         """Initialize the UI."""
@@ -747,6 +806,9 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage("⏹️ Conversion stopped (companion)")
             self.btn_start.setEnabled(True)
             self.btn_stop.setEnabled(False)
+            self._persist_queue()
+            if self._companion_hub is not None:
+                self._companion_hub.notify(force=True)
 
         QTimer.singleShot(0, _stop)
 
@@ -847,7 +909,7 @@ class MainWindow(QMainWindow):
             add_paths_handler=self._companion_remote_add_paths,
             remove_pending_handler=self._companion_remote_remove_pending,
             options_handler=self._companion_remote_options,
-            notify=lambda: None,
+            notify=self._companion_notify,
         )
 
         try:
@@ -978,6 +1040,7 @@ class MainWindow(QMainWindow):
             self.queue.append(job)
         
         self.update_queue_table()
+        self._persist_queue()
     
     def get_output_dir(self) -> str:
         """Get output directory (settings, including local cloud sync roots)."""
@@ -1216,6 +1279,9 @@ class MainWindow(QMainWindow):
 
         # Start conversion
         self.orchestrator.enqueue(jobs)
+        self._persist_queue()
+        if self._companion_hub is not None:
+            self._companion_hub.notify(force=True)
         
         # Update queue counter (pending = total - active)
         self.update_queue_count()
@@ -1286,6 +1352,9 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage("⏹️ Conversion stopped")
             self.btn_start.setEnabled(True)
             self.btn_stop.setEnabled(False)
+            self._persist_queue()
+            if self._companion_hub is not None:
+                self._companion_hub.notify(force=True)
     
     def _on_worker_done(self, wid: int, success: bool, message: str, output_path: str):
         """Handle worker completion."""
@@ -1335,6 +1404,7 @@ class MainWindow(QMainWindow):
         
         # Update queue count when worker completes
         self.update_queue_count()
+        self._persist_queue()
         
         t = self.translator
         if not self.orchestrator.workers and not self.orchestrator.job_queue:
@@ -1908,6 +1978,7 @@ class MainWindow(QMainWindow):
         
         self.update_queue_table()
         self.update_queue_count()
+        self._persist_queue()
 
     def clear_queue(self):
         """Remove all files from the conversion queue."""
@@ -1934,6 +2005,12 @@ class MainWindow(QMainWindow):
         self.file_subtitle_tracks.clear()
         self.update_queue_table()
         self.update_queue_count()
+        try:
+            from ..core.queue_persist import clear_queue_state
+
+            clear_queue_state()
+        except Exception:  # noqa: BLE001
+            pass
         self.statusBar().showMessage(f"✅ Cleared {count} file(s) from the queue", 3000)
 
     def focus_queue(self):
