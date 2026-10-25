@@ -82,7 +82,7 @@ def collect_inputs(paths: Sequence[str]) -> List[str]:
 def resolve_conversion_options(args: argparse.Namespace) -> Dict[str, Any]:
     """Build conversion options from --preset and/or explicit flags."""
     options: Dict[str, Any] = {}
-    if args.preset:
+    if getattr(args, "preset", None):
         try:
             options.update(get_preset(args.preset))
         except KeyError as exc:
@@ -91,19 +91,19 @@ def resolve_conversion_options(args: argparse.Namespace) -> Dict[str, Any]:
                 f"Unknown preset: {exc.args[0]!r}\nKnown presets: {known}"
             ) from exc
 
-    if args.format:
+    if getattr(args, "format", None):
         options["format"] = args.format
-    if args.mode:
+    if getattr(args, "mode", None):
         options["mode"] = args.mode
-    if args.bitrate is not None:
+    if getattr(args, "bitrate", None) is not None:
         options["bitrate"] = args.bitrate
-    if args.vbrq is not None:
+    if getattr(args, "vbrq", None) is not None:
         options["vbrq"] = args.vbrq
-    if args.video_codec:
+    if getattr(args, "video_codec", None):
         options["video_codec"] = args.video_codec
-    if args.video_quality is not None:
+    if getattr(args, "video_quality", None) is not None:
         options["video_quality"] = args.video_quality
-    if args.video_bitrate is not None:
+    if getattr(args, "video_bitrate", None) is not None:
         options["video_bitrate"] = args.video_bitrate
     if getattr(args, "hw_accel", None):
         options["hw_accel"] = normalize_hw_preference(args.hw_accel)
@@ -640,6 +640,8 @@ def cmd_list_analytics(args: argparse.Namespace) -> int:
     """Show local performance-analytics status and recent batches."""
     from .util.analytics import (
         BatchSummary,
+        build_aggregate_report,
+        format_aggregate_report,
         format_analytics_status,
         format_batch_summary,
         load_recent_batches,
@@ -647,7 +649,13 @@ def cmd_list_analytics(args: argparse.Namespace) -> int:
 
     settings = load_settings()
     print(format_analytics_status(settings))
-    recent = load_recent_batches(limit=int(getattr(args, "limit", 5) or 5))
+    limit = int(getattr(args, "limit", 5) or 5)
+    if getattr(args, "report", False):
+        report = build_aggregate_report(limit=max(limit, 50))
+        print()
+        print(format_aggregate_report(report, detailed=bool(args.verbose)))
+        return EXIT_OK
+    recent = load_recent_batches(limit=limit)
     if not recent:
         return EXIT_OK
     print()
@@ -677,6 +685,143 @@ def cmd_list_analytics(args: argparse.Namespace) -> int:
             print()
         except (TypeError, ValueError):
             continue
+    return EXIT_OK
+
+
+def cmd_watch(args: argparse.Namespace) -> int:
+    """Poll watch-folder directories and convert newly stable media files."""
+    import time
+
+    from .core.settings import save_seen_files
+    from .util.watchfolder import (
+        format_watchfolder_status,
+        scan_once,
+        watchfolder_dirs,
+        watchfolder_interval,
+        watchfolder_recursive,
+    )
+
+    if not find_ffmpeg():
+        print(
+            format_actionable_error("FFmpeg not found on PATH"),
+            file=sys.stderr,
+        )
+        return EXIT_FAIL
+
+    settings = load_settings()
+    dirs: List[str] = []
+    for d in list(getattr(args, "folders", None) or []) + list(
+        getattr(args, "dir", None) or []
+    ):
+        text = str(Path(str(d)).expanduser())
+        if text and text not in dirs:
+            dirs.append(text)
+    if not dirs:
+        dirs = watchfolder_dirs(settings)
+    if not dirs:
+        print(
+            "No watch folders configured. Pass one or more paths or set "
+            "watchfolder_dirs in Preferences / settings.json.",
+            file=sys.stderr,
+        )
+        print(format_watchfolder_status(settings), file=sys.stderr)
+        return EXIT_USAGE
+
+    if getattr(args, "parallel", None) is not None:
+        settings["parallel"] = max(1, int(args.parallel))
+    if getattr(args, "no_adaptive", False):
+        settings["adaptive_parallel"] = False
+    if getattr(args, "analytics", False):
+        settings["performance_analytics"] = True
+    if getattr(args, "no_analytics", False):
+        settings["performance_analytics"] = False
+
+    try:
+        options = resolve_conversion_options(args)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return EXIT_USAGE
+
+    out_dir = (
+        getattr(args, "output_dir", None)
+        or settings.get("output_dir")
+        or _default_output_dir()
+    )
+    out_dir = str(Path(str(out_dir)).expanduser())
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+
+    interval = (
+        float(args.interval)
+        if getattr(args, "interval", None) is not None
+        else watchfolder_interval(settings)
+    )
+    recursive = watchfolder_recursive(settings)
+    if getattr(args, "no_recursive", False):
+        recursive = False
+
+    once = bool(getattr(args, "once", False))
+    quiet = bool(getattr(args, "quiet", False))
+    if not quiet:
+        print(format_watchfolder_status({**settings, "watchfolder_dirs": dirs}))
+        print(f"  output: {out_dir}")
+        print(f"  polling every {interval:.1f}s" + (" (once)" if once else ""))
+        if not once:
+            print("  Ctrl+C to stop", file=sys.stderr)
+
+    pending_fps: Dict[str, Dict[str, Any]] = {}
+    total_fail = 0
+    settle = float(getattr(args, "settle", 1.5) or 1.5)
+
+    try:
+        while True:
+            # Seed fingerprints, wait for settle, then pick stable new files.
+            _, seen_cache, pending_fps = scan_once(
+                dirs,
+                recursive=recursive,
+                pending_fps=pending_fps,
+                settle_seconds=settle,
+            )
+            time.sleep(max(0.2, settle))
+            ready, seen_cache, pending_fps = scan_once(
+                dirs,
+                seen=seen_cache,
+                recursive=recursive,
+                pending_fps=pending_fps,
+                settle_seconds=settle,
+            )
+
+            if ready:
+                jobs = [
+                    build_job(str(path), out_dir, options, settings, meta={})
+                    for path in ready
+                ]
+                if not quiet:
+                    print(
+                        f"Watch-folder: converting {len(jobs)} new file(s)",
+                        file=sys.stderr,
+                    )
+                _ok, fail = run_batch(
+                    jobs,
+                    settings,
+                    quiet=quiet,
+                    verbose=bool(getattr(args, "verbose", False)),
+                )
+                total_fail += fail
+                for path in ready:
+                    key = str(path.resolve())
+                    if key in seen_cache:
+                        seen_cache[key]["status"] = "processed"
+                save_seen_files(seen_cache)
+
+            if once:
+                break
+            time.sleep(interval)
+    except KeyboardInterrupt:
+        if not quiet:
+            print("\nWatch-folder stopped.", file=sys.stderr)
+
+    if total_fail:
+        return EXIT_FAIL
     return EXIT_OK
 
 
@@ -1085,7 +1230,85 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Include per-job lines in each summary",
     )
+    p_analytics.add_argument(
+        "--report",
+        action="store_true",
+        help=(
+            "Print advanced aggregate analytics report "
+            "(success rate, mean/peak speed, throughput, ETA MAE)"
+        ),
+    )
     p_analytics.set_defaults(func=cmd_list_analytics)
+
+    p_watch = sub.add_parser(
+        "watch",
+        help=(
+            "Watch-folder / hotfolder: poll directories for new media and convert "
+            "(tracks seen files in ~/.handforge/seen_files.json)"
+        ),
+    )
+    p_watch.add_argument(
+        "folders",
+        nargs="*",
+        help="Directories to watch (default: settings watchfolder_dirs)",
+    )
+    p_watch.add_argument(
+        "--dir",
+        action="append",
+        dest="dir",
+        help="Additional watch directory (repeatable)",
+    )
+    p_watch.add_argument(
+        "-o",
+        "--output-dir",
+        help="Output directory for conversions",
+    )
+    p_watch.add_argument("--preset", help="Preset name or template id")
+    p_watch.add_argument("-f", "--format", help="Output format (e.g. mp3, flac, mp4)")
+    p_watch.add_argument("--mode", help="CBR / VBR / Lossless")
+    p_watch.add_argument("--bitrate", type=int, help="Audio bitrate kbps")
+    p_watch.add_argument("--vbrq", type=int, help="VBR quality")
+    p_watch.add_argument(
+        "--interval",
+        type=float,
+        default=None,
+        help="Poll interval seconds (default: settings or 5)",
+    )
+    p_watch.add_argument(
+        "--settle",
+        type=float,
+        default=1.5,
+        help="Seconds a new file must stay size-stable before convert (default: 1.5)",
+    )
+    p_watch.add_argument(
+        "--once",
+        action="store_true",
+        help="Scan twice (seed + settle) then exit instead of looping",
+    )
+    p_watch.add_argument(
+        "--no-recursive",
+        action="store_true",
+        help="Only watch the top of each folder (no subdirectories)",
+    )
+    p_watch.add_argument("--parallel", type=int, help="Max parallel conversions")
+    p_watch.add_argument(
+        "--no-adaptive",
+        action="store_true",
+        help="Disable adaptive parallel scheduling",
+    )
+    p_watch.add_argument(
+        "--analytics",
+        action="store_true",
+        help="Enable local performance analytics for conversions",
+    )
+    p_watch.add_argument(
+        "--no-analytics",
+        action="store_true",
+        help="Disable analytics for this run",
+    )
+    p_watch.add_argument("-q", "--quiet", action="store_true")
+    p_watch.add_argument("-v", "--verbose", action="store_true")
+    p_watch.set_defaults(func=cmd_watch)
 
     p_serve = sub.add_parser(
         "serve",

@@ -91,6 +91,16 @@ Show whether local performance analytics is enabled and print recent batch summa
 ```bash
 python -m handforge list-analytics
 python -m handforge list-analytics --limit 10 -v
+python -m handforge list-analytics --report
+```
+
+### `watch`
+
+Watch-folder / hotfolder: poll directories for new stable media and convert through the Orchestrator. Tracks seen paths in `~/.handforge/seen_files.json`.
+
+```bash
+python -m handforge watch ~/Inbox -o ~/HandForge_Output -f mp3 --bitrate 192 --once
+python -m handforge watch ~/Inbox --preset "MP3 192k" --interval 5
 ```
 
 ### `serve`

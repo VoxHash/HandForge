@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="hf_bg">#12121C</color>
+    <color name="hf_panel">#1C1C2A</color>
+    <color name="hf_accent">#5B8CFF</color>
+    <color name="hf_text">#F2F2F7</color>
+    <color name="hf_muted">#9A9AB0</color>
+</resources>

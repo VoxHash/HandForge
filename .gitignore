@@ -1,6 +1,14 @@
 # Rust native scheduler build artifacts
 native/**/target/
 
+# Android companion build / Capacitor
+companions/android/android/.gradle/
+companions/android/android/build/
+companions/android/android/app/build/
+companions/android/android/local.properties
+companions/android/node_modules/
+companions/android/android/.idea/
+
 # Python
 __pycache__/
 *.py[cod]

@@ -17,6 +17,8 @@ from typing import Any, Dict, Optional, Tuple
 from urllib.parse import parse_qs, urlparse
 
 from .control import SessionController
+from .preview import generate_preview, get_preview, resolve_preview_source
+from .share import export_share_payload, import_share_payload, list_shareable_presets
 from .status import QueueStatusHub
 
 SETTING_ENABLED = "companion_enabled"
@@ -283,20 +285,112 @@ class CompanionServer:
                     self._send_json(controller.control_snapshot())
                     return
 
-                if path in {"/", "/index.html"}:
+                if path in {"/", "/index.html", "/quest.html", "/quest"}:
                     if not self._check_auth():
                         self._unauthorized()
                         return
-                    index = STATIC_DIR / "index.html"
-                    if not index.is_file():
+                    name = "quest.html" if path in {"/quest.html", "/quest"} else "index.html"
+                    page = STATIC_DIR / name
+                    if not page.is_file():
                         self._send_bytes(
                             b"Companion UI missing",
                             content_type="text/plain; charset=utf-8",
                             status=500,
                         )
                         return
-                    data = index.read_bytes()
-                    self._send_bytes(data, content_type="text/html; charset=utf-8")
+                    self._send_bytes(
+                        page.read_bytes(), content_type="text/html; charset=utf-8"
+                    )
+                    return
+
+                if path in {"/manifest.webmanifest", "/static/manifest.webmanifest"}:
+                    # Manifest is public enough for install prompts; still gate if token set
+                    # so LAN installs use the same ?token= URL the browser already has.
+                    if expected_token and not self._check_auth():
+                        self._unauthorized()
+                        return
+                    manifest = STATIC_DIR / "manifest.webmanifest"
+                    if not manifest.is_file():
+                        self._send_bytes(b"Not found", content_type="text/plain", status=404)
+                        return
+                    self._send_bytes(
+                        manifest.read_bytes(),
+                        content_type="application/manifest+json; charset=utf-8",
+                    )
+                    return
+
+                if path in {"/sw.js", "/static/sw.js"}:
+                    # Service worker must be same-origin root-scoped; no auth so install works.
+                    sw = STATIC_DIR / "sw.js"
+                    if not sw.is_file():
+                        self._send_bytes(b"Not found", content_type="text/plain", status=404)
+                        return
+                    self._send_bytes(
+                        sw.read_bytes(),
+                        content_type="application/javascript; charset=utf-8",
+                    )
+                    return
+
+                if path.startswith("/api/preview/"):
+                    if not self._check_auth():
+                        self._unauthorized()
+                        return
+                    preview_id = path[len("/api/preview/") :].strip("/")
+                    if not preview_id or "/" in preview_id:
+                        self._send_bytes(b"Not found", content_type="text/plain", status=404)
+                        return
+                    meta = get_preview(preview_id)
+                    if not meta:
+                        self._send_json({"error": "preview_not_found"}, status=404)
+                        return
+                    file_path = Path(str(meta["path"]))
+                    if not file_path.is_file():
+                        self._send_json({"error": "preview_missing"}, status=404)
+                        return
+                    data = file_path.read_bytes()
+                    self._send_bytes(
+                        data, content_type=str(meta.get("mime") or "application/octet-stream")
+                    )
+                    return
+
+                if path in {"/api/presets", "/api/presets/"}:
+                    if not self._check_auth():
+                        self._unauthorized()
+                        return
+                    qs = parse_qs(parsed.query)
+                    include_builtin = (qs.get("builtin") or ["0"])[0] in {
+                        "1",
+                        "true",
+                        "yes",
+                    }
+                    self._send_json(list_shareable_presets(include_builtin=include_builtin))
+                    return
+
+                if path in {"/api/presets/export", "/api/presets/export/"}:
+                    if not self._check_auth():
+                        self._unauthorized()
+                        return
+                    qs = parse_qs(parsed.query)
+                    include_builtin = (qs.get("builtin") or ["0"])[0] in {
+                        "1",
+                        "true",
+                        "yes",
+                    }
+                    self._send_json(export_share_payload(include_builtin=include_builtin))
+                    return
+
+                if path in {"/api/analytics", "/api/analytics/", "/api/analytics/report"}:
+                    if not self._check_auth():
+                        self._unauthorized()
+                        return
+                    from ..util.analytics import build_aggregate_report
+
+                    qs = parse_qs(parsed.query)
+                    try:
+                        limit = int((qs.get("limit") or ["50"])[0])
+                    except ValueError:
+                        limit = 50
+                    self._send_json(build_aggregate_report(limit=limit))
                     return
 
                 if path.startswith("/static/"):
@@ -309,10 +403,19 @@ class CompanionServer:
                         self._send_bytes(b"Not found", content_type="text/plain", status=404)
                         return
                     ctype = "application/octet-stream"
-                    if target.suffix == ".css":
+                    suffix = target.suffix.lower()
+                    if suffix == ".css":
                         ctype = "text/css; charset=utf-8"
-                    elif target.suffix == ".js":
+                    elif suffix == ".js":
                         ctype = "application/javascript; charset=utf-8"
+                    elif suffix == ".png":
+                        ctype = "image/png"
+                    elif suffix == ".jpg" or suffix == ".jpeg":
+                        ctype = "image/jpeg"
+                    elif suffix == ".webmanifest":
+                        ctype = "application/manifest+json; charset=utf-8"
+                    elif suffix == ".html":
+                        ctype = "text/html; charset=utf-8"
                     self._send_bytes(target.read_bytes(), content_type=ctype)
                     return
 
@@ -330,13 +433,6 @@ class CompanionServer:
                     self._unauthorized()
                     return
 
-                if controller is None:
-                    self._send_json(
-                        {"ok": False, "error": "control_unavailable"},
-                        status=404,
-                    )
-                    return
-
                 try:
                     body = self._read_json_body()
                 except Exception as exc:  # noqa: BLE001
@@ -347,6 +443,46 @@ class CompanionServer:
                     return
 
                 try:
+                    # Preview + preset import work with hub/token alone (no controller).
+                    if path == "/api/control/preview":
+                        src_path, err = resolve_preview_source(
+                            path=body.get("path"),
+                            wid=body.get("wid"),
+                            hub=hub,
+                        )
+                        if err or not src_path:
+                            self._send_json(
+                                {"ok": False, "error": err or "path_required"},
+                                status=400,
+                            )
+                            return
+                        try:
+                            seconds = float(body.get("seconds") or 3.0)
+                        except (TypeError, ValueError):
+                            seconds = 3.0
+                        result = generate_preview(src_path, seconds=seconds)
+                        status = 200 if result.get("ok") else 400
+                        self._send_json(result, status=status)
+                        return
+                    if path == "/api/presets/import":
+                        result = import_share_payload(
+                            body,
+                            replace=bool(body.get("replace")),
+                            names=body.get("names")
+                            if isinstance(body.get("names"), list)
+                            else None,
+                        )
+                        status = 200 if result.get("ok") else 400
+                        self._send_json(result, status=status)
+                        return
+
+                    if controller is None:
+                        self._send_json(
+                            {"ok": False, "error": "control_unavailable"},
+                            status=404,
+                        )
+                        return
+
                     if path == "/api/control/start":
                         self._send_json(controller.start())
                         return

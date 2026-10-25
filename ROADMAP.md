@@ -34,15 +34,22 @@ High-level milestones and planned features for HandForge.
 - ✅ Optional web-based interface for shared workstations — same companion server with shared-control UI + mutating `/api/control/*` (view queue, add/remove jobs, start/stop, output/preset); wired to live Orchestrator; writes always require `companion_token`; documented LAN risks; opt-in
 
 #### Mobile & Headset Targets
-These are **not** near-term ports of the desktop PyQt6 UI. They depend on a shared conversion/queue core (and the native scheduler path) before any full client ships. Phase-1 remote **queue monitoring** is covered by the companion web client above; the items below remain for native shells / on-device encode.
+These are **not** near-term ports of the desktop PyQt6 UI. They depend on a shared conversion/queue core (and the native scheduler path) before any full client ships. Phase-1 remote **queue monitoring** is covered by the companion web client above; the items below are the native shells / headset surfaces.
 
-- **Android / GrapheneOS app** — Native shell (or Capacitor wrap of the companion UI) plus remote queue **control** and lightweight convert/transcode on-device where FFmpeg and storage permissions allow. GrapheneOS is called out for privacy-hardened installs (no Google Play Services assumption); expect sideload/F-Droid-style distribution first. Rationale: HandForge users already batch on desktops; a locked-down phone client covers “send this recording home” without a full desktop rewrite.
-- **Meta Quest 3 app** — Native VR/MR shell for queue monitoring and short media prep (trim/export) from a headset, talking to a desktop or LAN HandForge instance. On-headset heavy encodes are a later stretch goal only. Rationale: creators already review media in Quest; a companion surface beats forcing ALT-TAB to a monitor mid-session.
+- ✅ **Android / GrapheneOS app** — PWA install + WebView APK scaffold under `companions/android/` (no Play Services; Vanadium WebView on GrapheneOS); Capacitor metadata optional; remote queue **control** against live Orchestrator API; on-device FFmpeg encode deferred (needs bundled/Termux FFmpeg + storage UX)
+- ✅ **Meta Quest 3 app** — Quest-friendly UI at `/quest.html` + `companions/quest/` docs; Quest Browser → LAN companion (large hit targets, shared control); store/Bubblewrap HTTPS packaging deferred (LAN HTTP is the supported path); on-headset heavy encodes remain a stretch goal
 
 ### Advanced Capabilities
-- Real-time preview of conversions
-- Collaborative features (preset sharing)
-- Advanced analytics and reporting
+- ✅ Real-time preview of conversions — FFmpeg short clip / thumbnail via `POST /api/control/preview` + companion UI (`handforge/companion/preview.py`)
+- ✅ Collaborative features (preset sharing) — LAN export/import of custom presets (`/api/presets/*`, `handforge/companion/share.py`); token-gated; no cloud
+- ✅ Advanced analytics and reporting — aggregate local report (`build_aggregate_report`, companion `/api/analytics/report`, CLI `list-analytics --report`)
+
+## 2027 Continuity
+
+### Automation
+- ✅ Watch-folder / hotfolder auto-convert — CLI `handforge watch` polls directories, settles size/mtime, tracks `seen_files.json`, converts via Orchestrator (`handforge/util/watchfolder.py`)
+- Crash-safe queue persistence across GUI/CLI restarts
+- Companion live updates (SSE/WebSocket) instead of 1s polling
 
 ## Completed Milestones
 
@@ -62,6 +69,10 @@ These are **not** near-term ports of the desktop PyQt6 UI. They depend on a shar
 - ✅ Optional performance analytics (`handforge/util/analytics.py`): opt-in, **local-only** per-job/batch metrics (encode speed, duration, throughput, peak parallel, ETA MAE) under `~/.handforge/analytics/`; Preferences → Advanced (default OFF); CLI `convert --analytics` / `--no-analytics`, `list-analytics`; GUI status-bar summary after batches
 - ✅ Companion remote queue monitoring (`handforge/companion/`): opt-in HTTP `/api/status` + mobile web UI driven by live Orchestrator queue/active/progress; default off / localhost; shared token required for LAN (`0.0.0.0`); Preferences → Advanced → Companion; CLI `serve`, `convert --companion` / `--companion-lan`; phone browser is the mobile companion for now (store apps later)
 - ✅ Shared workstation web UI (`handforge/companion/` control): `SessionController` + `/api/control` routes on the same companion server; start/stop Orchestrator, add/remove pending or queued jobs, change output dir / preset / format basics; token required for all writes; GUI + `handforge serve` wire real Orchestrator (no mock queue)
+- ✅ Android / GrapheneOS companion (`companions/android/`): PWA + WebView/Capacitor scaffold, no Play Services; LAN control of Orchestrator
+- ✅ Meta Quest 3 companion (`/quest.html`, `companions/quest/`): Quest Browser UI for queue monitor + shared control
+- ✅ Real-time conversion preview (FFmpeg), collaborative LAN preset sharing, advanced local analytics reporting
+- ✅ Watch-folder / hotfolder auto-convert (`handforge watch` + `seen_files.json`)
 
 ### v1.3.2 (Q4 2026)
 - ✅ Permission-aware output directory handling and pre-conversion write checks

@@ -29,9 +29,9 @@ Use **Detect Hardware Encoders…** on the Video tab to probe FFmpeg on this mac
 1. Open **Settings** → **Preferences** → **Advanced** → **Companion**.
 2. Enable the companion server (off by default). Leave host at `127.0.0.1` for this machine only.
 3. For LAN shared control: set host to `0.0.0.0` (or use CLI `--lan`), keep the shared token private (auto-minted on save if empty). Control writes always need the token.
-4. Open the status-bar URL (includes `?token=…`). The page polls live queue / active progress and exposes Start / Stop, add/remove jobs, and output/preset basics against the live Orchestrator.
+4. Open the status-bar URL (includes `?token=…`). The page polls live queue / active progress and exposes Start / Stop, add/remove jobs, output/preset, **real-time FFmpeg preview**, **LAN preset share**, and **advanced analytics**.
 5. Or run `handforge serve` / `handforge serve --lan` for a headless controllable session.
-6. Native app-store clients remain future work; this browser UI is the companion + shared workstation surface for now.
+6. **Install as PWA** from the browser, open **Quest UI** (`/quest.html`) on Meta Quest 3 Browser, or build the Android / GrapheneOS WebView APK under `companions/android/` (no Play Services). See [docs/companions.md](companions.md).
 
 LAN note: anyone with the token can see job basenames and control encodes on this host. Prefer localhost when possible.
 
@@ -40,7 +40,16 @@ LAN note: anyone with the token can see job basenames and control encodes on thi
 1. Open **Settings** → **Preferences** → **Advanced**.
 2. Enable **Enable performance analytics (local only)** (off by default).
 3. Run a batch as usual. When it finishes, the status bar shows a one-line summary (jobs ok, wall time, peak parallel, mean speed, throughput, ETA error).
-4. History is stored only under `~/.handforge/analytics/` — nothing is uploaded. Use CLI `list-analytics` to review recent batches.
+4. History is stored only under `~/.handforge/analytics/` — nothing is uploaded. Use CLI `list-analytics` or `list-analytics --report` for aggregates; companion **Advanced analytics** loads the same report.
+
+### Watch-folder / hotfolder
+
+```bash
+python -m handforge watch ~/Inbox -o ~/HandForge_Output -f mp3 --bitrate 192 --once
+python -m handforge watch ~/Inbox --interval 5   # loop until Ctrl+C
+```
+
+New media must stay size/mtime-stable (default 1.5s) before convert. Seen paths are recorded in `~/.handforge/seen_files.json` so files are not re-queued.
 
 On the **Audio** tab, enable advanced filters only when needed (all off by default). EQ uses three bands; compressor/limiter use FFmpeg `acompressor` / `alimiter`; noise reduction uses `afftdn`.
 

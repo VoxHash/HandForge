@@ -1,0 +1,14 @@
+{
+  "appId": "dev.voxhash.handforge.companion",
+  "appName": "HandForge Companion",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true,
+    "backgroundColor": "#12121c"
+  },
+  "plugins": {}
+}

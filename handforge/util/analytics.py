@@ -474,3 +474,158 @@ def format_analytics_status(settings: Optional[Dict[str, Any]] = None) -> str:
     else:
         lines.append("  Last batch: (none yet)")
     return "\n".join(lines)
+
+
+def build_aggregate_report(
+    *,
+    limit: int = 50,
+    config_dir: Optional[Path] = None,
+) -> Dict[str, Any]:
+    """Build an advanced local analytics report from stored batch JSONL.
+
+    Aggregates real historical batch metrics only — no invented numbers.
+    """
+    batches = load_recent_batches(limit=max(1, int(limit)), config_dir=config_dir)
+    if not batches:
+        return {
+            "ok": True,
+            "batch_count": 0,
+            "jobs_total": 0,
+            "jobs_ok": 0,
+            "jobs_fail": 0,
+            "success_rate": None,
+            "total_wall_seconds": 0.0,
+            "mean_batch_wall_seconds": None,
+            "mean_speed_x": None,
+            "peak_speed_x": None,
+            "mean_throughput_bps": None,
+            "mean_eta_mae_seconds": None,
+            "peak_parallel_seen": 0,
+            "total_bytes_out": 0,
+            "total_bytes_in": 0,
+            "batches": [],
+            "store": str(batches_path(config_dir)),
+            "local_only": True,
+        }
+
+    jobs_ok = 0
+    jobs_fail = 0
+    wall_sum = 0.0
+    speeds: List[float] = []
+    peaks: List[float] = []
+    thr: List[float] = []
+    eta_errs: List[float] = []
+    peak_par = 0
+    bytes_out = 0
+    bytes_in = 0
+    summaries: List[Dict[str, Any]] = []
+
+    for raw in batches:
+        ok = int(raw.get("succeeded") or 0)
+        fail = int(raw.get("failed") or 0)
+        jobs_ok += ok
+        jobs_fail += fail
+        wall = float(raw.get("wall_seconds") or 0)
+        wall_sum += wall
+        ms = raw.get("mean_speed_x")
+        if isinstance(ms, (int, float)):
+            speeds.append(float(ms))
+        ps = raw.get("peak_speed_x")
+        if isinstance(ps, (int, float)):
+            peaks.append(float(ps))
+        tb = raw.get("throughput_bps")
+        if isinstance(tb, (int, float)):
+            thr.append(float(tb))
+        mae = raw.get("eta_mae_seconds")
+        if isinstance(mae, (int, float)):
+            eta_errs.append(float(mae))
+        pp = int(raw.get("peak_parallel") or 0)
+        if pp > peak_par:
+            peak_par = pp
+        bytes_out += int(raw.get("total_bytes_out") or 0)
+        bytes_in += int(raw.get("total_bytes_in") or 0)
+        summaries.append(
+            {
+                "batch_id": raw.get("batch_id"),
+                "started_at": raw.get("started_at"),
+                "ended_at": raw.get("ended_at"),
+                "job_count": raw.get("job_count"),
+                "succeeded": ok,
+                "failed": fail,
+                "wall_seconds": wall,
+                "mean_speed_x": ms,
+                "peak_parallel": pp,
+                "throughput_bps": tb,
+                "eta_mae_seconds": mae,
+            }
+        )
+
+    jobs_total = jobs_ok + jobs_fail
+    n = len(batches)
+    return {
+        "ok": True,
+        "batch_count": n,
+        "jobs_total": jobs_total,
+        "jobs_ok": jobs_ok,
+        "jobs_fail": jobs_fail,
+        "success_rate": round(jobs_ok / jobs_total, 4) if jobs_total else None,
+        "total_wall_seconds": round(wall_sum, 3),
+        "mean_batch_wall_seconds": round(wall_sum / n, 3) if n else None,
+        "mean_speed_x": round(sum(speeds) / len(speeds), 3) if speeds else None,
+        "peak_speed_x": round(max(peaks), 3) if peaks else None,
+        "mean_throughput_bps": round(sum(thr) / len(thr), 1) if thr else None,
+        "mean_eta_mae_seconds": round(sum(eta_errs) / len(eta_errs), 3) if eta_errs else None,
+        "peak_parallel_seen": peak_par,
+        "total_bytes_out": bytes_out,
+        "total_bytes_in": bytes_in,
+        "batches": list(reversed(summaries)),
+        "store": str(batches_path(config_dir)),
+        "local_only": True,
+    }
+
+
+def format_aggregate_report(report: Dict[str, Any], *, detailed: bool = False) -> str:
+    """Human-readable advanced analytics report for CLI / companion."""
+    lines = [
+        "Advanced analytics report (LOCAL ONLY — never uploaded)",
+        f"  store: {report.get('store')}",
+        f"  batches={report.get('batch_count', 0)}  "
+        f"jobs={report.get('jobs_total', 0)}  "
+        f"ok={report.get('jobs_ok', 0)}  fail={report.get('jobs_fail', 0)}",
+    ]
+    rate = report.get("success_rate")
+    if rate is not None:
+        lines.append(f"  success_rate={100.0 * float(rate):.1f}%")
+    bits = []
+    if report.get("total_wall_seconds"):
+        bits.append(f"wall={float(report['total_wall_seconds']):.1f}s")
+    if report.get("mean_batch_wall_seconds") is not None:
+        bits.append(f"mean_batch={float(report['mean_batch_wall_seconds']):.1f}s")
+    if report.get("mean_speed_x") is not None:
+        bits.append(f"mean_speed={float(report['mean_speed_x']):.2f}x")
+    if report.get("peak_speed_x") is not None:
+        bits.append(f"peak_speed={float(report['peak_speed_x']):.2f}x")
+    if report.get("mean_throughput_bps") is not None:
+        bits.append(f"mean_thr={_fmt_bytes(float(report['mean_throughput_bps']))}/s")
+    if report.get("mean_eta_mae_seconds") is not None:
+        bits.append(f"eta_mae={float(report['mean_eta_mae_seconds']):.1f}s")
+    if report.get("peak_parallel_seen"):
+        bits.append(f"peak∥={report['peak_parallel_seen']}")
+    if bits:
+        lines.append("  " + "  ".join(bits))
+    io_bits = []
+    if report.get("total_bytes_out"):
+        io_bits.append(f"out={_fmt_bytes(float(report['total_bytes_out']))}")
+    if report.get("total_bytes_in"):
+        io_bits.append(f"in={_fmt_bytes(float(report['total_bytes_in']))}")
+    if io_bits:
+        lines.append("  " + "  ".join(io_bits))
+    if detailed:
+        for b in report.get("batches") or []:
+            lines.append(
+                f"  [{b.get('batch_id')}] jobs={b.get('job_count')} "
+                f"ok={b.get('succeeded')} fail={b.get('failed')} "
+                f"wall={float(b.get('wall_seconds') or 0):.1f}s "
+                f"speed={b.get('mean_speed_x') if b.get('mean_speed_x') is not None else '?'}"
+            )
+    return "\n".join(lines)

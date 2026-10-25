@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Companion talks to a desktop HandForge over LAN HTTP (token-gated).
+     No cloud endpoints. Cleartext is intentional for local RFC1918 hosts. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

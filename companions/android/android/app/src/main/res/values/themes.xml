@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.HandForgeCompanion" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">#5B8CFF</item>
+        <item name="colorPrimaryVariant">#1A1A2E</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="android:statusBarColor">#12121C</item>
+        <item name="android:navigationBarColor">#12121C</item>
+        <item name="android:windowBackground">#12121C</item>
+    </style>
+</resources>

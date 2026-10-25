@@ -21,7 +21,8 @@
 - **System Tray**: Minimize to tray with conversion notifications
 - **Real-time Progress**: Progress tracking with elapsed/ETA/speed and visual progress bars
 - **Headless CLI**: Batch convert from the terminal (`python -m handforge`) without a GUI or display
-- **Companion / shared workstation**: Opt-in local HTTP + mobile/desktop web UI to monitor and control queue/active jobs on the LAN (`handforge serve` / Preferences → Companion); control writes require a shared token
+- **Companion / shared workstation**: Opt-in local HTTP + mobile/desktop/Quest web UI + Android/GrapheneOS WebView scaffold to monitor and control queue/active jobs on the LAN (`handforge serve` / Preferences → Companion); preview, LAN preset share, analytics report; control writes require a shared token
+- **Watch-folder**: `handforge watch` polls inbox directories and auto-converts new stable media
 
 ## 🧭 Table of Contents
 
@@ -95,6 +96,7 @@ Key settings (full reference: [docs/configuration.md](docs/configuration.md)):
 | `performance_analytics` | Opt-in local batch metrics (`~/.handforge/analytics/`) | false |
 | `companion_enabled` | Opt-in companion HTTP + shared workstation web UI | false |
 | `companion_host` / `companion_port` | Companion bind (default localhost:8765; LAN + control writes need token) | `127.0.0.1` / `8765` |
+| `watchfolder_dirs` / `watchfolder_interval_seconds` | Hotfolder paths + poll interval for `handforge watch` | `[]` / `5` |
 | `default_video_quality` | Default video quality preset | medium |
 | `default_video_codec` | Default video codec | libx264 |
 | `language` | Interface language (None = auto-detect) | None |

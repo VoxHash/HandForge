@@ -75,7 +75,11 @@ Optional, **opt-in / local-only** collector (`BatchAnalyticsSession`) listens to
 
 ### Companion remote monitor + shared workstation (`companion/`)
 
-Optional, **opt-in** HTTP server (`CompanionServer`) plus `QueueStatusHub` that serializes live Orchestrator `job_queue` / `workers` and progress signals into `GET /api/status`. `SessionController` adds mutating `/api/control/*` routes (start/stop, add/remove jobs, output/preset) against the same Orchestrator — no mock queue. A static mobile/desktop page under `companion/static/` polls status and drives control. Default bind is localhost; LAN requires a shared token; **all control writes require a token**. This is the phase-1 companion + shared-workstation surface (browser / PWA-friendly); native store shells remain future.
+Optional, **opt-in** HTTP server (`CompanionServer`) plus `QueueStatusHub` that serializes live Orchestrator `job_queue` / `workers` and progress signals into `GET /api/status`. `SessionController` adds mutating `/api/control/*` routes (start/stop, add/remove jobs, output/preset) against the same Orchestrator — no mock queue. Static UIs under `companion/static/` (`index.html`, Quest `quest.html`, PWA manifest/SW) poll status and drive control. Preview (`preview.py`), LAN preset share (`share.py`), and aggregate analytics report endpoints extend the same server. Default bind is localhost; LAN requires a shared token; **all control writes require a token**. Native shells: `companions/android/` (WebView/Capacitor, no Play Services) and `companions/quest/` (Quest Browser docs).
+
+### Watch-folder (`util/watchfolder.py`)
+
+Opt-in hotfolder scanner used by CLI `handforge watch`: discovers audio/video under configured dirs, waits until size/mtime are stable, records paths in `seen_files.json`, and feeds real `Job`s into `run_batch` / Orchestrator.
 
 ### Worker (`core/orchestrator.py`)
 

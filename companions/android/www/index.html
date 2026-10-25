@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a1a2e" />
+  <meta name="color-scheme" content="dark" />
+  <title>HandForge Companion</title>
+  <style>
+    :root {
+      --bg: #12121c;
+      --panel: #1c1c2a;
+      --text: #f2f2f7;
+      --muted: #9a9ab0;
+      --accent: #5b8cff;
+      --warn: #f0c674;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: radial-gradient(900px 500px at 10% -10%, #243056 0%, var(--bg) 55%);
+      color: var(--text);
+      padding: 24px 18px calc(24px + env(safe-area-inset-bottom));
+    }
+    h1 { margin: 0 0 8px; font-size: 1.45rem; letter-spacing: 0.02em; }
+    p { color: var(--muted); line-height: 1.45; }
+    .card {
+      background: var(--panel);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 16px;
+      margin-top: 18px;
+    }
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    input {
+      min-height: 48px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: #151522;
+      color: var(--text);
+      padding: 12px;
+      font-size: 1rem;
+    }
+    button {
+      width: 100%;
+      min-height: 52px;
+      border: 0;
+      border-radius: 12px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 700;
+      font-size: 1rem;
+      margin-top: 8px;
+    }
+    button.secondary {
+      background: transparent;
+      border: 1px solid rgba(91,140,255,0.35);
+      color: var(--accent);
+      margin-top: 10px;
+    }
+    .warn { color: var(--warn); font-size: 0.85rem; }
+    #status { margin-top: 12px; font-size: 0.9rem; color: var(--muted); white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>HandForge</h1>
+  <p>Connect to a desktop HandForge companion on your LAN. No cloud. No Play Services.</p>
+  <div class="card">
+    <label>Host (LAN IP or hostname)
+      <input id="host" placeholder="192.168.1.20" autocomplete="off" inputmode="url" />
+    </label>
+    <label>Port
+      <input id="port" value="8765" inputmode="numeric" />
+    </label>
+    <label>Shared token
+      <input id="token" placeholder="from handforge serve / Preferences" autocomplete="off" />
+    </label>
+    <p class="warn">Anyone with the token can control encodes on that host.</p>
+    <button type="button" id="connect">Connect</button>
+    <button type="button" class="secondary" id="quest">Open Quest UI</button>
+    <div id="status"></div>
+  </div>
+  <script>
+    const KEY = "handforge.companion.connect";
+    function load() {
+      try {
+        const raw = localStorage.getItem(KEY);
+        if (!raw) return;
+        const d = JSON.parse(raw);
+        if (d.host) document.getElementById("host").value = d.host;
+        if (d.port) document.getElementById("port").value = d.port;
+        if (d.token) document.getElementById("token").value = d.token;
+      } catch (e) {}
+    }
+    function save(host, port, token) {
+      localStorage.setItem(KEY, JSON.stringify({ host: host, port: port, token: token }));
+    }
+    function baseUrl() {
+      const host = (document.getElementById("host").value || "").trim();
+      const port = (document.getElementById("port").value || "8765").trim();
+      if (!host) throw new Error("Host required");
+      return "http://" + host + ":" + port;
+    }
+    function withToken(url, token) {
+      if (!token) return url;
+      return url + (url.indexOf("?") >= 0 ? "&" : "?") + "token=" + encodeURIComponent(token);
+    }
+    async function probeAndGo(path) {
+      const status = document.getElementById("status");
+      status.textContent = "Probing…";
+      try {
+        const host = (document.getElementById("host").value || "").trim();
+        const port = (document.getElementById("port").value || "8765").trim();
+        const token = (document.getElementById("token").value || "").trim();
+        const root = baseUrl();
+        save(host, port, token);
+        const health = await fetch(root + "/api/health", { method: "GET" });
+        if (!health.ok) throw new Error("Health check failed (" + health.status + ")");
+        const href = withToken(root + path, token);
+        status.textContent = "Opening " + href;
+        window.location.href = href;
+      } catch (e) {
+        status.textContent = String(e.message || e) +
+          "\nEnsure handforge serve --lan is running and the phone shares the LAN.";
+      }
+    }
+    document.getElementById("connect").addEventListener("click", function () {
+      probeAndGo("/");
+    });
+    document.getElementById("quest").addEventListener("click", function () {
+      probeAndGo("/quest.html");
+    });
+    load();
+  </script>
+</body>
+</html>

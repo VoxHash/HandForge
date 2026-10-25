@@ -5,7 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#1a1a2e" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="HandForge" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png" />
+  <link rel="apple-touch-icon" href="/static/icon-192.png" />
   <title>HandForge Workstation</title>
   <style>
     :root {
@@ -202,6 +206,21 @@
       margin-top: 8px;
     }
     #control-panel[hidden] { display: none !important; }
+    .nav-links { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .nav-links a {
+      color: var(--accent); font-size: 0.85rem; text-decoration: none;
+      padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(91,140,255,0.25);
+      min-height: 44px; display: inline-flex; align-items: center;
+    }
+    .preview-box { margin-top: 8px; }
+    .preview-box video, .preview-box audio, .preview-box img {
+      max-width: 100%; border-radius: 10px; background: #0a0a12;
+    }
+    .preview-box img { max-height: 180px; }
+    .report pre {
+      white-space: pre-wrap; font-size: 0.8rem; color: var(--muted);
+      margin: 0; font-family: ui-monospace, monospace;
+    }
     @media (max-width: 560px) {
       .stats { grid-template-columns: repeat(2, 1fr); }
       .grid-2 { grid-template-columns: 1fr; }
@@ -213,6 +232,12 @@
     <h1>HandForge</h1>
     <span id="state" class="pill idle">idle</span>
   </header>
+  <div class="nav-links">
+    <a href="#" id="link-install">Install app</a>
+    <a id="link-quest" href="/quest.html">Quest UI</a>
+    <a href="#presets-share">Share presets</a>
+    <a href="#analytics-report">Analytics</a>
+  </div>
   <div id="error" class="err"></div>
   <div id="flash" class="msg"></div>
   <div class="stats">
@@ -259,6 +284,47 @@
       <button type="button" class="ghost" id="btn-clear-pending">Clear pending</button>
     </div>
     <p class="risk" id="risk-note"></p>
+  </section>
+
+  <section>
+    <h2>Real-time preview</h2>
+    <p class="meta" style="margin:0 0 8px">Runs real FFmpeg on the host (short clip / thumbnail). Requires companion token.</p>
+    <div class="grid-2">
+      <label class="field">Host media path
+        <input id="preview-path" placeholder="/media/clip.mp4" autocomplete="off" />
+      </label>
+      <label class="field">Or active worker id
+        <input id="preview-wid" placeholder="7" inputmode="numeric" autocomplete="off" />
+      </label>
+    </div>
+    <div class="controls">
+      <button type="button" class="primary" id="btn-preview">Generate preview</button>
+    </div>
+    <div id="preview-box" class="preview-box empty">No preview yet</div>
+  </section>
+
+  <section id="presets-share">
+    <h2>Collaborative presets</h2>
+    <p class="meta" style="margin:0 0 8px">Export / import custom presets over LAN (same token). No cloud.</p>
+    <div class="controls">
+      <button type="button" id="btn-presets-export">Export JSON</button>
+      <button type="button" id="btn-presets-list">Refresh list</button>
+    </div>
+    <div id="preset-names" class="empty">—</div>
+    <label class="field">Import preset JSON
+      <textarea id="preset-import" placeholder='{"version":1,"type":"handforge-presets","presets":{...}}'></textarea>
+    </label>
+    <div class="controls">
+      <button type="button" class="primary" id="btn-presets-import">Import presets</button>
+    </div>
+  </section>
+
+  <section id="analytics-report">
+    <h2>Advanced analytics</h2>
+    <div class="controls">
+      <button type="button" id="btn-analytics">Load report</button>
+    </div>
+    <div class="report"><pre id="analytics-out">Enable performance analytics on the host, run batches, then load this report.</pre></div>
   </section>
 
   <section>
@@ -546,6 +612,128 @@
       } catch (e) { showFlash(e.message, true); }
     });
 
+    function withTokenHref(path) {
+      return withToken(path);
+    }
+    document.getElementById("link-quest").href = withTokenHref("/quest.html");
+
+    let deferredInstall = null;
+    window.addEventListener("beforeinstallprompt", function (e) {
+      e.preventDefault();
+      deferredInstall = e;
+    });
+    document.getElementById("link-install").addEventListener("click", async function (ev) {
+      ev.preventDefault();
+      if (deferredInstall) {
+        deferredInstall.prompt();
+        deferredInstall = null;
+        return;
+      }
+      showFlash(
+        "Use browser Install / Add to Home Screen, or open this URL in Chrome/GrapheneOS Vanadium.",
+        false
+      );
+    });
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(function () {});
+    }
+
+    document.getElementById("btn-preview").addEventListener("click", async function () {
+      const box = document.getElementById("preview-box");
+      box.className = "preview-box";
+      box.textContent = "Running FFmpeg on host…";
+      try {
+        const path = (document.getElementById("preview-path").value || "").trim();
+        const widRaw = (document.getElementById("preview-wid").value || "").trim();
+        const body = { seconds: 3 };
+        if (path) body.path = path;
+        if (widRaw) body.wid = Number(widRaw);
+        const r = await api("/api/control/preview", { method: "POST", body: JSON.stringify(body) });
+        if (!r.ok) {
+          box.textContent = r.error || "Preview failed";
+          return;
+        }
+        let html = "<div class='meta'>" + esc(r.file) + " · " + esc(r.kind) +
+          (r.cached ? " · cached" : "") + "</div>";
+        if (r.thumb_url) {
+          html += "<img alt='thumb' src='" + withToken(r.thumb_url) + "' />";
+        }
+        if (r.kind === "video") {
+          html += "<video controls playsinline src='" + withToken(r.url) + "'></video>";
+        } else if (r.kind === "audio") {
+          html += "<audio controls src='" + withToken(r.url) + "'></audio>";
+        }
+        box.innerHTML = html;
+      } catch (e) {
+        box.textContent = e.message;
+      }
+    });
+
+    async function refreshPresets() {
+      try {
+        const data = await api("/api/presets");
+        const names = data.names || [];
+        document.getElementById("preset-names").textContent =
+          names.length ? ("Custom: " + names.join(", ")) : "No custom presets on host";
+        document.getElementById("preset-names").className = names.length ? "meta" : "empty";
+      } catch (e) {
+        document.getElementById("preset-names").textContent = e.message;
+      }
+    }
+    document.getElementById("btn-presets-list").addEventListener("click", refreshPresets);
+    document.getElementById("btn-presets-export").addEventListener("click", async function () {
+      try {
+        const data = await api("/api/presets/export");
+        const text = JSON.stringify(data, null, 2);
+        document.getElementById("preset-import").value = text;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+          showFlash("Exported and copied to clipboard", false);
+        } else {
+          showFlash("Exported into import box", false);
+        }
+      } catch (e) { showFlash(e.message, true); }
+    });
+    document.getElementById("btn-presets-import").addEventListener("click", async function () {
+      try {
+        const raw = document.getElementById("preset-import").value || "";
+        const body = JSON.parse(raw);
+        const r = await api("/api/presets/import", { method: "POST", body: JSON.stringify(body) });
+        showFlash(
+          r.ok ? ("Imported " + (r.imported || []).length + " preset(s)") : (r.error || "Import failed"),
+          !r.ok
+        );
+        refreshPresets();
+        controlLoaded = false;
+        tick();
+      } catch (e) { showFlash(e.message, true); }
+    });
+
+    document.getElementById("btn-analytics").addEventListener("click", async function () {
+      const out = document.getElementById("analytics-out");
+      out.textContent = "Loading…";
+      try {
+        const r = await api("/api/analytics/report?limit=50");
+        const lines = [
+          "batches=" + (r.batch_count || 0),
+          "jobs=" + (r.jobs_total || 0) + " ok=" + (r.jobs_ok || 0) + " fail=" + (r.jobs_fail || 0),
+          r.success_rate != null ? ("success_rate=" + (100 * r.success_rate).toFixed(1) + "%") : "",
+          r.mean_speed_x != null ? ("mean_speed=" + r.mean_speed_x + "x") : "",
+          r.peak_speed_x != null ? ("peak_speed=" + r.peak_speed_x + "x") : "",
+          r.mean_throughput_bps != null ? ("mean_thr=" + Math.round(r.mean_throughput_bps) + " B/s") : "",
+          r.mean_eta_mae_seconds != null ? ("eta_mae=" + r.mean_eta_mae_seconds + "s") : "",
+          "peak∥=" + (r.peak_parallel_seen || 0),
+          "store=" + (r.store || ""),
+          "local_only=" + !!r.local_only
+        ].filter(Boolean);
+        out.textContent = lines.join("\n");
+      } catch (e) {
+        out.textContent = e.message;
+      }
+    });
+
+    refreshPresets();
     tick();
     setInterval(tick, 1000);
   </script>

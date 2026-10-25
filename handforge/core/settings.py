@@ -124,6 +124,11 @@ def load_settings() -> Dict[str, Any]:
         "companion_host": "127.0.0.1",
         "companion_port": 8765,
         "companion_token": "",  # required when binding non-localhost
+        # Opt-in watch-folder / hotfolder auto-convert (CLI `watch`)
+        "watchfolder_enabled": False,
+        "watchfolder_dirs": [],
+        "watchfolder_interval_seconds": 5.0,
+        "watchfolder_recursive": True,
     }
     
     settings = load_json_file("settings.json", {})

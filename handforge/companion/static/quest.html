@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1220" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png" />
+  <title>HandForge Quest</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: #152033;
+      --text: #f4f7ff;
+      --muted: #9eb0cc;
+      --accent: #4ea1ff;
+      --ok: #3dd68c;
+      --fail: #ff7a7a;
+      --bar: #243247;
+      --warn: #f0c674;
+      --hit: 72px;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background:
+        radial-gradient(900px 500px at 15% 0%, #1a3a66 0%, transparent 55%),
+        radial-gradient(800px 480px at 90% 20%, #12304a 0%, transparent 50%),
+        var(--bg);
+      color: var(--text);
+      padding: 28px 36px 48px;
+      font-size: 22px;
+      line-height: 1.35;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 28px;
+      flex-wrap: wrap;
+    }
+    h1 {
+      margin: 0;
+      font-size: 2.4rem;
+      letter-spacing: 0.03em;
+      font-weight: 700;
+    }
+    .pill {
+      font-size: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 12px 22px;
+      border-radius: 999px;
+      background: var(--panel);
+      color: var(--muted);
+      border: 2px solid rgba(255,255,255,0.1);
+      min-height: var(--hit);
+      display: inline-flex;
+      align-items: center;
+    }
+    .pill.running { color: var(--accent); border-color: rgba(78,161,255,0.5); }
+    .pill.queued { color: var(--warn); }
+    .nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+    .nav a, button {
+      appearance: none;
+      text-decoration: none;
+      border: 2px solid rgba(255,255,255,0.14);
+      background: #1d314f;
+      color: var(--text);
+      border-radius: 18px;
+      padding: 18px 28px;
+      font-size: 1.15rem;
+      font-weight: 650;
+      cursor: pointer;
+      min-height: var(--hit);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    button.primary { background: var(--accent); border-color: transparent; color: #041018; }
+    button.danger { background: rgba(255,122,122,0.18); border-color: rgba(255,122,122,0.45); color: #ffc4c4; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(140px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .stat {
+      background: var(--panel);
+      border-radius: 20px;
+      padding: 22px 16px;
+      text-align: center;
+      border: 2px solid rgba(255,255,255,0.08);
+      min-height: 120px;
+    }
+    .stat b { display: block; font-size: 2.2rem; }
+    .stat span { color: var(--muted); font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    section {
+      background: var(--panel);
+      border-radius: 22px;
+      padding: 22px 24px;
+      margin-bottom: 20px;
+      border: 2px solid rgba(255,255,255,0.08);
+    }
+    section h2 {
+      margin: 0 0 16px;
+      font-size: 1.05rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .job {
+      padding: 16px 0;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .job:first-of-type { border-top: none; }
+    .job-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      font-size: 1.25rem;
+      word-break: break-word;
+    }
+    .meta { color: var(--muted); font-size: 1rem; margin-top: 8px; }
+    .bar {
+      margin-top: 14px;
+      height: 18px;
+      background: var(--bar);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .bar > i {
+      display: block;
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #3a8dff, #7ec0ff);
+      border-radius: 999px;
+      transition: width 0.35s ease;
+    }
+    .empty { color: var(--muted); }
+    .ok { color: var(--ok); }
+    .fail { color: var(--fail); }
+    .err, .msg {
+      display: none;
+      padding: 18px 20px;
+      border-radius: 16px;
+      margin-bottom: 18px;
+      font-size: 1.1rem;
+    }
+    .err {
+      background: rgba(255,122,122,0.12);
+      border: 2px solid rgba(255,122,122,0.35);
+      color: #ffc4c4;
+    }
+    .msg {
+      background: rgba(78,161,255,0.12);
+      border: 2px solid rgba(78,161,255,0.35);
+      color: #cfe4ff;
+    }
+    .controls { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 16px; }
+    label.field {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 14px;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+    input, select, textarea {
+      width: 100%;
+      border-radius: 16px;
+      border: 2px solid rgba(255,255,255,0.14);
+      background: #0d1626;
+      color: var(--text);
+      padding: 18px 20px;
+      font-size: 1.15rem;
+      min-height: var(--hit);
+    }
+    textarea { min-height: 120px; resize: vertical; font-family: inherit; }
+    .risk { color: var(--warn); font-size: 1rem; line-height: 1.4; }
+    #control-panel[hidden] { display: none !important; }
+    footer {
+      margin-top: 12px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 1rem;
+    }
+    @media (max-width: 900px) {
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      body { padding: 20px; font-size: 20px; }
+      h1 { font-size: 1.8rem; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>HandForge Quest</h1>
+    <span id="state" class="pill idle">idle</span>
+  </header>
+  <div class="nav">
+    <a id="link-phone" href="/">Phone UI</a>
+    <a href="#control">Control</a>
+    <a href="#active">Active</a>
+  </div>
+  <div id="error" class="err"></div>
+  <div id="flash" class="msg"></div>
+  <div class="stats">
+    <div class="stat"><b id="c-pending">0</b><span>Pending</span></div>
+    <div class="stat"><b id="c-queued">0</b><span>Queued</span></div>
+    <div class="stat"><b id="c-active">0</b><span>Active</span></div>
+    <div class="stat"><b id="c-agg">0%</b><span>Progress</span></div>
+  </div>
+
+  <section id="control-panel" hidden>
+    <h2 id="control">Shared control</h2>
+    <div class="controls">
+      <button type="button" class="primary" id="btn-start">Start</button>
+      <button type="button" class="danger" id="btn-stop">Stop</button>
+    </div>
+    <div class="grid">
+      <label class="field">Output directory
+        <input id="opt-out" autocomplete="off" />
+      </label>
+      <label class="field">Preset
+        <select id="opt-preset"></select>
+      </label>
+      <label class="field">Format
+        <input id="opt-format" placeholder="mp3 / mp4 / flac" autocomplete="off" />
+      </label>
+      <label class="field">Bitrate
+        <input id="opt-bitrate" placeholder="192" inputmode="numeric" autocomplete="off" />
+      </label>
+    </div>
+    <div class="controls">
+      <button type="button" id="btn-options">Apply options</button>
+    </div>
+    <label class="field">Host media paths (one per line)
+      <textarea id="paths" placeholder="/media/episode.wav"></textarea>
+    </label>
+    <div class="controls">
+      <button type="button" id="btn-add">Add to pending</button>
+      <button type="button" id="btn-clear-pending">Clear pending</button>
+    </div>
+    <p class="risk" id="risk-note"></p>
+  </section>
+
+  <section id="active">
+    <h2>Active conversions</h2>
+    <div id="active-list"><div class="empty">No active jobs</div></div>
+  </section>
+  <section>
+    <h2>Orchestrator queue</h2>
+    <div id="queued"><div class="empty">Queue empty</div></div>
+  </section>
+  <section>
+    <h2>Pending</h2>
+    <div id="pending"><div class="empty">Nothing pending</div></div>
+  </section>
+  <section>
+    <h2>Recent</h2>
+    <div id="recent"><div class="empty">No recent jobs</div></div>
+  </section>
+  <footer id="footer">Quest Browser companion · large hit targets · polls every 1s</footer>
+
+  <script>
+    function tokenFromPage() {
+      return new URLSearchParams(window.location.search).get("token") || "";
+    }
+    function withToken(path) {
+      const t = tokenFromPage();
+      if (!t) return path;
+      return path + (path.indexOf("?") >= 0 ? "&" : "?") + "token=" + encodeURIComponent(t);
+    }
+    function esc(s) {
+      return String(s || "")
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+    function showFlash(text, isError) {
+      const el = document.getElementById("flash");
+      el.style.display = "block";
+      el.style.background = isError ? "rgba(255,122,122,0.12)" : "rgba(78,161,255,0.12)";
+      el.style.borderColor = isError ? "rgba(255,122,122,0.35)" : "rgba(78,161,255,0.35)";
+      el.style.color = isError ? "#ffc4c4" : "#cfe4ff";
+      el.textContent = text;
+      clearTimeout(showFlash._t);
+      showFlash._t = setTimeout(function () { el.style.display = "none"; }, 5000);
+    }
+    async function api(path, opts) {
+      const res = await fetch(withToken(path), Object.assign({
+        headers: { "Content-Type": "application/json", "Accept": "application/json" }
+      }, opts || {}));
+      const text = await res.text();
+      let data = {};
+      try { data = text ? JSON.parse(text) : {}; } catch (e) { data = { raw: text }; }
+      if (!res.ok) {
+        const err = new Error(data.error || data.message || ("HTTP " + res.status));
+        err.status = res.status;
+        err.data = data;
+        throw err;
+      }
+      return data;
+    }
+    function renderJobs(el, jobs, emptyText, opts) {
+      opts = opts || {};
+      if (!jobs || !jobs.length) {
+        el.innerHTML = "<div class='empty'>" + esc(emptyText) + "</div>";
+        return;
+      }
+      el.innerHTML = jobs.map(function (j, idx) {
+        const pct = Math.max(0, Math.min(100, Number(j.progress || 0)));
+        let extra = "";
+        if (opts.progress) {
+          extra = "<div class='bar'><i style='width:" + pct + "%'></i></div>" +
+            "<div class='meta'>" + pct.toFixed(1) + "% · " + esc(j.speed || "") +
+            (j.eta != null ? (" · ETA " + esc(String(j.eta)) + "s") : "") + "</div>";
+        }
+        if (opts.recent) {
+          extra = "<div class='meta " + (j.success ? "ok" : "fail") + "'>" +
+            (j.success ? "ok" : "fail") + (j.output ? (" · " + esc(j.output)) : "") +
+            (j.message ? (" · " + esc(j.message)) : "") + "</div>";
+        }
+        let remove = "";
+        if (opts.removeScope != null) {
+          remove = " <button type='button' class='tiny' data-remove-scope='" +
+            esc(opts.removeScope) + "' data-remove-index='" + idx + "'>Remove</button>";
+        }
+        return "<div class='job'><div class='job-title'><span>" +
+          esc(j.file || j.src || "?") + "</span>" + remove + "</div>" +
+          (j.format ? ("<div class='meta'>" + esc(j.format) + "</div>") : "") +
+          extra + "</div>";
+      }).join("");
+    }
+
+    let controlLoaded = false;
+    async function loadControl() {
+      try {
+        const ctrl = await api("/api/control");
+        if (!ctrl.control) {
+          document.getElementById("control-panel").hidden = true;
+          return;
+        }
+        document.getElementById("control-panel").hidden = false;
+        document.getElementById("risk-note").textContent =
+          "LAN control: anyone with the token can start/stop encodes on this host.";
+        if (!controlLoaded) {
+          document.getElementById("opt-out").value = ctrl.output_dir || "";
+          document.getElementById("opt-format").value = ctrl.format || "";
+          document.getElementById("opt-bitrate").value = ctrl.bitrate != null ? String(ctrl.bitrate) : "";
+          const sel = document.getElementById("opt-preset");
+          sel.innerHTML = (ctrl.presets || []).map(function (p) {
+            return "<option value='" + esc(p) + "'" +
+              (p === ctrl.preset ? " selected" : "") + ">" + esc(p) + "</option>";
+          }).join("");
+          controlLoaded = true;
+        }
+      } catch (e) {
+        document.getElementById("control-panel").hidden = true;
+      }
+    }
+
+    async function tick() {
+      const err = document.getElementById("error");
+      try {
+        const data = await api("/api/status");
+        err.style.display = "none";
+        const st = document.getElementById("state");
+        st.textContent = data.state || "idle";
+        st.className = "pill " + (data.state || "idle");
+        document.getElementById("c-pending").textContent = (data.counts && data.counts.pending) || 0;
+        document.getElementById("c-queued").textContent = (data.counts && data.counts.queued) || 0;
+        document.getElementById("c-active").textContent = (data.counts && data.counts.active) || 0;
+        const agg = data.aggregate_progress != null ? data.aggregate_progress : 0;
+        document.getElementById("c-agg").textContent = Number(agg).toFixed(0) + "%";
+        renderJobs(document.getElementById("active-list"), data.active, "No active jobs", { progress: true });
+        renderJobs(document.getElementById("queued"), data.queued, "Queue empty", { removeScope: "queued" });
+        renderJobs(document.getElementById("pending"), data.pending, "Nothing pending", { removeScope: "pending" });
+        renderJobs(document.getElementById("recent"), data.recent, "No recent jobs", { recent: true });
+        document.getElementById("footer").textContent =
+          "Quest · poll 1s · " + (data.control_available ? "shared control on" : "status only");
+        if (data.control_available) loadControl();
+      } catch (e) {
+        err.style.display = "block";
+        err.textContent = e.status === 401
+          ? "Unauthorized — open the URL that includes ?token=… from the HandForge host."
+          : (e.message || String(e));
+      }
+    }
+
+    document.getElementById("link-phone").href = withToken("/");
+    document.getElementById("btn-start").addEventListener("click", async function () {
+      try {
+        const r = await api("/api/control/start", { method: "POST", body: "{}" });
+        showFlash(r.ok ? ("Started · enqueued " + (r.enqueued || 0)) : (r.error || "Start failed"), !r.ok);
+        tick();
+      } catch (e) { showFlash(e.message, true); }
+    });
+    document.getElementById("btn-stop").addEventListener("click", async function () {
+      try {
+        const r = await api("/api/control/stop", { method: "POST", body: "{}" });
+        showFlash(r.ok ? "Stop requested" : (r.error || "Stop failed"), !r.ok);
+        tick();
+      } catch (e) { showFlash(e.message, true); }
+    });
+    document.getElementById("btn-options").addEventListener("click", async function () {
+      try {
+        const body = {
+          output_dir: document.getElementById("opt-out").value,
+          preset: document.getElementById("opt-preset").value,
+          format: document.getElementById("opt-format").value,
+          bitrate: document.getElementById("opt-bitrate").value
+        };
+        const r = await api("/api/control/options", { method: "POST", body: JSON.stringify(body) });
+        showFlash(r.ok ? "Options applied" : (r.error || "Failed"), !r.ok);
+      } catch (e) { showFlash(e.message, true); }
+    });
+    document.getElementById("btn-add").addEventListener("click", async function () {
+      try {
+        const paths = (document.getElementById("paths").value || "").split("\n")
+          .map(function (s) { return s.trim(); }).filter(Boolean);
+        const r = await api("/api/control/jobs", { method: "POST", body: JSON.stringify({ paths: paths }) });
+        showFlash(r.ok ? ("Added " + (r.added || []).length) : (r.error || "Add failed"), !r.ok);
+        tick();
+      } catch (e) { showFlash(e.message, true); }
+    });
+    document.getElementById("btn-clear-pending").addEventListener("click", async function () {
+      try {
+        const r = await api("/api/control/jobs/clear", { method: "POST", body: "{}" });
+        showFlash(r.ok ? ("Cleared " + (r.cleared || 0)) : (r.error || "Clear failed"), !r.ok);
+        tick();
+      } catch (e) { showFlash(e.message, true); }
+    });
+    document.body.addEventListener("click", async function (ev) {
+      const btn = ev.target.closest("[data-remove-scope]");
+      if (!btn) return;
+      try {
+        const r = await api("/api/control/jobs/remove", {
+          method: "POST",
+          body: JSON.stringify({
+            scope: btn.getAttribute("data-remove-scope"),
+            index: Number(btn.getAttribute("data-remove-index"))
+          })
+        });
+        showFlash(r.ok ? "Removed" : (r.error || "Remove failed"), !r.ok);
+        tick();
+      } catch (e) { showFlash(e.message, true); }
+    });
+
+    tick();
+    setInterval(tick, 1000);
+  </script>
+</body>
+</html>

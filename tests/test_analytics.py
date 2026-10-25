@@ -126,3 +126,29 @@ def test_settings_default_merges_performance_analytics(monkeypatch, tmp_path):
     (tmp_path / "settings.json").write_text("{}", encoding="utf-8")
     loaded = settings_mod.load_settings()
     assert loaded.get("performance_analytics") is False
+    assert loaded.get("watchfolder_enabled") is False
+
+
+def test_build_aggregate_report(tmp_path, monkeypatch):
+    monkeypatch.setattr(analytics_mod, "get_config_dir", lambda: tmp_path)
+    empty = analytics_mod.build_aggregate_report(limit=10, config_dir=tmp_path)
+    assert empty["ok"] is True
+    assert empty["batch_count"] == 0
+    assert empty["local_only"] is True
+
+    for i in range(2):
+        session = analytics_mod.BatchAnalyticsSession.start(
+            {"parallel": 2, "adaptive_parallel": True, "performance_analytics": True}
+        )
+        session.on_started(1, str(tmp_path / f"in{i}.wav"))
+        session.on_progress(1, 50.0, 1.0, 1.0, "1.5x")
+        session.on_done(1, True, "ok", str(tmp_path / f"out{i}.mp3"))
+        session.finish(persist=True)
+
+    report = analytics_mod.build_aggregate_report(limit=10, config_dir=tmp_path)
+    assert report["batch_count"] == 2
+    assert report["jobs_ok"] == 2
+    assert report["success_rate"] == pytest.approx(1.0)
+    text = analytics_mod.format_aggregate_report(report, detailed=True)
+    assert "LOCAL ONLY" in text
+    assert "batches=2" in text

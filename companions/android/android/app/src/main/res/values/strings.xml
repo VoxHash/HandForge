@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">HandForge</string>
+    <string name="connect_title">Connect to HandForge</string>
+    <string name="host_hint">192.168.1.20</string>
+    <string name="port_hint">8765</string>
+    <string name="token_hint">Companion token</string>
+    <string name="connect">Connect</string>
+    <string name="open_quest">Quest UI</string>
+    <string name="privacy_note">No Play Services. Token grants LAN control of the host queue.</string>
+    <string name="back_connect">Change host</string>
+</resources>
