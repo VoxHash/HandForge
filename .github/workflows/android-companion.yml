@@ -1,0 +1,52 @@
+name: Android Companion
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "companions/android/**"
+      - ".github/workflows/android-companion.yml"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "companions/android/**"
+      - ".github/workflows/android-companion.yml"
+
+jobs:
+  assemble:
+    name: JDK 17 assembleDebug + unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: companions/android/android
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Temurin JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+          cache-dependency-path: companions/android/android/**/*.gradle*
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Accept licenses
+        run: yes | sdkmanager --licenses >/dev/null || true
+
+      - name: Assemble debug APK
+        run: ./gradlew --no-daemon assembleDebug
+
+      - name: Unit tests (encode presets / argv)
+        run: ./gradlew --no-daemon testDebugUnitTest
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: handforge-companion-debug
+          path: companions/android/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

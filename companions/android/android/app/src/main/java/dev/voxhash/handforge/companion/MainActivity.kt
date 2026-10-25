@@ -68,6 +68,9 @@ class MainActivity : AppCompatActivity() {
         findViewById<MaterialButton>(R.id.questButton).setOnClickListener {
             connect("/quest.html")
         }
+        findViewById<MaterialButton>(R.id.localEncodeButton).setOnClickListener {
+            startActivity(android.content.Intent(this, LocalEncodeActivity::class.java))
+        }
         findViewById<MaterialButton>(R.id.backButton).setOnClickListener {
             showConnect()
         }

@@ -1,0 +1,13 @@
+# Generated Bubblewrap / TWA project (do not commit keystores or APKs)
+project/
+generated/
+*.keystore
+*.jks
+app-release-signed.apk
+app-release-unsigned.apk
+app-release-bundle.aab
+android_src/
+twa-manifest.json
+assetlinks.json
+!assetlinks.template.json
+!twa-manifest.template.json

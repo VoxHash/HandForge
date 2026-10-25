@@ -1,6 +1,6 @@
 # HandForge Meta Quest 3 companion
 
-Quest-friendly remote queue monitor and shared control for a desktop HandForge instance. Heavy on-headset encodes are **out of scope** for this phase — the headset talks to the LAN Orchestrator API.
+Quest-friendly remote queue monitor and shared control for a desktop HandForge instance. Heavy on-headset encodes are **out of scope** for this phase — the headset talks to the LAN Orchestrator API (or a TLS origin for store packaging).
 
 ## What ships
 
@@ -8,9 +8,11 @@ Quest-friendly remote queue monitor and shared control for a desktop HandForge i
 | --- | --- |
 | Quest UI (large hit targets, simplified layout) | Served at `/quest.html` from `handforge/companion/static/quest.html` |
 | Phone / PWA UI | `/` (`index.html`) |
+| Quest store web manifest | `/quest.webmanifest` (`start_url`: `/quest.html`) |
+| HTTPS / Bubblewrap kit | [`bubblewrap/`](bubblewrap/) + [`scripts/quest-https-package.sh`](../../scripts/quest-https-package.sh) |
 | This guide | `companions/quest/README.md` |
 
-## Use on Quest 3 (Browser)
+## Use on Quest 3 (Browser — supported now)
 
 1. On the desktop (same LAN):  
    `python -m handforge serve --lan`  
@@ -20,16 +22,23 @@ Quest-friendly remote queue monitor and shared control for a desktop HandForge i
    (or tap **Quest UI** on the phone companion page).
 3. Optional: use Browser’s **Add to Home** / install affordance with the companion Web App Manifest for a 2D panel shortcut.
 
-The UI polls `GET /api/status` every second and drives `POST /api/control/*` with the shared token (same security model as the phone companion).
+The UI prefers `GET /api/events` (SSE) and falls back to polling `GET /api/status`; control uses `POST /api/control/*` with the shared token.
 
-## Packaging notes (Meta Horizon / Bubblewrap)
+## Packaging (Meta Horizon / Bubblewrap — HTTPS)
 
-Meta documents packaging a **2D PWA** for Horizon OS via Bubblewrap (`bubblewrap init --manifest=… --metaquest`). That path needs a **public HTTPS origin** and Digital Asset Links — not appropriate for a localhost/LAN-only companion.
+Store / sideload TWA packaging needs a **public HTTPS origin** and Digital Asset Links. Full kit:
 
-For HandForge:
+- Guide: [bubblewrap/README.md](bubblewrap/README.md)
+- Walkthrough: [docs/examples/example-03.md](../../docs/examples/example-03.md)
+- Script: `./scripts/quest-https-package.sh doctor`
 
-- **Supported now**: Quest Browser → LAN companion URL (HTTP + token).
-- **Later (store)**: host a TLS reverse proxy to your workstation or a relay; then Bubblewrap 2D mode against that origin. Immersive WebXR is unnecessary for queue control.
+Summary:
+
+1. Reverse-proxy TLS to local `handforge serve` (see `bubblewrap/Caddyfile.example`).
+2. `configure` + `publish-assetlinks` so `https://<host>/.well-known/assetlinks.json` is live.
+3. `bubblewrap` build (`horizonOSAppMode: 2D`) → `adb install` the signed APK.
+
+Immersive WebXR is unnecessary for queue control.
 
 ## Short media prep
 

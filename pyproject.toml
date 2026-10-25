@@ -25,7 +25,12 @@ include = ["handforge*"]
 exclude = ["tests*", "native*"]
 
 [tool.setuptools.package-data]
-handforge = ["data/*.json", "i18n/locales/*.json", "companion/static/*"]
+handforge = [
+    "data/*.json",
+    "i18n/locales/*.json",
+    "companion/static/*",
+    "companion/static/.well-known/*",
+]
 
 [tool.black]
 line-length = 127

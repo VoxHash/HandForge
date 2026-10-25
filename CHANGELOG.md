@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Added
+- Quest / store HTTPS packaging for Meta Horizon 2D PWA: Bubblewrap templates (`companions/quest/bubblewrap/`, `horizonOSAppMode: 2D`), `scripts/quest-https-package.sh` (configure / publish-assetlinks / build / verify), `quest.webmanifest`, unauthenticated `GET /.well-known/assetlinks.json`, Caddy/nginx TLS reverse-proxy examples; LAN HTTP Quest Browser path unchanged; see [docs/examples/example-03.md](docs/examples/example-03.md)
+- On-device Android FFmpeg encode in the GrapheneOS companion APK: SAF media pick, stage under `Download/HandForge/`, curated presets (`encode_presets.json`), Termux `RUN_COMMAND` backend (`pkg install ffmpeg` + `allow-external-apps`) and optional bundled `libffmpeg.so` path; JDK 17 CI workflow `.github/workflows/android-companion.yml`; pytest coverage in `tests/test_ondevice_presets.py`
 - Crash-safe conversion queue persistence: atomic `~/.handforge/queue.json` stores pending/queued/active jobs (+ light session meta); GUI and `handforge serve` restore unfinished work on startup; clearing an empty queue removes the file (`handforge/core/queue_persist.py`)
 - Companion live status push: token-gated `GET /api/events` Server-Sent Events from `QueueStatusHub`; phone/Quest UIs use EventSource first and keep 1s `/api/status` polling as fallback
 - Android / GrapheneOS companion scaffold (`companions/android/`): PWA connector + native WebView APK (Gradle/Kotlin, **no Google Play Services**); optional Capacitor `package.json` / `www/`; sideload-oriented; see [docs/companions.md](docs/companions.md)

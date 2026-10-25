@@ -39,6 +39,13 @@ android {
     buildFeatures {
         viewBinding = true
     }
+
+    // Allow exec of optional bundled libffmpeg.so from nativeLibraryDir (W^X-safe path).
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
 }
 
 dependencies {
@@ -48,4 +55,7 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout:2.2.0")
     implementation("androidx.webkit:webkit:1.12.1")
     // Explicitly avoid play-services-* artifacts.
+
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
 }

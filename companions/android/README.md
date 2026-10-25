@@ -15,24 +15,49 @@ Optional **Capacitor** metadata (`package.json`, `capacitor.config.json`, `www/`
 - Cleartext HTTP is allowed **only** for RFC1918 LAN hosts so you can reach `http://192.168.x.x:8765` without TLS.
 - Distribution: `adb install` or F-Droid-style APK; Play Store is out of scope for this scaffold.
 
-On-device FFmpeg encode is **deferred** (needs a bundled or Termux FFmpeg + storage UX). This client remote-controls the desktop Orchestrator.
+## On-device FFmpeg encode
+
+The APK includes **On-device encode** (beside Connect / Quest UI):
+
+1. Pick audio/video via the system document picker (SAF).
+2. Media is staged under shared `Download/HandForge/` so Termux can read it.
+3. Encode runs with curated presets from `android/app/src/main/assets/encode_presets.json` (MP3 / AAC / Opus / MP4 H.264).
+
+**Backends (first match wins):**
+
+| Backend | Requirement |
+| --- | --- |
+| Bundled `libffmpeg.so` | Optional: place prebuilt executables named `libffmpeg.so` under `app/src/main/jniLibs/<abi>/` (PackageManager extract + `extractNativeLibs=true`) |
+| Termux | Install [Termux](https://termux.dev), `pkg install ffmpeg`, set `allow-external-apps = true` in `~/.termux/termux.properties`, grant **RUN_COMMAND** to HandForge |
+
+Remote desktop Orchestrator control remains the primary path; on-device encode is for short local jobs without a PC.
 
 ## Prerequisites
 
 - Desktop: HandForge with companion enabled (`handforge serve --lan` or Preferences → Companion on `0.0.0.0` + token).
-- Phone: Android 8+ / GrapheneOS; same LAN as the host.
-- Build: Android Studio Hedgehog+ **or** **JDK 17 or 21** + Android SDK (`ANDROID_HOME`). AGP does not accept some distro OpenJDK 27 version strings (e.g. Arch `27.0.1.0.2`); point `JAVA_HOME` at Temurin/OpenJDK 17 before `./gradlew`.
+- Phone: Android 8+ / GrapheneOS; same LAN as the host (for remote control).
+- Build: Android Studio Hedgehog+ **or** **JDK 17 or 21 (Temurin)** + Android SDK (`ANDROID_HOME`). AGP rejects some distro OpenJDK 27 version strings (e.g. Arch `27.0.1.0.2`); point `JAVA_HOME` at Temurin/OpenJDK 17 before `./gradlew`.
+
+CI builds the debug APK with Temurin 17 (`.github/workflows/android-companion.yml`).
 
 ## Build the WebView APK
 
 ```bash
+# Use JDK 17 — required for Android Gradle Plugin
+export JAVA_HOME=/path/to/temurin-17   # e.g. /usr/lib/jvm/java-17-openjdk
 cd companions/android/android
 ./gradlew assembleDebug
 # APK: app/build/outputs/apk/debug/app-debug.apk
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Open the app → enter host (e.g. `192.168.1.20`), port `8765`, paste the companion token → **Connect**.
+Unit tests for preset parsing / argv:
+
+```bash
+./gradlew testDebugUnitTest
+```
+
+Open the app → **Connect** for LAN control, or **On-device encode** for Termux/local FFmpeg.
 
 ## PWA install (no APK)
 
@@ -52,9 +77,9 @@ npx cap open android
 
 `capacitor.config.json` points `webDir` at `www/` (local connector). For production you normally still navigate to the LAN companion origin after connect so APIs stay same-origin with the host token.
 
-## API surface used
+## API surface used (remote control)
 
-- `GET /api/health`, `GET /api/status`
+- `GET /api/health`, `GET /api/status`, `GET /api/events`
 - `GET|POST /api/control/*` (token required for writes)
 - `POST /api/control/preview`, `GET /api/preview/{id}`
 - `GET /api/presets`, `POST /api/presets/import`

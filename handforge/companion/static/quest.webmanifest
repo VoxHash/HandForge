@@ -1,0 +1,26 @@
+{
+  "name": "HandForge Quest Companion",
+  "short_name": "HandForge",
+  "description": "Quest-friendly remote queue monitor and shared control for HandForge",
+  "start_url": "/quest.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0b1220",
+  "theme_color": "#0b1220",
+  "categories": ["utilities", "productivity"],
+  "icons": [
+    {
+      "src": "/static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

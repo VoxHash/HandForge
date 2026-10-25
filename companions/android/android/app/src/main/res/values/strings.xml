@@ -9,4 +9,22 @@
     <string name="open_quest">Quest UI</string>
     <string name="privacy_note">No Play Services. Token grants LAN control of the host queue.</string>
     <string name="back_connect">Change host</string>
+    <string name="on_device_encode">On-device encode</string>
+    <string name="local_encode_title">On-device encode</string>
+    <string name="local_encode_blurb">Pick media, stage it under Download/HandForge, then run FFmpeg via Termux (pkg install ffmpeg) or a bundled libffmpeg.so. Remote desktop control remains on the Connect screen.</string>
+    <string name="pick_input">Pick media</string>
+    <string name="no_input">No file selected</string>
+    <string name="preset_label">Preset</string>
+    <string name="start_encode">Encode</string>
+    <string name="back_remote">Back to Connect</string>
+    <string name="backend_bundled">FFmpeg backend: bundled libffmpeg.so</string>
+    <string name="backend_termux">FFmpeg backend: Termux ($PREFIX/bin/ffmpeg). Enable allow-external-apps=true in ~/.termux/termux.properties and grant RUN_COMMAND.</string>
+    <string name="backend_none">No FFmpeg backend. Install Termux + `pkg install ffmpeg`, or ship libffmpeg.so under jniLibs.</string>
+    <string name="input_ready">Input selected — ready to stage and encode.</string>
+    <string name="staging">Staging into Download/HandForge…</string>
+    <string name="staged_paths">Staged:\n%1$s\n→ %2$s</string>
+    <string name="termux_launched">Termux FFmpeg started. Watch the Termux session; output:\n%1$s</string>
+    <string name="termux_failed">Could not start Termux RUN_COMMAND: %1$s\nCheck allow-external-apps and RUN_COMMAND permission.</string>
+    <string name="encode_ok">Encode finished:\n%1$s</string>
+    <string name="encode_fail">Encode failed (exit %1$d):\n%2$s</string>
 </resources>

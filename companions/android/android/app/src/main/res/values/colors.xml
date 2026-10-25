@@ -5,4 +5,5 @@
     <color name="hf_accent">#5B8CFF</color>
     <color name="hf_text">#F2F2F7</color>
     <color name="hf_muted">#9A9AB0</color>
+    <color name="hf_warn">#F0C674</color>
 </resources>

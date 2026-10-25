@@ -1,0 +1,15 @@
+# Example TLS reverse proxy for HandForge companion (public HTTPS origin).
+# Replace companion.example.com with your DNS name; point A/AAAA at this host.
+#
+# Prerequisites:
+#   1. handforge serve --lan  (or Preferences → Companion bind 0.0.0.0 + token)
+#   2. Companion listening on 127.0.0.1:8765 (or change the upstream below)
+#   3. Publish Digital Asset Links at /.well-known/assetlinks.json
+#      (scripts/quest-https-package.sh publish-assetlinks)
+#
+# Run: caddy run --config companions/quest/bubblewrap/Caddyfile.example
+
+companion.example.com {
+	encode gzip
+	reverse_proxy 127.0.0.1:8765
+}

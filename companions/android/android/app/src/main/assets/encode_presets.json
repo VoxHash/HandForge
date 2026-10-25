@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "presets": [
+    {
+      "id": "audio_mp3_192",
+      "label": "Audio → MP3 192k",
+      "extension": "mp3",
+      "args": ["-vn", "-c:a", "libmp3lame", "-b:a", "192k"]
+    },
+    {
+      "id": "audio_aac_128",
+      "label": "Audio → AAC 128k",
+      "extension": "m4a",
+      "args": ["-vn", "-c:a", "aac", "-b:a", "128k"]
+    },
+    {
+      "id": "audio_opus_96",
+      "label": "Audio → Opus 96k",
+      "extension": "opus",
+      "args": ["-vn", "-c:a", "libopus", "-b:a", "96k"]
+    },
+    {
+      "id": "video_mp4_crf23",
+      "label": "Video → MP4 H.264 CRF 23",
+      "extension": "mp4",
+      "args": [
+        "-c:v", "libx264", "-crf", "23", "-preset", "veryfast",
+        "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart"
+      ]
+    }
+  ]
+}

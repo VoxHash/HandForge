@@ -9,6 +9,13 @@ companions/android/android/local.properties
 companions/android/node_modules/
 companions/android/android/.idea/
 
+# Quest Bubblewrap generated project / keystores / APKs
+companions/quest/bubblewrap/project/
+companions/quest/bubblewrap/generated/
+companions/quest/bubblewrap/*.keystore
+companions/quest/bubblewrap/*.jks
+handforge/companion/static/.well-known/assetlinks.json
+
 # Python
 __pycache__/
 *.py[cod]

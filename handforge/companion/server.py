@@ -299,6 +299,26 @@ class CompanionServer:
                 parsed = urlparse(self.path)
                 path = parsed.path or "/"
 
+                # Digital Asset Links for Bubblewrap / Horizon TWA — must be public (no token).
+                if path in {
+                    "/.well-known/assetlinks.json",
+                    "/well-known/assetlinks.json",
+                }:
+                    assetlinks = STATIC_DIR / ".well-known" / "assetlinks.json"
+                    if not assetlinks.is_file():
+                        self._send_bytes(
+                            b'{"error":"assetlinks_not_configured",'
+                            b'"hint":"Run scripts/quest-https-package.sh publish-assetlinks"}',
+                            content_type="application/json; charset=utf-8",
+                            status=404,
+                        )
+                        return
+                    self._send_bytes(
+                        assetlinks.read_bytes(),
+                        content_type="application/json; charset=utf-8",
+                    )
+                    return
+
                 if path == "/api/health":
                     # Health is unauthenticated so operators can probe bind without leaking jobs.
                     payload = {
@@ -357,13 +377,27 @@ class CompanionServer:
                     )
                     return
 
-                if path in {"/manifest.webmanifest", "/static/manifest.webmanifest"}:
+                if path in {
+                    "/manifest.webmanifest",
+                    "/static/manifest.webmanifest",
+                    "/quest.webmanifest",
+                    "/static/quest.webmanifest",
+                }:
                     # Manifest is public enough for install prompts; still gate if token set
                     # so LAN installs use the same ?token= URL the browser already has.
-                    if expected_token and not self._check_auth():
+                    # Exception: quest.webmanifest is used by Bubblewrap against a public HTTPS
+                    # origin — serve it without token so `bubblewrap init --manifest=…` works.
+                    is_quest_mf = path in {
+                        "/quest.webmanifest",
+                        "/static/quest.webmanifest",
+                    }
+                    if expected_token and not is_quest_mf and not self._check_auth():
                         self._unauthorized()
                         return
-                    manifest = STATIC_DIR / "manifest.webmanifest"
+                    name = (
+                        "quest.webmanifest" if is_quest_mf else "manifest.webmanifest"
+                    )
+                    manifest = STATIC_DIR / name
                     if not manifest.is_file():
                         self._send_bytes(b"Not found", content_type="text/plain", status=404)
                         return
@@ -448,10 +482,17 @@ class CompanionServer:
                     return
 
                 if path.startswith("/static/"):
-                    if not self._check_auth():
+                    rel = path[len("/static/") :]
+                    # PWA / Bubblewrap packaging needs public icons (and quest.webmanifest
+                    # is handled above). Other static assets stay token-gated on LAN.
+                    public_static = {
+                        "icon-192.png",
+                        "icon-512.png",
+                        "quest.webmanifest",
+                    }
+                    if rel not in public_static and not self._check_auth():
                         self._unauthorized()
                         return
-                    rel = path[len("/static/") :]
                     target = (STATIC_DIR / rel).resolve()
                     if not str(target).startswith(str(STATIC_DIR.resolve())) or not target.is_file():
                         self._send_bytes(b"Not found", content_type="text/plain", status=404)
