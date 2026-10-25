@@ -159,6 +159,27 @@ This writes:
 
 `Exec=` uses the absolute path to `handforge-gui` next to the active interpreter (project `.venv` when you run from that venv), so the menu entry works without activating the shell. Options: `--dry-run`, `--uninstall`, `--system` (`/usr/share`, needs write access), `--prefix DIR`. Template (placeholders): [packaging/linux/handforge.desktop](../packaging/linux/handforge.desktop).
 
+### Python wheels / CI packaging
+
+The project ships as a pure-Python wheel (PyQt6 dependency). Package data includes `handforge/resources/*.png` (tray/window icons) and `handforge/resources/fonts/*` (bundled UI typeface) via `[tool.setuptools.package-data]` in `pyproject.toml`.
+
+**Local build** (from a project venv):
+
+```bash
+python -m pip install build twine
+python -m build
+python -m twine check dist/*
+# Inspect: unzip -l dist/handforge-*.whl | grep resources
+```
+
+**CI**: [`.github/workflows/packaging.yml`](../.github/workflows/packaging.yml) runs on pushes/PRs to `main`/`develop` and on `v*` tags — builds sdist+wheel, `twine check`, asserts resources + `handforge` / `handforge-gui` console scripts, uploads the `python-package-distributions` artifact. Tag pushes also attach `.whl` / `.tar.gz` to the GitHub Release (alongside the notes workflow).
+
+**PyPI (optional)**: no API token is stored in the repo. To enable Trusted Publishing, create a PyPI publisher for this workflow + GitHub Environment `pypi`, then set repository variable `PYPI_TRUSTED_PUBLISHING=true`. Until then, download the CI artifact (or use local `dist/`) and publish manually:
+
+```bash
+python -m twine upload dist/*
+```
+
 Linux tip: if you are on a remote/SSH session but have a local display:
 
 ```bash
@@ -167,18 +188,31 @@ DISPLAY=:0 handforge-gui
 
 ### First conversion in the GUI
 
-1. **Add Files** or **Add Folder** (or drag-and-drop into the queue).
-2. Choose a **preset** (audio or video) from the toolbar / presets UI.
-3. Confirm the **output directory** (default `~/HandForge_Output`, or `%USERPROFILE%\HandForge_Output` on Windows) under **Settings → Preferences → Conversion**.
-4. Click **Start Conversion** (shortcut: Ctrl+Return).
-5. Watch **Active Conversions**; open the output folder from the status bar / context menu when done.
+The desktop shell uses a left **sidebar** (Convert, Queue, Active Jobs, Library, Preferences) and a main **stage**. Convert is the day-to-day workspace: file controls, preset picker, queue, and active jobs side by side.
+
+1. Open the **Convert** sidebar section (default).
+2. **Add Files** or **Add Folder** (or drag-and-drop into the Conversion Queue).
+3. Choose a **preset** (audio or video) from the preset control on Convert.
+4. Confirm the **output directory** (default `~/HandForge_Output`, or `%USERPROFILE%\HandForge_Output` on Windows) under **Settings → Preferences → Conversion** (or the Preferences sidebar item).
+5. Click **Start Conversion** (shortcut: Ctrl+Return). The shell emphasizes **Active Jobs**.
+6. Watch progress in **Active Conversions**; open the output folder from the status bar / context menu when done.
+
+**Sidebar shortcuts**
+
+| Sidebar | What it does |
+|---------|----------------|
+| Convert | Full convert workspace (add → preset → start) |
+| Queue | Focus Conversion Queue (`Ctrl+1`) |
+| Active Jobs | Focus Active Conversions (`Ctrl+2`) |
+| Library | Presets, template library, patterns, auto-retry |
+| Preferences | Opens Preferences (`Ctrl+,`) |
 
 Useful menus after install:
 
 | Action | Where |
 |--------|--------|
-| Preferences | Settings → Preferences (Ctrl+,) |
-| Preset template library | Settings → Preset Template Library |
+| Preferences | Sidebar **Preferences**, or Settings → Preferences (Ctrl+,) |
+| Preset template library | Sidebar **Library**, or Settings → Preset Template Library |
 | Keyboard shortcuts | Help → Keyboard Shortcuts (F1) |
 | Companion / LAN control | Preferences → Advanced → Companion |
 

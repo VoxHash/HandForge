@@ -3,6 +3,7 @@
 import sys
 from PyQt6.QtWidgets import QApplication
 from .ui.main_window import MainWindow
+from .ui.theme import application_font, load_application_fonts
 from .util.icons import app_icon
 
 
@@ -12,6 +13,8 @@ def main():
     app.setApplicationName("HandForge")
     app.setOrganizationName("VoxHash Technologies")
     app.setWindowIcon(app_icon())
+    load_application_fonts()
+    app.setFont(application_font(10))
 
     # Discover directory + entry-point plugins before the UI builds presets.
     try:

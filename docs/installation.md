@@ -98,7 +98,7 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
-`pip install -e .` installs the package and the `handforge` console script from `pyproject.toml`.
+`pip install -e .` installs the package and the `handforge` / `handforge-gui` console scripts from `pyproject.toml`. Wheel builds include package data such as `handforge/resources/*.png` (see [Desktop — Python wheels / CI packaging](desktop.md#python-wheels--ci-packaging)).
 
 ### Step 3: Verify
 

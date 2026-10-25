@@ -1,0 +1,137 @@
+# Build sdist + wheel (with package data: resources icons, etc.), twine-check,
+# upload artifacts. On tags: attach to GitHub Release. Optional PyPI publish via
+# Trusted Publishing (OIDC) — no API token secrets required in the repo.
+name: Packaging
+
+on:
+  push:
+    branches: [main, develop]
+    tags:
+      - "v*"
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build sdist and wheel
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build twine
+
+      - name: Build sdist and wheel
+        run: python -m build
+
+      - name: Twine check
+        run: python -m twine check dist/*
+
+      - name: Verify wheel package data and entry points
+        run: |
+          set -euo pipefail
+          WHEEL=$(ls dist/handforge-*.whl | head -n1)
+          echo "Inspecting: $WHEEL"
+          python - <<'PY'
+          import zipfile
+          from pathlib import Path
+
+          wheels = sorted(Path("dist").glob("handforge-*.whl"))
+          assert wheels, "no wheel in dist/"
+          whl = wheels[0]
+          with zipfile.ZipFile(whl) as zf:
+              names = zf.namelist()
+          pngs = [n for n in names if n.startswith("handforge/resources/") and n.endswith(".png")]
+          assert pngs, f"wheel missing handforge/resources/*.png; sample={names[:20]}"
+          print(f"OK resources ({len(pngs)}):")
+          for p in sorted(pngs):
+              print(f"  {p}")
+
+          ep_files = [n for n in names if n.endswith(".dist-info/entry_points.txt")]
+          assert len(ep_files) == 1, ep_files
+          with zipfile.ZipFile(whl) as zf:
+              ep = zf.read(ep_files[0]).decode("utf-8")
+          print("--- entry_points.txt ---")
+          print(ep)
+          assert "handforge =" in ep or "handforge=" in ep, ep
+          assert "handforge-gui =" in ep or "handforge-gui=" in ep, ep
+          print("OK console scripts handforge + handforge-gui")
+          PY
+
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+
+  publish-github-release:
+    name: Attach packages to GitHub Release
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+          fail_on_unmatched_files: true
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Optional: PyPI via Trusted Publishing (OIDC). Configure at
+  # https://pypi.org/manage/project/handforge/settings/publishing/
+  # Owner: VoxHash, Repo: HandForge, Workflow: packaging.yml, Environment: pypi
+  # Until Trusted Publisher is set up, skip failing tags by leaving the GitHub
+  # Environment "pypi" uncreated, or download the artifact and run:
+  #   twine upload dist/*
+  publish-pypi:
+    name: Publish to PyPI (OIDC)
+    needs: build
+    if: >-
+      github.event_name == 'push'
+      && startsWith(github.ref, 'refs/tags/v')
+      && vars.PYPI_TRUSTED_PUBLISHING == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/handforge
+    permissions:
+      id-token: write
+    steps:
+      - name: Download distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
+          verbose: true

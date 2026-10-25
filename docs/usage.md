@@ -4,16 +4,21 @@ This guide covers all features and how to use HandForge effectively.
 
 ## Basic Workflow
 
-1. **Add Files** - Add audio or video files to the queue
-2. **Select Preset** - Choose a conversion preset (audio or video)
-3. **Configure Options** - Adjust settings as needed (subtitle selection, compression, trimming, etc.)
-4. **Start Conversion** - Begin processing
-5. **Monitor Progress** - Watch real-time progress with ETA in progress bars
-6. **Access Output** - Find converted files (location shown in status bar and notifications)
+The desktop GUI uses a left **sidebar** (Convert, Queue, Active Jobs, Library, Preferences) and a main stage. Day-to-day work happens on **Convert**.
+
+1. Open **Convert** in the sidebar (default).
+2. **Add Files** - Add audio or video files to the queue (or drag-and-drop onto the queue).
+3. **Select Preset** - Choose a conversion preset (audio or video) on Convert.
+4. **Configure Options** - Adjust settings as needed (subtitle selection, compression, trimming, etc.).
+5. **Start Conversion** - Begin processing (`Ctrl+Return`); the shell emphasizes Active Jobs.
+6. **Monitor Progress** - Watch real-time progress with ETA in Active Conversions (`Ctrl+2`).
+7. **Access Output** - Find converted files (location shown in status bar and notifications).
+
+Use the **Library** sidebar section for Manage Presets, the Preset Template Library, filename patterns, and auto-retry rules.
 
 ## Preferences
 
-Access comprehensive settings via **Settings** → **Preferences**:
+Access comprehensive settings via the **Preferences** sidebar item, or **Settings** → **Preferences**:
 
 - **General**: Language selection, parallel processing, file handling, system tray behavior
 - **Conversion**: Output directory, codec thread counts

@@ -69,11 +69,12 @@ Next-phase ops/docs milestone after feature ROADMAP items are complete: make des
 
 ## 2027 Continuity → Desktop polish
 
-Ops/polish after E2E desktop docs: ship a clean day-to-day GUI on Linux/Windows/macOS (icons, launchers, packaging, then a versioned release).
+Ops/polish after E2E desktop docs: ship a polished day-to-day GUI on Linux/Windows/macOS (icons, launchers, packaging, then a versioned release).
 
 - ✅ **System tray / window icon** — packaged multi-size PNGs under `handforge/resources/`; `handforge.util.icons.app_icon()` / `ensure_tray_icon()` set a non-null `QIcon` before `QSystemTrayIcon.show()` (fixes `QSystemTrayIcon::setVisible: No Icon set`); window + `QApplication` icon; duplicate tray removed from `handforge/app.py`; regenerate via `scripts/generate-app-icons.py`; tests in `tests/test_tray_icon.py`
 - ✅ **Linux `.desktop` launcher / start-menu integration** — `packaging/linux/handforge.desktop` template; `handforge install-desktop` (or `scripts/install-desktop.sh`) writes FreeDesktop entry + hicolor icons under `~/.local/share` (optional `--system` / `--prefix`); `handforge-gui` console script for absolute `Exec=`; tests in `tests/test_desktop_linux.py`; see [docs/desktop.md](docs/desktop.md)
-- ⬜ **CI packaging for desktop wheels** — GitHub Actions build/publish sdists/wheels with package data (resources icons)
+- ✅ **CI packaging for desktop wheels** — GitHub Actions (`.github/workflows/packaging.yml`) builds sdist+wheel, `twine check`, verifies `handforge/resources/*.png` + console entry points, uploads artifacts; tag pushes attach packages to the GitHub Release; optional PyPI Trusted Publishing (OIDC) when repo var `PYPI_TRUSTED_PUBLISHING=true`
+- ✅ **Modern media desktop shell** — sidebar library chrome + Convert stage (queue | active jobs), Library hub, forge charcoal/copper theme, bundled Manrope, nav indicator + stage fade + start pulse; `handforge/ui/theme.py`, `handforge/ui/shell.py`; docs in [docs/desktop.md](docs/desktop.md)
 - ⬜ **Versioned release from Unreleased** — bump past 1.3.2, fold CHANGELOG Unreleased → tagged release
 
 ## Completed Milestones
@@ -107,6 +108,8 @@ Ops/polish after E2E desktop docs: ship a clean day-to-day GUI on Linux/Windows/
 - ✅ Desktop install + usage guide for Windows / Linux / macOS (`docs/desktop.md`; canonical `.venv` + editable install; GUI and CLI post-install paths)
 - ✅ Desktop polish: system tray / window icon (`handforge/resources/*.png`, `handforge/util/icons.py`; no Qt “No Icon set” on tray show)
 - ✅ Desktop polish: Linux `.desktop` launcher (`handforge install-desktop`, `handforge-gui`, hicolor icons, `packaging/linux/handforge.desktop`)
+- ✅ Desktop polish: CI packaging for desktop wheels (`.github/workflows/packaging.yml`; sdist/wheel + package data; artifacts; optional PyPI OIDC)
+- ✅ Desktop polish: modern media desktop shell (sidebar + Convert/Library stages, forge theme, Manrope, motion)
 
 ### v1.3.2 (Q4 2026)
 - ✅ Permission-aware output directory handling and pre-conversion write checks

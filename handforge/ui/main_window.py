@@ -21,6 +21,9 @@ from PyQt6.QtGui import (
     QKeySequence,
 )
 
+from .shell import SidebarNav, StageStack, build_shell, pulse_widget, wrap_stage_header
+from .theme import app_stylesheet, application_font, load_application_fonts
+
 # Key sequence → description (Help dialog + tests). All map to real QActions.
 KEYBOARD_SHORTCUTS = (
     ("Ctrl+O", "Add Files"),
@@ -192,29 +195,27 @@ class MainWindow(QMainWindow):
         self._persist_queue()
     
     def init_ui(self):
-        """Initialize the UI."""
+        """Initialize the modern media desktop shell (sidebar + main stage)."""
         self.setWindowTitle("HandForge - Audio & Video Converter")
-        self.setMinimumSize(1200, 800)
-        
-        # Central widget
-        central = QWidget()
-        self.setCentralWidget(central)
-        layout = QVBoxLayout(central)
-        layout.setSpacing(12)
-        layout.setContentsMargins(16, 16, 16, 16)
-        
-        # Main control panel - grouped for better UX
-        # (menu bar created after tables so Delete can bind to the queue widget)
+        self.setMinimumSize(1280, 820)
+        self.setFont(application_font(10))
+
         t = self.translator
+
+        # --- Convert workspace body (controls + options + queue | active) ---
+        workspace = QWidget()
+        layout = QVBoxLayout(workspace)
+        layout.setSpacing(12)
+        layout.setContentsMargins(0, 0, 0, 0)
+
         control_group = QGroupBox(t.tr("group_file_management"))
         control_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         control_layout = QVBoxLayout(control_group)
         control_layout.setSpacing(10)
-        
-        # Top row: File operations
+
         file_row = QHBoxLayout()
         file_row.setSpacing(10)
-        
+
         self.btn_add_files = QPushButton(t.tr("btn_add_files"))
         self.btn_add_files.setToolTip(
             "Add individual files to the conversion queue (Ctrl+O)"
@@ -222,7 +223,7 @@ class MainWindow(QMainWindow):
         self.btn_add_files.clicked.connect(self.add_files)
         self.btn_add_files.setMinimumHeight(36)
         file_row.addWidget(self.btn_add_files)
-        
+
         self.btn_add_folder = QPushButton(t.tr("btn_add_folder"))
         self.btn_add_folder.setToolTip(
             "Add all media files from a folder, recursive (Ctrl+Shift+O)"
@@ -230,23 +231,22 @@ class MainWindow(QMainWindow):
         self.btn_add_folder.clicked.connect(self.add_folder)
         self.btn_add_folder.setMinimumHeight(36)
         file_row.addWidget(self.btn_add_folder)
-        
-        # Queue count label
+
         self.queue_count_label = QLabel("0 " + t.tr("label_queue_count"))
-        self.queue_count_label.setStyleSheet("color: rgba(255, 255, 255, 150); font-size: 11px;")
+        self.queue_count_label.setStyleSheet(
+            "color: rgba(139, 154, 171, 220); font-size: 11px; font-weight: 560;"
+        )
         file_row.addStretch()
         file_row.addWidget(self.queue_count_label)
-        
         control_layout.addLayout(file_row)
-        
-        # Middle row: Preset and conversion controls
+
         preset_row = QHBoxLayout()
         preset_row.setSpacing(10)
-        
+
         preset_label = QLabel(t.tr("label_preset"))
         preset_label.setMinimumWidth(60)
         preset_row.addWidget(preset_label)
-        
+
         self.combo_preset = QComboBox()
         self.combo_preset.addItem("🎵 MP3 192k")
         self.combo_preset.addItem("🎵 AAC 256k")
@@ -260,96 +260,94 @@ class MainWindow(QMainWindow):
         for name in self.presets.keys():
             self.combo_preset.addItem(name)
         self.combo_preset.setMinimumHeight(32)
-        self.combo_preset.setToolTip("Select conversion preset or create custom presets in Settings")
+        self.combo_preset.setToolTip(
+            "Select conversion preset or create custom presets in Settings"
+        )
         self.combo_preset.currentTextChanged.connect(self.on_preset_changed)
         preset_row.addWidget(self.combo_preset, 2)
-        
         preset_row.addSpacing(20)
-        
-        # Action buttons
-        self.btn_start = QPushButton("▶️ Start Conversion")
+
+        self.btn_start = QPushButton("Start Conversion")
+        self.btn_start.setObjectName("hfPrimary")
         self.btn_start.setToolTip("Start converting all files in the queue (Ctrl+Return)")
         self.btn_start.clicked.connect(self.start_conversion)
         self.btn_start.setMinimumHeight(36)
-        self.btn_start.setMinimumWidth(140)
+        self.btn_start.setMinimumWidth(150)
         preset_row.addWidget(self.btn_start)
-        
-        self.btn_stop = QPushButton("⏹️ Stop")
+
+        self.btn_stop = QPushButton("Stop")
+        self.btn_stop.setObjectName("hfDanger")
         self.btn_stop.setToolTip("Stop all running conversions (Ctrl+.)")
         self.btn_stop.clicked.connect(self.stop_conversion)
         self.btn_stop.setMinimumHeight(36)
         self.btn_stop.setMinimumWidth(100)
         self.btn_stop.setEnabled(False)
         preset_row.addWidget(self.btn_stop)
-        
+
         control_layout.addLayout(preset_row)
-        
         layout.addWidget(control_group)
-        
-        # Options panel - grouped for better organization
-        options_group = QGroupBox("⚙️ Advanced Options")
+
+        options_group = QGroupBox("Advanced Options")
         options_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         options_layout = QHBoxLayout(options_group)
         options_layout.setSpacing(15)
-        
-        # Video compression options
+
         video_options = QHBoxLayout()
         video_options.setSpacing(10)
-        
-        self.checkbox_reduce_size = QCheckBox("💾 Reduce Video Size")
-        self.checkbox_reduce_size.setToolTip("Use H.265/HEVC codec for smart compression (5-10x smaller) while maintaining quality")
+
+        self.checkbox_reduce_size = QCheckBox("Reduce Video Size")
+        self.checkbox_reduce_size.setToolTip(
+            "Use H.265/HEVC codec for smart compression (5-10x smaller) while maintaining quality"
+        )
         self.checkbox_reduce_size.setChecked(False)
         self.checkbox_reduce_size.stateChanged.connect(self.on_reduce_size_changed)
         video_options.addWidget(self.checkbox_reduce_size)
-        
+
         reduction_label = QLabel("Target:")
         reduction_label.setEnabled(False)
         video_options.addWidget(reduction_label)
-        
+
         self.combo_reduction = QComboBox()
         self.combo_reduction.addItem("5x smaller", 5.0)
         self.combo_reduction.addItem("7x smaller", 7.0)
         self.combo_reduction.addItem("10x smaller", 10.0)
         self.combo_reduction.addItem("Maximum compression", 15.0)
-        self.combo_reduction.setCurrentIndex(1)  # Default to 7x
+        self.combo_reduction.setCurrentIndex(1)
         self.combo_reduction.setEnabled(False)
         self.combo_reduction.setToolTip("Target file size reduction factor")
         video_options.addWidget(self.combo_reduction)
-        
-        self.checkbox_two_pass = QCheckBox("🔄 Two-Pass Encoding")
-        self.checkbox_two_pass.setToolTip("Slower but provides optimal quality/size ratio (recommended for best results)")
+
+        self.checkbox_two_pass = QCheckBox("Two-Pass Encoding")
+        self.checkbox_two_pass.setToolTip(
+            "Slower but provides optimal quality/size ratio (recommended for best results)"
+        )
         self.checkbox_two_pass.setChecked(False)
         self.checkbox_two_pass.setEnabled(False)
         video_options.addWidget(self.checkbox_two_pass)
-        
+
         options_layout.addLayout(video_options)
-        
-        # Separator
+
         separator = QFrame()
         separator.setFrameShape(QFrame.Shape.VLine)
         separator.setFrameShadow(QFrame.Shadow.Sunken)
-        separator.setStyleSheet("color: rgba(255, 255, 255, 30);")
+        separator.setStyleSheet("color: rgba(140, 170, 190, 48);")
         options_layout.addWidget(separator)
-        
         options_layout.addStretch()
-        
-        # File management option
-        self.checkbox_delete_original = QCheckBox("🗑️ Delete Original After Conversion")
-        self.checkbox_delete_original.setToolTip("⚠️ Remove source file after successful conversion (use with caution)")
+
+        self.checkbox_delete_original = QCheckBox("Delete Original After Conversion")
+        self.checkbox_delete_original.setToolTip(
+            "Remove source file after successful conversion (use with caution)"
+        )
         self.checkbox_delete_original.setChecked(self.settings.get("delete_original", False))
         self.checkbox_delete_original.stateChanged.connect(self.on_delete_original_changed)
         options_layout.addWidget(self.checkbox_delete_original)
-        
         layout.addWidget(options_group)
-        
-        # Splitter for queue and workers
+
         splitter = QSplitter(Qt.Orientation.Horizontal)
-        
-        # Queue table with better styling
-        queue_group = QGroupBox("📋 Conversion Queue")
+
+        queue_group = QGroupBox("Conversion Queue")
         queue_layout = QVBoxLayout(queue_group)
-        
-        t = self.translator
+
         self.queue_table = QTableWidget()
         self.queue_table.setColumnCount(4)
         self.queue_table.setHorizontalHeaderLabels([
@@ -362,23 +360,20 @@ class MainWindow(QMainWindow):
         self.queue_table.setShowGrid(False)
         self.queue_table.verticalHeader().setVisible(False)
         self.queue_table.horizontalHeader().setStretchLastSection(True)
-        self.queue_table.setColumnWidth(0, 40)  # Narrow column for numbers
-        self.queue_table.setColumnWidth(1, 350)  # Wide column for filenames
-        self.queue_table.setColumnWidth(2, 120)  # Medium column for format
-        self.queue_table.setColumnWidth(3, 220)  # Subtitle selection column (increased width)
+        self.queue_table.setColumnWidth(0, 40)
+        self.queue_table.setColumnWidth(1, 350)
+        self.queue_table.setColumnWidth(2, 120)
+        self.queue_table.setColumnWidth(3, 220)
         self.queue_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.queue_table.customContextMenuRequested.connect(self.show_queue_context_menu)
-        splitter.addWidget(self.queue_table)
-        
         queue_layout.addWidget(self.queue_table)
         splitter.addWidget(queue_group)
-        
-        # Workers table with better styling
-        workers_group = QGroupBox("⚡ Active Conversions")
+
+        workers_group = QGroupBox("Active Conversions")
         workers_layout = QVBoxLayout(workers_group)
-        
+
         self.workers_table = QTableWidget()
-        self.workers_table.setColumnCount(7)  # Removed Speed column
+        self.workers_table.setColumnCount(7)
         self.workers_table.setHorizontalHeaderLabels([
             "ID", "File", "Elapsed", "ETA", "Log", "Status", "Progress"
         ])
@@ -387,45 +382,122 @@ class MainWindow(QMainWindow):
         self.workers_table.setAlternatingRowColors(True)
         self.workers_table.setShowGrid(False)
         self.workers_table.verticalHeader().setVisible(False)
-        self.workers_table.setColumnWidth(0, 40)   # ID
-        self.workers_table.setColumnWidth(1, 250)  # File
-        self.workers_table.setColumnWidth(2, 80)   # Elapsed (time passed)
-        self.workers_table.setColumnWidth(3, 80)   # ETA (estimated time remaining)
-        self.workers_table.setColumnWidth(4, 100)  # Log
-        self.workers_table.setColumnWidth(5, 150)  # Status (wider to show error messages)
-        self.workers_table.setColumnWidth(6, 120)  # Progress
+        self.workers_table.setColumnWidth(0, 40)
+        self.workers_table.setColumnWidth(1, 250)
+        self.workers_table.setColumnWidth(2, 80)
+        self.workers_table.setColumnWidth(3, 80)
+        self.workers_table.setColumnWidth(4, 100)
+        self.workers_table.setColumnWidth(5, 150)
+        self.workers_table.setColumnWidth(6, 120)
         workers_layout.addWidget(self.workers_table)
-        
-        # Connect cell clicked signal for View Log button
         self.workers_table.cellClicked.connect(self._on_workers_table_cell_clicked)
-        
-        # Enable context menu for Active Conversions table
         self.workers_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.workers_table.customContextMenuRequested.connect(self.show_workers_context_menu)
-        
         splitter.addWidget(workers_group)
         splitter.setSizes([450, 750])
-        
-        # Override drag/drop for queue table
+        self._workspace_splitter = splitter
+
         self.queue_table.dragEnterEvent = self.dragEnterEvent
         self.queue_table.dropEvent = self.dropEvent
-        
-        layout.addWidget(splitter, 1)  # Give splitter stretch factor
+        layout.addWidget(splitter, 1)
 
-        # Menu bar (after tables so shortcuts can target queue/workers widgets)
+        # --- Library stage (presets / patterns hub) ---
+        library_body = QWidget()
+        lib_layout = QVBoxLayout(library_body)
+        lib_layout.setSpacing(12)
+        lib_layout.setContentsMargins(0, 0, 0, 0)
+        lib_intro = QLabel(
+            "Manage conversion presets, browse curated templates, and tune "
+            "filename patterns. Preset selection for the next job lives on Convert."
+        )
+        lib_intro.setWordWrap(True)
+        lib_intro.setObjectName("hfStageSub")
+        lib_layout.addWidget(lib_intro)
+
+        lib_actions = QHBoxLayout()
+        lib_actions.setSpacing(10)
+        btn_presets = QPushButton("Manage Presets")
+        btn_presets.setObjectName("hfPrimary")
+        btn_presets.setMinimumHeight(36)
+        btn_presets.clicked.connect(self.manage_presets)
+        lib_actions.addWidget(btn_presets)
+        btn_templates = QPushButton("Preset Template Library")
+        btn_templates.setMinimumHeight(36)
+        btn_templates.clicked.connect(self.open_preset_template_library)
+        lib_actions.addWidget(btn_templates)
+        btn_patterns = QPushButton("Filename Patterns")
+        btn_patterns.setMinimumHeight(36)
+        btn_patterns.clicked.connect(self.manage_patterns)
+        lib_actions.addWidget(btn_patterns)
+        btn_retry = QPushButton("Auto-Retry Rules")
+        btn_retry.setMinimumHeight(36)
+        btn_retry.clicked.connect(self.manage_autoretry)
+        lib_actions.addWidget(btn_retry)
+        lib_actions.addStretch()
+        lib_layout.addLayout(lib_actions)
+        lib_layout.addStretch(1)
+
+        convert_page = wrap_stage_header(
+            "Convert",
+            "Add media, pick a preset, and run the queue. Drag files onto the queue table.",
+            workspace,
+        )
+        library_page = wrap_stage_header(
+            "Library",
+            "Presets, templates, and naming patterns for repeatable conversions.",
+            library_body,
+        )
+
+        self._stage = StageStack()
+        self._stage.addWidget(convert_page)   # 0
+        self._stage.addWidget(library_page)   # 1
+        self._nav_to_stage = {"convert": 0, "queue": 0, "active": 0, "library": 1}
+
+        self._sidebar = SidebarNav(
+            [
+                ("convert", "Convert", "Workspace: add files, presets, start jobs"),
+                ("queue", "Queue", "Focus the conversion queue (Ctrl+1)"),
+                ("active", "Active Jobs", "Focus active conversions (Ctrl+2)"),
+                ("library", "Library", "Presets, templates, and patterns"),
+                ("prefs", "Preferences", "Open Preferences (Ctrl+,)"),
+            ]
+        )
+        self._sidebar.section_changed.connect(self._on_shell_section)
+
+        shell = build_shell(self._sidebar, self._stage)
+        self.setCentralWidget(shell)
+
+        # Menu bar after tables so Delete can bind to the queue widget
         self.create_menu_bar()
-        
-        # Status bar with better info
-        self.statusBar().showMessage("✨ Ready - Add files to begin conversion")
-        self.statusBar().setStyleSheet("""
-            QStatusBar {
-                padding: 4px;
-                font-size: 11px;
-            }
-        """)
-        
-        # Enable drag and drop
+
+        self.statusBar().showMessage("Ready — add files to begin conversion")
         self.setAcceptDrops(True)
+
+    def _on_shell_section(self, section_id: str) -> None:
+        """Sidebar navigation: stage switch, focus, or open Preferences."""
+        if section_id == "prefs":
+            prev = getattr(self, "_last_shell_section", "convert")
+            self.show_preferences()
+            self._sidebar.set_section(prev, animate=False)
+            return
+        self._last_shell_section = section_id
+        stage_idx = self._nav_to_stage.get(section_id, 0)
+        if self._stage.currentIndex() != stage_idx:
+            self._stage.fade_to(stage_idx)
+        else:
+            self._stage.setCurrentIndex(stage_idx)
+        if section_id == "queue":
+            self.queue_table.setFocus(Qt.FocusReason.ShortcutFocusReason)
+            if hasattr(self, "_workspace_splitter"):
+                self._workspace_splitter.setSizes([720, 480])
+        elif section_id == "active":
+            self.workers_table.setFocus(Qt.FocusReason.ShortcutFocusReason)
+            if hasattr(self, "_workspace_splitter"):
+                self._workspace_splitter.setSizes([400, 800])
+        elif section_id == "convert":
+            if hasattr(self, "_workspace_splitter"):
+                self._workspace_splitter.setSizes([450, 750])
+            self.btn_add_files.setFocus(Qt.FocusReason.ShortcutFocusReason)
     
     def on_reduce_size_changed(self, state):
         """Enable/disable size reduction options."""
@@ -625,164 +697,10 @@ class MainWindow(QMainWindow):
         help_menu.addAction(self.act_shortcuts_help)
     
     def apply_settings(self):
-        """Apply application settings with Glassmorphism styling."""
-        # Glassmorphism theme with transparency and blur effects
-        self.setStyleSheet("""
-            QMainWindow {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 rgba(30, 30, 60, 240), stop:1 rgba(20, 20, 40, 240));
-                color: #ffffff;
-            }
-            QWidget {
-                background: transparent;
-                color: #ffffff;
-            }
-            QTableWidget {
-                background: rgba(255, 255, 255, 15);
-                border: 1px solid rgba(255, 255, 255, 30);
-                border-radius: 12px;
-                color: #ffffff;
-                gridline-color: rgba(255, 255, 255, 20);
-            }
-            QTableWidget::item {
-                background: transparent;
-                padding: 5px;
-            }
-            QTableWidget::item:selected {
-                background: rgba(100, 150, 255, 120);
-                border-radius: 6px;
-            }
-            QTableWidget::item:hover {
-                background: rgba(255, 255, 255, 30);
-                border-radius: 6px;
-            }
-            QHeaderView::section {
-                background: rgba(255, 255, 255, 20);
-                border: none;
-                padding: 8px;
-                border-radius: 8px;
-                font-weight: bold;
-            }
-            QPushButton {
-                background: rgba(255, 255, 255, 20);
-                border: 1px solid rgba(255, 255, 255, 40);
-                border-radius: 10px;
-                padding: 8px 16px;
-                color: #ffffff;
-                font-weight: 500;
-            }
-            QPushButton:hover {
-                background: rgba(255, 255, 255, 35);
-                border: 1px solid rgba(255, 255, 255, 60);
-            }
-            QPushButton:pressed {
-                background: rgba(255, 255, 255, 50);
-            }
-            QComboBox {
-                background: rgba(255, 255, 255, 20);
-                border: 1px solid rgba(255, 255, 255, 40);
-                border-radius: 10px;
-                padding: 6px 12px;
-                color: #ffffff;
-            }
-            QComboBox:hover {
-                background: rgba(255, 255, 255, 30);
-                border: 1px solid rgba(255, 255, 255, 60);
-            }
-            QComboBox::drop-down {
-                border: none;
-                background: transparent;
-            }
-            QComboBox QAbstractItemView {
-                background: rgba(30, 30, 60, 240);
-                border: 1px solid rgba(255, 255, 255, 40);
-                border-radius: 8px;
-                selection-background-color: rgba(100, 150, 255, 120);
-            }
-            QLabel {
-                background: transparent;
-                color: #ffffff;
-            }
-            QMenuBar {
-                background: rgba(255, 255, 255, 15);
-                border: none;
-                color: #ffffff;
-            }
-            QMenuBar::item {
-                background: transparent;
-                padding: 8px 12px;
-                border-radius: 6px;
-            }
-            QMenuBar::item:selected {
-                background: rgba(255, 255, 255, 30);
-            }
-            QMenu {
-                background: rgba(30, 30, 60, 240);
-                border: 1px solid rgba(255, 255, 255, 40);
-                border-radius: 10px;
-                color: #ffffff;
-            }
-            QMenu::item {
-                padding: 8px 24px;
-                border-radius: 6px;
-            }
-            QMenu::item:selected {
-                background: rgba(100, 150, 255, 120);
-            }
-            QStatusBar {
-                background: rgba(255, 255, 255, 15);
-                border-top: 1px solid rgba(255, 255, 255, 30);
-                color: #ffffff;
-            }
-            QSplitter::handle {
-                background: rgba(255, 255, 255, 20);
-            }
-            QSplitter::handle:horizontal {
-                width: 2px;
-            }
-            QSplitter::handle:vertical {
-                height: 2px;
-            }
-            QGroupBox {
-                border: 1px solid rgba(255, 255, 255, 30);
-                border-radius: 12px;
-                margin-top: 12px;
-                padding-top: 12px;
-                font-weight: 600;
-                font-size: 13px;
-                color: rgba(255, 255, 255, 220);
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 12px;
-                padding: 0 8px;
-            }
-            QCheckBox {
-                color: #ffffff;
-                spacing: 6px;
-            }
-            QCheckBox::indicator {
-                width: 18px;
-                height: 18px;
-                border: 2px solid rgba(255, 255, 255, 50);
-                border-radius: 4px;
-                background: rgba(255, 255, 255, 10);
-            }
-            QCheckBox::indicator:checked {
-                background: rgba(100, 150, 255, 200);
-                border-color: rgba(100, 150, 255, 255);
-            }
-            QCheckBox::indicator:hover {
-                border-color: rgba(255, 255, 255, 80);
-            }
-            QCheckBox:disabled {
-                color: rgba(255, 255, 255, 100);
-            }
-            QCheckBox::indicator:disabled {
-                background: rgba(255, 255, 255, 5);
-                border-color: rgba(255, 255, 255, 20);
-            }
-        """)
+        """Apply application settings and the HandForge desktop shell theme."""
+        ok, family = load_application_fonts()
+        self.setFont(application_font(10))
+        self.setStyleSheet(app_stylesheet(family if ok else None))
     
     def load_window_state(self):
         """Load window geometry and state."""
@@ -1159,7 +1077,11 @@ class MainWindow(QMainWindow):
                 "Use 'Add Files' or 'Add Folder' buttons, or drag and drop files into the queue."
             )
             return
-        
+
+        if hasattr(self, "_sidebar"):
+            self._sidebar.set_section("active", animate=True)
+        pulse_widget(self.btn_start)
+
         # Update button states
         self.btn_start.setEnabled(False)
         self.btn_stop.setEnabled(True)
@@ -2021,12 +1943,18 @@ class MainWindow(QMainWindow):
 
     def focus_queue(self):
         """Move keyboard focus to the conversion queue table."""
-        self.queue_table.setFocus(Qt.FocusReason.ShortcutFocusReason)
+        if hasattr(self, "_sidebar"):
+            self._sidebar.set_section("queue", animate=True)
+        else:
+            self.queue_table.setFocus(Qt.FocusReason.ShortcutFocusReason)
         self.statusBar().showMessage("Focused conversion queue", 2000)
 
     def focus_active_conversions(self):
         """Move keyboard focus to Active Conversions (progress / output status)."""
-        self.workers_table.setFocus(Qt.FocusReason.ShortcutFocusReason)
+        if hasattr(self, "_sidebar"):
+            self._sidebar.set_section("active", animate=True)
+        else:
+            self.workers_table.setFocus(Qt.FocusReason.ShortcutFocusReason)
         self.statusBar().showMessage("Focused Active Conversions", 2000)
 
     def show_keyboard_shortcuts(self):
