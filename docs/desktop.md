@@ -136,6 +136,8 @@ From the activated `.venv` (or with the venv `python` on PATH):
 python -m handforge.app
 ```
 
+The GUI sets a packaged HandForge icon on the window and system tray before the tray is shown (so Qt does not warn `QSystemTrayIcon::setVisible: No Icon set`). Minimize-to-tray still follows Preferences → General.
+
 Linux tip: if you are on a remote/SSH session but have a local display:
 
 ```bash
@@ -213,6 +215,7 @@ Full CLI reference: [cli.md](cli.md). Settings file and keys: [configuration.md]
 | GUI does not open on Linux | Check `echo $DISPLAY`; for a local seat try `DISPLAY=:0`; headless machines can still use `handforge convert` |
 | `handforge: command not found` | Use `python -m handforge …` or ensure `.venv` is activated after `pip install -e .` |
 | Permission errors writing output | Change output dir in Preferences, or pick a writable folder with `-o` / `--output-dir` |
+| Tray shows blank / `No Icon set` | Reinstall editable package so `handforge/resources/*.png` is included (`pip install -e .`); icons regenerate via `python scripts/generate-app-icons.py` (Pillow) |
 
 More cases: [troubleshooting.md](troubleshooting.md).
 

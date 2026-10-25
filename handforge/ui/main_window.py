@@ -107,20 +107,26 @@ class MainWindow(QMainWindow):
         self._companion_controller = SessionController()
         self._companion_server = None
         
-        # System tray icon
+        # Window + system tray icons (icon must be set before tray.show())
+        from ..util.icons import app_icon, ensure_tray_icon
+
+        self.setWindowIcon(app_icon())
         self.tray_icon = None
         if QSystemTrayIcon.isSystemTrayAvailable():
             self.tray_icon = QSystemTrayIcon(self)
             self.tray_icon.setToolTip("HandForge - Audio & Video Converter")
-            tray_menu = QMenu()
-            show_action = tray_menu.addAction("Show Window")
-            quit_action = tray_menu.addAction("Quit")
-            show_action.triggered.connect(self.show)
-            quit_action.triggered.connect(self.close)
-            self.tray_icon.setContextMenu(tray_menu)
-            self.tray_icon.activated.connect(self._on_tray_activated)
-            self.tray_icon.show()
-        
+            if ensure_tray_icon(self.tray_icon):
+                tray_menu = QMenu()
+                show_action = tray_menu.addAction("Show Window")
+                quit_action = tray_menu.addAction("Quit")
+                show_action.triggered.connect(self.show)
+                quit_action.triggered.connect(self.close)
+                self.tray_icon.setContextMenu(tray_menu)
+                self.tray_icon.activated.connect(self._on_tray_activated)
+                self.tray_icon.show()
+            else:
+                self.tray_icon = None
+
         self.init_ui()
         self.apply_settings()
         self._restore_persisted_queue()

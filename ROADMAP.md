@@ -67,6 +67,15 @@ Next-phase ops/docs milestone after feature ROADMAP items are complete: make des
 
 - ✅ **Desktop install + usage guide (Windows / Linux / macOS)** — end-to-end project `.venv` + `pip install -e .`, FFmpeg per OS, GUI (`python -m handforge.app`) and CLI (`handforge` / `python -m handforge`) post-install use; [docs/desktop.md](docs/desktop.md); linked from [docs/index.md](docs/index.md), [README.md](README.md), [docs/installation.md](docs/installation.md), [docs/getting-started.md](docs/getting-started.md)
 
+## 2027 Continuity → Desktop polish
+
+Ops/polish after E2E desktop docs: ship a clean day-to-day GUI on Linux/Windows/macOS (icons, launchers, packaging, then a versioned release).
+
+- ✅ **System tray / window icon** — packaged multi-size PNGs under `handforge/resources/`; `handforge.util.icons.app_icon()` / `ensure_tray_icon()` set a non-null `QIcon` before `QSystemTrayIcon.show()` (fixes `QSystemTrayIcon::setVisible: No Icon set`); window + `QApplication` icon; duplicate tray removed from `handforge/app.py`; regenerate via `scripts/generate-app-icons.py`; tests in `tests/test_tray_icon.py`
+- ⬜ **Linux `.desktop` launcher / start-menu integration** — installable `.desktop` + icon path for app menus after `pip install`
+- ⬜ **CI packaging for desktop wheels** — GitHub Actions build/publish sdists/wheels with package data (resources icons)
+- ⬜ **Versioned release from Unreleased** — bump past 1.3.2, fold CHANGELOG Unreleased → tagged release
+
 ## Completed Milestones
 
 ### Unreleased (Q4 2026)
@@ -96,6 +105,7 @@ Next-phase ops/docs milestone after feature ROADMAP items are complete: make des
 - ✅ Bundled multi-ABI Android FFmpeg: reproducible fetch script + SHA256 pins, jniLibs `libffmpeg.so` + libav* deps, LocalEncode prefers bundled when present
 - ✅ On-headset heavy encodes on Quest: same Android APK (`LocalEncodeActivity`, heavy tier presets, `HandForgeNative` from `/quest.html`); Termux fallback; thermal honesty + LAN host for long jobs (`companions/quest/README.md`)
 - ✅ Desktop install + usage guide for Windows / Linux / macOS (`docs/desktop.md`; canonical `.venv` + editable install; GUI and CLI post-install paths)
+- ✅ Desktop polish: system tray / window icon (`handforge/resources/*.png`, `handforge/util/icons.py`; no Qt “No Icon set” on tray show)
 
 ### v1.3.2 (Q4 2026)
 - ✅ Permission-aware output directory handling and pre-conversion write checks

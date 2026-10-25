@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Added
+- Desktop GUI / system-tray icon: multi-size PNGs in `handforge/resources/`, `handforge.util.icons` loads them (QPainter fallback if missing), window + tray + `QApplication` icon set before tray `show()`; regenerate with `scripts/generate-app-icons.py`; package-data includes `resources/*.png`; see [docs/desktop.md](docs/desktop.md)
 - Desktop install & usage guide for Windows / Linux / macOS: canonical project `.venv`, `pip install -e .`, FFmpeg per OS, GUI and CLI post-install paths in [docs/desktop.md](docs/desktop.md); ROADMAP **E2E Workflow & Ops** milestone; linked from README, docs index, installation, getting-started, quick-start
 - On-headset heavy encodes for Meta Quest: reuse Android companion APK on Quest (Horizon OS is Android) — `LocalEncodeActivity` with `tier: "heavy"` presets (720p HQ / 1080p / 8 Mbps capture + high-bitrate audio), Quest chrome + thermal note, `HandForgeNative` JS bridge from `/quest.html` WebView; Quest Browser still drives LAN host encode; docs in `companions/quest/` + `docs/companions.md`; pytest + Kotlin unit coverage
 - Bundled multi-ABI `libffmpeg.so` for the Android companion: `scripts/fetch-android-ffmpeg.sh` downloads SHA256-pinned husen-hn FFmpeg 7.1 prebuilts into `jniLibs/` (`armeabi-v7a`, `arm64-v8a`; optional `x86_64`); large blobs gitignored; LocalEncode uses bundled ProcessBuilder path when libs are present (Termux remains fallback); `extractNativeLibs=true`; unit tests for bundled argv / Termux extras; optional CI `workflow_dispatch` fetch; see [companions/android/README.md](companions/android/README.md)
@@ -42,6 +43,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Conversion failures in the orchestrator are enriched before GUI/CLI display; Active Conversions log dialog and status tooltips show solutions; CLI prints multi-line guidance on FAIL and pre-flight write checks use the same mapper
 
 ### Fixed
+- GUI system tray no longer calls `QSystemTrayIcon.show()` without an icon (`QSystemTrayIcon::setVisible: No Icon set`); removed duplicate tray created in `handforge/app.py` (MainWindow owns the tray)
 - Parallel workers no longer collide on the shared `.handforge_test_<pid>` write-permission probe (include worker id)
 - Short/fast FFmpeg jobs that finish within 0.1s are no longer treated as immediate failures when exit code is 0
 - Progress under heavy parallel load: keepalive no longer resets bars to 0.1%; progress stays monotonic; ETA uses FFmpeg `speed=`; Preferences `ewma_alpha` now smooths %/ETA; UI coalesces table redraws and shows aggregate batch progress

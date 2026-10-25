@@ -30,6 +30,7 @@ handforge = [
     "i18n/locales/*.json",
     "companion/static/*",
     "companion/static/.well-known/*",
+    "resources/*.png",
 ]
 
 [tool.black]
