@@ -5,12 +5,20 @@ on:
     branches: [main, develop]
     paths:
       - "companions/android/**"
+      - "scripts/fetch-android-ffmpeg.sh"
       - ".github/workflows/android-companion.yml"
   pull_request:
     branches: [main, develop]
     paths:
       - "companions/android/**"
+      - "scripts/fetch-android-ffmpeg.sh"
       - ".github/workflows/android-companion.yml"
+  workflow_dispatch:
+    inputs:
+      fetch_bundled_ffmpeg:
+        description: "Download multi-ABI libffmpeg.so into jniLibs before assemble"
+        type: boolean
+        default: false
 
 jobs:
   assemble:
@@ -38,10 +46,15 @@ jobs:
       - name: Accept licenses
         run: yes | sdkmanager --licenses >/dev/null || true
 
+      - name: Fetch bundled multi-ABI FFmpeg (optional)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.fetch_bundled_ffmpeg }}
+        working-directory: ${{ github.workspace }}
+        run: ./scripts/fetch-android-ffmpeg.sh --with-x86_64
+
       - name: Assemble debug APK
         run: ./gradlew --no-daemon assembleDebug
 
-      - name: Unit tests (encode presets / argv)
+      - name: Unit tests (encode presets / argv / Termux extras)
         run: ./gradlew --no-daemon testDebugUnitTest
 
       - name: Upload debug APK

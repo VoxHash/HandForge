@@ -6,12 +6,15 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.app.PendingIntent
 import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
 
 /**
  * Discovers FFmpeg for on-device encodes and launches Termux RUN_COMMAND when needed.
  *
- * Preferred path: Termux `pkg install ffmpeg` + `allow-external-apps=true` in termux.properties.
- * Optional path: package `libffmpeg.so` under jniLibs (named so PackageManager extracts it).
+ * Preferred path when present: packaged `libffmpeg.so` (+ libav* deps) under jniLibs
+ * (see `scripts/fetch-android-ffmpeg.sh`). Fallback: Termux `pkg install ffmpeg` +
+ * `allow-external-apps=true` in termux.properties.
  */
 object TermuxFfmpeg {
 
@@ -26,6 +29,8 @@ object TermuxFfmpeg {
     const val EXTRA_PENDING_INTENT = "com.termux.RUN_COMMAND_PENDING_INTENT"
     const val FFMPEG_PREFIX_PATH = "\$PREFIX/bin/ffmpeg"
     const val FFMPEG_ABS_PATH = "/data/data/com.termux/files/usr/bin/ffmpeg"
+    const val BUNDLED_LIB_NAME = "libffmpeg.so"
+    private const val PRIVATE_BIN_DIR = "bundled-ffmpeg"
 
     fun isTermuxInstalled(pm: PackageManager): Boolean {
         return try {
@@ -36,16 +41,42 @@ object TermuxFfmpeg {
         }
     }
 
-    /** Bundled native executable packaged as libffmpeg.so (optional). */
-    fun bundledFfmpegPath(context: Context): File? {
+    /** Raw path where PackageManager extracts `libffmpeg.so` (may need chmod / copy). */
+    fun nativeBundledCandidate(context: Context): File? {
         val dir = context.applicationInfo.nativeLibraryDir ?: return null
-        val f = File(dir, "libffmpeg.so")
-        return if (f.isFile && f.canExecute()) f else null
+        val f = File(dir, BUNDLED_LIB_NAME)
+        return if (f.isFile) f else null
+    }
+
+    /**
+     * Executable path for ProcessBuilder. Copies into app-private storage when the
+     * extracted native lib is not marked executable (some devices / W^X layouts).
+     */
+    fun bundledFfmpegPath(context: Context): File? {
+        val native = nativeBundledCandidate(context) ?: return null
+        if (native.canExecute()) {
+            return native
+        }
+        val destDir = File(context.filesDir, PRIVATE_BIN_DIR).apply { mkdirs() }
+        val dest = File(destDir, BUNDLED_LIB_NAME)
+        if (!dest.isFile || dest.length() != native.length() || dest.lastModified() < native.lastModified()) {
+            FileInputStream(native).use { input ->
+                FileOutputStream(dest).use { output -> input.copyTo(output) }
+            }
+        }
+        dest.setReadable(true, true)
+        dest.setExecutable(true, true)
+        return if (dest.isFile && dest.canExecute()) dest else null
+    }
+
+    /** Directory containing libav* / libsw* companions for LD_LIBRARY_PATH. */
+    fun bundledLibraryDir(context: Context): String? {
+        return context.applicationInfo.nativeLibraryDir
     }
 
     enum class Backend {
-        TERMUX,
         BUNDLED,
+        TERMUX,
         NONE,
     }
 
@@ -53,6 +84,24 @@ object TermuxFfmpeg {
         if (bundledFfmpegPath(context) != null) return Backend.BUNDLED
         if (isTermuxInstalled(context.packageManager)) return Backend.TERMUX
         return Backend.NONE
+    }
+
+    /** Pure argv helper for unit tests / ProcessBuilder (binary path first). */
+    fun buildBundledArgv(
+        binaryPath: String,
+        inputPath: String,
+        outputPath: String,
+        presetArgs: List<String>,
+    ): List<String> {
+        val argv = ArrayList<String>(6 + presetArgs.size)
+        argv.add(binaryPath)
+        argv.add("-y")
+        argv.add("-hide_banner")
+        argv.add("-i")
+        argv.add(inputPath)
+        argv.addAll(presetArgs)
+        argv.add(outputPath)
+        return argv
     }
 
     fun buildTermuxIntent(
@@ -82,5 +131,28 @@ object TermuxFfmpeg {
                 putExtra(EXTRA_PENDING_INTENT, resultPendingIntent)
             }
         }
+    }
+
+    /** Pure extras map for tests (no Android Intent required). */
+    fun termuxCommandExtras(
+        inputPath: String,
+        outputPath: String,
+        presetArgs: List<String>,
+        workDir: String = "/storage/emulated/0/Download/HandForge",
+    ): Map<String, Any> {
+        val args = ArrayList<String>()
+        args.add("-y")
+        args.add("-hide_banner")
+        args.add("-i")
+        args.add(inputPath)
+        args.addAll(presetArgs)
+        args.add(outputPath)
+        return mapOf(
+            EXTRA_PATH to FFMPEG_PREFIX_PATH,
+            EXTRA_ARGS to args,
+            EXTRA_WORKDIR to workDir,
+            EXTRA_BACKGROUND to false,
+            EXTRA_LABEL to "HandForge on-device encode",
+        )
     }
 }

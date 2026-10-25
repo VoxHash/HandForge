@@ -28,8 +28,8 @@ In the APK: **On-device encode** → SAF pick → stage under `Download/HandForg
 
 - Presets: `companions/android/android/app/src/main/assets/encode_presets.json` (validated by `tests/test_ondevice_presets.py` against host FFmpeg).
 - Termux: `pkg install ffmpeg`, `allow-external-apps = true`, grant `com.termux.permission.RUN_COMMAND`.
-- Optional: drop ABI-specific `libffmpeg.so` into `jniLibs` for a Termux-free backend.
-- CI: `.github/workflows/android-companion.yml` (Temurin JDK 17 `assembleDebug` + unit tests).
+- Bundled multi-ABI FFmpeg: `./scripts/fetch-android-ffmpeg.sh` places `libffmpeg.so` + shared deps under `jniLibs/` (`armeabi-v7a`, `arm64-v8a`; optional `x86_64`). Blobs are gitignored; LocalEncode prefers bundled when present, Termux otherwise. See [companions/android/README.md](../companions/android/README.md).
+- CI: `.github/workflows/android-companion.yml` (Temurin JDK 17 `assembleDebug` + unit tests; optional workflow_dispatch fetch of bundled libs).
 
 ## Advanced companion APIs
 

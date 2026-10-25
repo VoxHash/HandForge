@@ -240,7 +240,9 @@ class LocalEncodeActivity : AppCompatActivity() {
 
     private fun runBundled(preset: EncodePreset, staged: SharedMediaStaging.StagedPaths) {
         val bin = TermuxFfmpeg.bundledFfmpegPath(this)
-            ?: throw IllegalStateException("libffmpeg.so missing")
+            ?: throw IllegalStateException("libffmpeg.so missing — run scripts/fetch-android-ffmpeg.sh before assemble")
+        val libDir = TermuxFfmpeg.bundledLibraryDir(this)
+            ?: throw IllegalStateException("nativeLibraryDir unavailable")
         val argv = OnDeviceEncodeCommand.buildArgv(
             preset,
             staged.inputAbsPath,
@@ -250,7 +252,8 @@ class LocalEncodeActivity : AppCompatActivity() {
         val pb = ProcessBuilder(argv)
             .directory(File(staged.workDir))
             .redirectErrorStream(true)
-        pb.environment()["LD_LIBRARY_PATH"] = applicationInfo.nativeLibraryDir
+        // Shared libav* / libsw* shipped beside libffmpeg.so under jniLibs/<abi>/.
+        pb.environment()["LD_LIBRARY_PATH"] = libDir
         val proc = pb.start()
         val log = proc.inputStream.bufferedReader().readText()
         val code = proc.waitFor()

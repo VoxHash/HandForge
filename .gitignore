@@ -8,6 +8,10 @@ companions/android/android/app/build/
 companions/android/android/local.properties
 companions/android/node_modules/
 companions/android/android/.idea/
+# Fetched multi-ABI FFmpeg blobs (see scripts/fetch-android-ffmpeg.sh)
+.cache/android-ffmpeg/
+companions/android/android/app/src/main/jniLibs/**/*.so
+companions/android/android/app/src/main/jniLibs/**/.ffmpeg-source.txt
 
 # Quest Bubblewrap generated project / keystores / APKs
 companions/quest/bubblewrap/project/

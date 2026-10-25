@@ -40,7 +40,7 @@ These are **not** near-term ports of the desktop PyQt6 UI. They depend on a shar
 - ✅ **On-device Android FFmpeg** — SAF pick + stage under `Download/HandForge/`; Termux `RUN_COMMAND` (`$PREFIX/bin/ffmpeg`) or optional bundled `libffmpeg.so`; curated presets in `encode_presets.json`; JDK 17 CI (`.github/workflows/android-companion.yml`)
 - ✅ **Meta Quest 3 app** — Quest-friendly UI at `/quest.html` + `companions/quest/` docs; Quest Browser → LAN companion (large hit targets, shared control); LAN HTTP is the supported path; on-headset heavy encodes remain a stretch goal
 - ✅ **Quest / store HTTPS packaging** — Bubblewrap / Horizon 2D TWA kit (`companions/quest/bubblewrap/`, `scripts/quest-https-package.sh`); `quest.webmanifest` + public `/.well-known/assetlinks.json`; TLS reverse-proxy examples; LAN HTTP remains supported
-- ⬜ **Bundled multi-ABI libffmpeg.so in APK** — optional Termux-free backend (execution path exists; shipping large prebuilts deferred)
+- ✅ **Bundled multi-ABI libffmpeg.so in APK** — `scripts/fetch-android-ffmpeg.sh` downloads pinned husen-hn FFmpeg 7.1 zips into `jniLibs/` (`armeabi-v7a` + `arm64-v8a`, optional `x86_64`); blobs gitignored; LocalEncode bundled backend + Termux fallback; optional CI workflow_dispatch fetch
 - ⬜ **On-headset heavy encodes** — Quest-local FFmpeg remains a stretch goal
 
 ### Advanced Capabilities
@@ -58,7 +58,7 @@ These are **not** near-term ports of the desktop PyQt6 UI. They depend on a shar
 ### Mobile encode & packaging
 - ✅ On-device Android FFmpeg (Termux + SAF storage UX + encode presets + JDK 17 APK CI) — see `companions/android/`
 - ✅ Quest / store HTTPS packaging (Bubblewrap against a public TLS origin) — see `companions/quest/bubblewrap/`
-- ⬜ Ship multi-ABI bundled `libffmpeg.so` inside the APK (execution path ready; binaries not vendored yet)
+- ✅ Ship multi-ABI bundled `libffmpeg.so` inside the APK (`scripts/fetch-android-ffmpeg.sh` + jniLibs layout; Termux fallback)
 - ⬜ On-headset heavy encodes on Quest
 
 ## Completed Milestones
@@ -87,6 +87,7 @@ These are **not** near-term ports of the desktop PyQt6 UI. They depend on a shar
 - ✅ Companion live status via SSE (`GET /api/events`) with polling fallback
 - ✅ On-device Android FFmpeg (Termux RUN_COMMAND + SAF staging + encode presets; JDK 17 companion CI)
 - ✅ Quest / store HTTPS packaging: Meta Bubblewrap 2D TWA templates + `quest-https-package.sh`, Digital Asset Links route, Caddy/nginx TLS examples (`companions/quest/bubblewrap/`)
+- ✅ Bundled multi-ABI Android FFmpeg: reproducible fetch script + SHA256 pins, jniLibs `libffmpeg.so` + libav* deps, LocalEncode prefers bundled when present
 
 ### v1.3.2 (Q4 2026)
 - ✅ Permission-aware output directory handling and pre-conversion write checks

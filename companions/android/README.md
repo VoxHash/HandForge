@@ -27,10 +27,26 @@ The APK includes **On-device encode** (beside Connect / Quest UI):
 
 | Backend | Requirement |
 | --- | --- |
-| Bundled `libffmpeg.so` | Optional: place prebuilt executables named `libffmpeg.so` under `app/src/main/jniLibs/<abi>/` (PackageManager extract + `extractNativeLibs=true`) |
+| Bundled `libffmpeg.so` | Run `./scripts/fetch-android-ffmpeg.sh` (pins husen-hn FFmpeg 7.1 zips for `armeabi-v7a` + `arm64-v8a`; optional `--with-x86_64`). Installs CLI as `jniLibs/<abi>/libffmpeg.so` plus `libav*` / `libsw*` deps. Blobs are gitignored (~15–16 MB/ABI). APK uses `extractNativeLibs=true` + `LD_LIBRARY_PATH`. |
 | Termux | Install [Termux](https://termux.dev), `pkg install ffmpeg`, set `allow-external-apps = true` in `~/.termux/termux.properties`, grant **RUN_COMMAND** to HandForge |
 
 Remote desktop Orchestrator control remains the primary path; on-device encode is for short local jobs without a PC.
+
+### Termux-free APK (bundled FFmpeg)
+
+```bash
+# From repo root — downloads + SHA256-verifies prebuilts into jniLibs (not committed)
+./scripts/fetch-android-ffmpeg.sh
+# optional: ./scripts/fetch-android-ffmpeg.sh --with-x86_64
+./scripts/fetch-android-ffmpeg.sh --check   # verify layout
+
+export JAVA_HOME=/path/to/temurin-17
+cd companions/android/android
+./gradlew assembleDebug
+# APK embeds libffmpeg.so for fetched ABIs; On-device encode prefers bundled over Termux
+```
+
+Default CI builds **without** fetching blobs (Termux-only path still compiles). Manual workflow dispatch can set **fetch_bundled_ffmpeg** to true.
 
 ## Prerequisites
 
