@@ -32,6 +32,10 @@ The APK includes **On-device encode** (beside Connect / Quest UI):
 
 Remote desktop Orchestrator control remains the primary path; on-device encode is for short local jobs without a PC.
 
+### Meta Quest (on-headset)
+
+Quest runs Android. Sideload this same APK (`adb install` with Developer Mode). On Quest the Connect screen shows **On-headset encode**, which opens `LocalEncodeActivity` with **heavy** presets first (1080p / 720p HQ / high-bitrate audio). `/quest.html` inside the WebView exposes `HandForgeNative.openLocalEncode` / `openHeavyEncode`. See [companions/quest/README.md](../quest/README.md) for thermal limits — LAN host encode stays primary for huge jobs.
+
 ### Termux-free APK (bundled FFmpeg)
 
 ```bash

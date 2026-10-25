@@ -10,8 +10,12 @@
     <string name="privacy_note">No Play Services. Token grants LAN control of the host queue.</string>
     <string name="back_connect">Change host</string>
     <string name="on_device_encode">On-device encode</string>
+    <string name="on_headset_encode">On-headset encode</string>
     <string name="local_encode_title">On-device encode</string>
+    <string name="local_encode_title_quest">On-headset encode (Quest)</string>
     <string name="local_encode_blurb">Pick media, stage it under Download/HandForge, then run FFmpeg via Termux (pkg install ffmpeg) or a bundled libffmpeg.so. Remote desktop control remains on the Connect screen.</string>
+    <string name="local_encode_blurb_quest">Quest runs Android — this is the same LocalEncode path as the phone APK (bundled libffmpeg.so or Termux). Use Heavy presets for capture re-encodes. Long / batch jobs should stay on the LAN host Orchestrator.</string>
+    <string name="thermal_note_quest">Thermal limit: Quest XR2 is passively cooled. Heavy H.264 encodes can throttle after roughly 5–15 minutes. Prefer short clips, the 720p HQ heavy preset, and LAN host encode for huge jobs.</string>
     <string name="pick_input">Pick media</string>
     <string name="no_input">No file selected</string>
     <string name="preset_label">Preset</string>

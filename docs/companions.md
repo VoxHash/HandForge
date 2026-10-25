@@ -1,6 +1,6 @@
 # Companions — Android / GrapheneOS, Meta Quest 3, PWA
 
-HandForge companions remote-control a **desktop Orchestrator** over the LAN. They do not replace the PyQt6 desktop app. The Android APK also supports **on-device encode** via Termux FFmpeg (or optional bundled `libffmpeg.so`).
+HandForge companions remote-control a **desktop Orchestrator** over the LAN. They do not replace the PyQt6 desktop app. The Android APK also supports **on-device / on-headset encode** via Termux FFmpeg (or optional bundled `libffmpeg.so`). Meta Quest reuses that same APK (Quest is Android).
 
 ## Host setup
 
@@ -26,10 +26,20 @@ Open the printed URL (`?token=…`) on a phone, Quest Browser, or the Android We
 
 In the APK: **On-device encode** → SAF pick → stage under `Download/HandForge/` → run FFmpeg.
 
-- Presets: `companions/android/android/app/src/main/assets/encode_presets.json` (validated by `tests/test_ondevice_presets.py` against host FFmpeg).
+- Presets: `companions/android/android/app/src/main/assets/encode_presets.json` (validated by `tests/test_ondevice_presets.py` against host FFmpeg). Includes `tier: "heavy"` Quest-capture presets (720p/1080p, high-bitrate audio).
 - Termux: `pkg install ffmpeg`, `allow-external-apps = true`, grant `com.termux.permission.RUN_COMMAND`.
 - Bundled multi-ABI FFmpeg: `./scripts/fetch-android-ffmpeg.sh` places `libffmpeg.so` + shared deps under `jniLibs/` (`armeabi-v7a`, `arm64-v8a`; optional `x86_64`). Blobs are gitignored; LocalEncode prefers bundled when present, Termux otherwise. See [companions/android/README.md](../companions/android/README.md).
 - CI: `.github/workflows/android-companion.yml` (Temurin JDK 17 `assembleDebug` + unit tests; optional workflow_dispatch fetch of bundled libs).
+
+## On-headset Quest encode
+
+Quest Browser monitors / controls the **LAN host**. For FFmpeg **on the headset**, sideload the same Android companion APK (`adb install` after Developer Mode):
+
+1. `./scripts/fetch-android-ffmpeg.sh` then `companions/android/android` → `./gradlew assembleDebug`.
+2. On Quest: **On-headset encode**, or open `/quest.html` inside the APK WebView and use **Open on-headset encode** (`HandForgeNative` → `LocalEncodeActivity`).
+3. Prefer **Heavy** presets for capture re-encodes; keep long/batch jobs on the host (Shared control).
+
+Thermal honesty: XR2 is passively cooled — expect throttling after roughly 5–15 minutes of continuous software encode. Details: [companions/quest/README.md](../companions/quest/README.md).
 
 ## Advanced companion APIs
 
@@ -63,4 +73,4 @@ Details: [companions/quest/bubblewrap/README.md](../companions/quest/bubblewrap/
 - LAN binds require a shared token; **all control writes require a token**.
 - A public HTTPS origin for store packaging exposes the companion — use a strong token and preferably VPN / IP allowlists at the reverse proxy.
 - GrapheneOS path assumes **Vanadium WebView** and sideload — no Google Play Services.
-- On-device encodes stay on the phone (Download/HandForge + Termux); nothing is uploaded.
+- On-device / on-headset encodes stay on the phone or Quest (`Download/HandForge` + Termux or bundled libs); nothing is uploaded.

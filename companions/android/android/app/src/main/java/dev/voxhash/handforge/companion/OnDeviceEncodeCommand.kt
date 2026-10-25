@@ -5,15 +5,24 @@ import org.json.JSONObject
 /**
  * Builds real FFmpeg argv lists for on-device encodes (Termux or bundled libffmpeg.so).
  * Preset definitions live in assets/encode_presets.json (shared with pytest).
+ *
+ * Tiers:
+ * - `standard` — short phone/Quest jobs
+ * - `heavy` — higher bitrate/resolution for Quest capture workflows (prefer short clips)
  */
 data class EncodePreset(
     val id: String,
     val label: String,
     val extension: String,
     val args: List<String>,
+    val tier: String = "standard",
 )
 
 object OnDeviceEncodeCommand {
+
+    const val TIER_STANDARD = "standard"
+    const val TIER_HEAVY = "heavy"
+    const val TIER_ALL = "all"
 
     fun parsePresetsJson(raw: String): List<EncodePreset> {
         val root = JSONObject(raw)
@@ -32,10 +41,32 @@ object OnDeviceEncodeCommand {
                     label = o.getString("label"),
                     extension = o.getString("extension"),
                     args = args,
+                    tier = o.optString("tier", TIER_STANDARD).ifBlank { TIER_STANDARD },
                 ),
             )
         }
         return out
+    }
+
+    /** Filter + order presets: heavy first when [tierFilter] is heavy or on a Quest default. */
+    fun filterPresets(
+        presets: List<EncodePreset>,
+        tierFilter: String = TIER_ALL,
+        heavyFirst: Boolean = false,
+    ): List<EncodePreset> {
+        val filtered = when (tierFilter.lowercase()) {
+            TIER_HEAVY -> presets.filter { it.tier.equals(TIER_HEAVY, ignoreCase = true) }
+            TIER_STANDARD -> presets.filter {
+                !it.tier.equals(TIER_HEAVY, ignoreCase = true)
+            }
+            else -> presets
+        }
+        if (!heavyFirst) return filtered
+        return filtered.sortedBy { if (it.tier.equals(TIER_HEAVY, ignoreCase = true)) 0 else 1 }
+    }
+
+    fun heavyPresetIds(presets: List<EncodePreset>): List<String> {
+        return presets.filter { it.tier.equals(TIER_HEAVY, ignoreCase = true) }.map { it.id }
     }
 
     /**

@@ -64,6 +64,29 @@
     }
     .pill.running { color: var(--accent); border-color: rgba(78,161,255,0.5); }
     .pill.queued { color: var(--warn); }
+    .warn-box {
+      background: rgba(240, 198, 116, 0.1);
+      border: 2px solid rgba(240, 198, 116, 0.35);
+      color: #f5e0a8;
+      border-radius: 18px;
+      padding: 16px 18px;
+      margin: 0 0 16px;
+      font-size: 1rem;
+      line-height: 1.4;
+    }
+    .hint {
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin: 0 0 14px;
+      line-height: 1.4;
+    }
+    .preset-list {
+      margin: 0 0 16px;
+      padding-left: 1.2em;
+      color: var(--text);
+      font-size: 1rem;
+    }
+    .preset-list li { margin-bottom: 6px; }
     .nav {
       display: flex;
       flex-wrap: wrap;
@@ -210,6 +233,7 @@
   </header>
   <div class="nav">
     <a id="link-phone" href="/">Phone UI</a>
+    <a href="#on-headset">On-headset</a>
     <a href="#control">Control</a>
     <a href="#active">Active</a>
   </div>
@@ -221,6 +245,43 @@
     <div class="stat"><b id="c-active">0</b><span>Active</span></div>
     <div class="stat"><b id="c-agg">0%</b><span>Progress</span></div>
   </div>
+
+  <section id="on-headset">
+    <h2>On-headset encode</h2>
+    <p class="hint">
+      Quest runs Android. Heavy / local encodes reuse the HandForge companion APK
+      (<code>LocalEncodeActivity</code>) with bundled <code>libffmpeg.so</code> or Termux —
+      not a separate Quest FFmpeg stack. LAN host encode (Shared control below) remains
+      primary for long batches.
+    </p>
+    <div class="warn-box" id="thermal-note">
+      Thermal: Quest XR2 is passively cooled. Continuous software H.264 can throttle after
+      roughly 5–15 minutes. Prefer short clips, the 720p HQ heavy preset, and host Orchestrator
+      for huge jobs.
+    </div>
+    <p class="hint"><strong>Heavy presets</strong> (higher bitrate / resolution for capture workflows):</p>
+    <ul class="preset-list">
+      <li><code>audio_mp3_320</code> / <code>audio_aac_256</code> — high-bitrate audio</li>
+      <li><code>video_mp4_quest_720_hq</code> — 720p HQ (safer thermals)</li>
+      <li><code>video_mp4_quest_1080</code> — 1080p CRF 20</li>
+      <li><code>video_mp4_quest_bitrate</code> — 1080p ~8 Mbps</li>
+    </ul>
+    <div class="controls" id="headset-native-controls" hidden>
+      <button type="button" class="primary" id="btn-headset-encode">Open on-headset encode</button>
+      <button type="button" id="btn-headset-heavy">Heavy presets only</button>
+    </div>
+    <div id="headset-browser-hint" class="hint">
+      In <strong>Quest Browser</strong> this page talks to the LAN host only.
+      For on-headset FFmpeg: enable Developer Mode →
+      <code>adb install</code> the companion APK from <code>companions/android/</code>
+      (run <code>./scripts/fetch-android-ffmpeg.sh</code> first for bundled libs) →
+      open this Quest UI inside the APK WebView → use the buttons above, or
+      <strong>On-headset encode</strong> on the Connect screen.
+    </div>
+    <div class="controls">
+      <button type="button" id="btn-host-encode">Use host encode (recommended for long jobs)</button>
+    </div>
+  </section>
 
   <section id="control-panel" hidden>
     <h2 id="control">Shared control</h2>
@@ -389,7 +450,8 @@
       renderJobs(document.getElementById("recent"), data.recent, "No recent jobs", { recent: true });
       const channel = data.live || liveMode || "poll";
       document.getElementById("footer").textContent =
-        "Quest · " + channel + " · " + (data.control_available ? "shared control on" : "status only");
+        "Quest · " + channel + " · " + (data.control_available ? "shared control on" : "status only") +
+        (nativeApk ? " · on-headset APK" : "");
       if (data.control_available) loadControl();
     }
 
@@ -514,6 +576,39 @@
         if (!pollTimer) startPollingFallback();
       };
     }
+
+    let nativeApk = false;
+    function refreshHeadsetBridge() {
+      const native = window.HandForgeNative;
+      const has = native && typeof native.hasLocalEncode === "function" && native.hasLocalEncode();
+      nativeApk = !!has;
+      document.getElementById("headset-native-controls").hidden = !has;
+      document.getElementById("headset-browser-hint").style.display = has ? "none" : "block";
+    }
+    document.getElementById("btn-headset-encode").addEventListener("click", function () {
+      try {
+        window.HandForgeNative.openLocalEncode("all");
+      } catch (e) { showFlash(e.message || String(e), true); }
+    });
+    document.getElementById("btn-headset-heavy").addEventListener("click", function () {
+      try {
+        if (typeof window.HandForgeNative.openHeavyEncode === "function") {
+          window.HandForgeNative.openHeavyEncode();
+        } else {
+          window.HandForgeNative.openLocalEncode("heavy");
+        }
+      } catch (e) { showFlash(e.message || String(e), true); }
+    });
+    document.getElementById("btn-host-encode").addEventListener("click", function () {
+      const panel = document.getElementById("control-panel");
+      if (!panel.hidden) {
+        document.getElementById("control").scrollIntoView({ behavior: "smooth" });
+      } else {
+        showFlash("Enable shared control on the host (handforge serve --lan) for LAN encodes.", true);
+      }
+    });
+    window.addEventListener("handforge-native-ready", refreshHeadsetBridge);
+    refreshHeadsetBridge();
 
     startLive();
   </script>

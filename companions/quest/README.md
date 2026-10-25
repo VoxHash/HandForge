@@ -1,6 +1,6 @@
 # HandForge Meta Quest 3 companion
 
-Quest-friendly remote queue monitor and shared control for a desktop HandForge instance. Heavy on-headset encodes are **out of scope** for this phase — the headset talks to the LAN Orchestrator API (or a TLS origin for store packaging).
+Quest-friendly remote queue monitor, shared control, and **on-headset encode** via the Android companion APK (Quest runs Android / Horizon OS).
 
 ## What ships
 
@@ -10,9 +10,10 @@ Quest-friendly remote queue monitor and shared control for a desktop HandForge i
 | Phone / PWA UI | `/` (`index.html`) |
 | Quest store web manifest | `/quest.webmanifest` (`start_url`: `/quest.html`) |
 | HTTPS / Bubblewrap kit | [`bubblewrap/`](bubblewrap/) + [`scripts/quest-https-package.sh`](../../scripts/quest-https-package.sh) |
+| On-headset FFmpeg | Same Android APK: [`../android/`](../android/) → `LocalEncodeActivity` + heavy presets |
 | This guide | `companions/quest/README.md` |
 
-## Use on Quest 3 (Browser — supported now)
+## Use on Quest 3 (Browser — LAN host)
 
 1. On the desktop (same LAN):  
    `python -m handforge serve --lan`  
@@ -23,6 +24,34 @@ Quest-friendly remote queue monitor and shared control for a desktop HandForge i
 3. Optional: use Browser’s **Add to Home** / install affordance with the companion Web App Manifest for a 2D panel shortcut.
 
 The UI prefers `GET /api/events` (SSE) and falls back to polling `GET /api/status`; control uses `POST /api/control/*` with the shared token.
+
+**Quest Browser alone cannot run local FFmpeg.** Use Shared control to enqueue host paths, or sideload the APK below for on-headset encodes.
+
+## On-headset heavy encodes (Android APK on Quest)
+
+Quest is Android-based. There is **no separate Quest FFmpeg stack** — reuse the GrapheneOS / Android companion:
+
+1. Developer Mode on the headset + USB debugging ([Meta device setup](https://developers.meta.com/horizon/documentation/native/android/mobile-device-setup/)).
+2. From the repo (host PC):
+   ```bash
+   ./scripts/fetch-android-ffmpeg.sh          # optional but recommended — bundled libffmpeg.so
+   cd companions/android/android
+   ./gradlew assembleDebug
+   adb install -r app/build/outputs/apk/debug/app-debug.apk
+   ```
+3. On Quest: open **HandForge** → **On-headset encode** (or Connect → Quest UI).  
+   Inside `/quest.html` loaded by the APK WebView, **Open on-headset encode** / **Heavy presets only** call `HandForgeNative` → `LocalEncodeActivity`.
+4. Pick capture media (SAF) → stage under `Download/HandForge/` → encode with a **Heavy** preset (`video_mp4_quest_720_hq`, `video_mp4_quest_1080`, `video_mp4_quest_bitrate`, high-bitrate audio).
+
+**Termux on Quest (optional fallback):** sideload Termux, `pkg install ffmpeg`, `allow-external-apps = true`, grant `RUN_COMMAND`. Bundled `libffmpeg.so` is preferred when present.
+
+### Thermal / performance (honest limits)
+
+- Quest XR2 Gen 2 is **passively cooled**. Sustained software encodes draw meaningful power (~2.5–3 W class for video encode) and often **throttle after roughly 5–15 minutes**.
+- Heavy presets use `-threads 2` and `veryfast` / `ultrafast` to reduce sustained load. Prefer **720p HQ** for longer clips.
+- **LAN host Orchestrator remains primary** for long recordings, batches, and 2-pass / high-CRF desktop quality. Use Shared control on `/quest.html` for those jobs.
+
+Presets live in `companions/android/android/app/src/main/assets/encode_presets.json` (`tier: "heavy"`).
 
 ## Packaging (Meta Horizon / Bubblewrap — HTTPS)
 
@@ -38,11 +67,7 @@ Summary:
 2. `configure` + `publish-assetlinks` so `https://<host>/.well-known/assetlinks.json` is live.
 3. `bubblewrap` build (`horizonOSAppMode: 2D`) → `adb install` the signed APK.
 
-Immersive WebXR is unnecessary for queue control.
-
-## Short media prep
-
-Trim/export from the headset remains a stretch goal. Use host paths via shared control (**Add to pending** with absolute paths the desktop can read), Start/Stop, and real-time preview (`POST /api/control/preview`) from the phone UI when you need a clip check.
+Immersive WebXR is unnecessary for queue control. Bubblewrap TWA wraps the web UI only — on-headset FFmpeg still needs the HandForge Android companion APK (or Termux).
 
 ## Related
 

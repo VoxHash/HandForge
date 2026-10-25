@@ -1,31 +1,87 @@
 {
   "version": 1,
+  "notes": {
+    "heavy": "Higher bitrate/resolution presets for Quest capture re-encodes. Prefer short clips on-headset; use LAN host Orchestrator for long/batch jobs (thermal throttling on XR2).",
+    "thermal": "Heavy video presets cap -threads at 2 and use veryfast/ultrafast to limit sustained CPU. Expect throttling after roughly 5–15 minutes of continuous encode on a passively cooled Quest."
+  },
   "presets": [
     {
       "id": "audio_mp3_192",
       "label": "Audio → MP3 192k",
+      "tier": "standard",
       "extension": "mp3",
       "args": ["-vn", "-c:a", "libmp3lame", "-b:a", "192k"]
     },
     {
       "id": "audio_aac_128",
       "label": "Audio → AAC 128k",
+      "tier": "standard",
       "extension": "m4a",
       "args": ["-vn", "-c:a", "aac", "-b:a", "128k"]
     },
     {
       "id": "audio_opus_96",
       "label": "Audio → Opus 96k",
+      "tier": "standard",
       "extension": "opus",
       "args": ["-vn", "-c:a", "libopus", "-b:a", "96k"]
     },
     {
       "id": "video_mp4_crf23",
       "label": "Video → MP4 H.264 CRF 23",
+      "tier": "standard",
       "extension": "mp4",
       "args": [
         "-c:v", "libx264", "-crf", "23", "-preset", "veryfast",
         "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart"
+      ]
+    },
+    {
+      "id": "audio_mp3_320",
+      "label": "Heavy · Audio → MP3 320k",
+      "tier": "heavy",
+      "extension": "mp3",
+      "args": ["-vn", "-c:a", "libmp3lame", "-b:a", "320k"]
+    },
+    {
+      "id": "audio_aac_256",
+      "label": "Heavy · Audio → AAC 256k",
+      "tier": "heavy",
+      "extension": "m4a",
+      "args": ["-vn", "-c:a", "aac", "-b:a", "256k"]
+    },
+    {
+      "id": "video_mp4_quest_720_hq",
+      "label": "Heavy · Quest capture → 720p HQ (safer thermals)",
+      "tier": "heavy",
+      "extension": "mp4",
+      "args": [
+        "-vf", "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2",
+        "-c:v", "libx264", "-crf", "18", "-preset", "veryfast", "-threads", "2",
+        "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart"
+      ]
+    },
+    {
+      "id": "video_mp4_quest_1080",
+      "label": "Heavy · Quest capture → 1080p H.264",
+      "tier": "heavy",
+      "extension": "mp4",
+      "args": [
+        "-vf", "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2",
+        "-c:v", "libx264", "-crf", "20", "-preset", "veryfast", "-threads", "2",
+        "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart"
+      ]
+    },
+    {
+      "id": "video_mp4_quest_bitrate",
+      "label": "Heavy · Quest capture → 1080p 8 Mbps",
+      "tier": "heavy",
+      "extension": "mp4",
+      "args": [
+        "-vf", "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2",
+        "-c:v", "libx264", "-b:v", "8M", "-maxrate", "10M", "-bufsize", "16M",
+        "-preset", "ultrafast", "-threads", "2",
+        "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart"
       ]
     }
   ]

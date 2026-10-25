@@ -103,6 +103,15 @@
                 android:layout_marginTop="10dp"
                 android:text="@string/on_device_encode" />
 
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/headsetEncodeButton"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginTop="10dp"
+                android:text="@string/on_headset_encode"
+                android:visibility="gone" />
+
             <TextView
                 android:id="@+id/statusText"
                 android:layout_width="match_parent"

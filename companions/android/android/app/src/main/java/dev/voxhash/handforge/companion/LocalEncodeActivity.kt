@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Spinner
 import android.widget.TextView
@@ -21,20 +22,33 @@ import java.io.File
 import java.util.concurrent.Executors
 
 /**
- * On-device encode: SAF pick → stage under Download/HandForge → Termux ffmpeg or bundled libffmpeg.so.
+ * On-device / on-headset encode: SAF pick → stage under Download/HandForge →
+ * Termux ffmpeg or bundled libffmpeg.so.
+ *
+ * On Meta Quest (Android), the same activity is the supported heavy-encode path.
+ * Pass [EXTRA_PRESET_TIER]=heavy from Quest UI / JS bridge to emphasize capture presets.
  */
 class LocalEncodeActivity : AppCompatActivity() {
 
+    companion object {
+        const val EXTRA_PRESET_TIER = "preset_tier"
+        const val EXTRA_HEAVY_FIRST = "heavy_first"
+    }
+
     private val io = Executors.newSingleThreadExecutor()
     private lateinit var backendStatus: TextView
+    private lateinit var thermalNote: TextView
     private lateinit var inputLabel: TextView
     private lateinit var encodeStatus: TextView
     private lateinit var presetSpinner: Spinner
     private lateinit var encodeButton: MaterialButton
+    private lateinit var titleView: TextView
+    private lateinit var blurbView: TextView
 
     private var presets: List<EncodePreset> = emptyList()
     private var pickedUri: Uri? = null
     private var pickedDisplayName: String = ""
+    private var onQuest: Boolean = false
 
     private val pickMedia = registerForActivityResult(
         ActivityResultContracts.OpenDocument(),
@@ -64,16 +78,30 @@ class LocalEncodeActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_local_encode)
 
+        onQuest = QuestHeadset.isQuestDevice()
+
         backendStatus = findViewById(R.id.backendStatus)
+        thermalNote = findViewById(R.id.thermalNote)
         inputLabel = findViewById(R.id.inputLabel)
         encodeStatus = findViewById(R.id.encodeStatus)
         presetSpinner = findViewById(R.id.presetSpinner)
         encodeButton = findViewById(R.id.encodeButton)
+        titleView = findViewById(R.id.encodeTitle)
+        blurbView = findViewById(R.id.encodeBlurb)
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.root)) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.updatePadding(bars.left, bars.top, bars.right, bars.bottom)
             insets
+        }
+
+        if (onQuest) {
+            titleView.text = getString(R.string.local_encode_title_quest)
+            blurbView.text = getString(R.string.local_encode_blurb_quest)
+            thermalNote.visibility = View.VISIBLE
+            thermalNote.text = getString(R.string.thermal_note_quest)
+        } else {
+            thermalNote.visibility = View.GONE
         }
 
         loadPresets()
@@ -97,13 +125,34 @@ class LocalEncodeActivity : AppCompatActivity() {
 
     private fun loadPresets() {
         val raw = assets.open("encode_presets.json").bufferedReader().use { it.readText() }
-        presets = OnDeviceEncodeCommand.parsePresetsJson(raw)
+        val all = OnDeviceEncodeCommand.parsePresetsJson(raw)
+        val tierExtra = intent.getStringExtra(EXTRA_PRESET_TIER)
+            ?: if (onQuest) OnDeviceEncodeCommand.TIER_ALL else OnDeviceEncodeCommand.TIER_ALL
+        val heavyFirst = intent.getBooleanExtra(EXTRA_HEAVY_FIRST, onQuest) ||
+            tierExtra.equals(OnDeviceEncodeCommand.TIER_HEAVY, ignoreCase = true)
+        presets = OnDeviceEncodeCommand.filterPresets(
+            all,
+            tierFilter = tierExtra,
+            heavyFirst = heavyFirst || onQuest,
+        )
+        if (presets.isEmpty()) {
+            presets = all
+        }
         val labels = presets.map { it.label }
         presetSpinner.adapter = ArrayAdapter(
             this,
             android.R.layout.simple_spinner_dropdown_item,
             labels,
         )
+        // Prefer first heavy preset when opened for on-headset heavy encodes.
+        if (heavyFirst || onQuest) {
+            val heavyIdx = presets.indexOfFirst {
+                it.tier.equals(OnDeviceEncodeCommand.TIER_HEAVY, ignoreCase = true)
+            }
+            if (heavyIdx >= 0) {
+                presetSpinner.setSelection(heavyIdx)
+            }
+        }
     }
 
     private fun ensurePermissions() {

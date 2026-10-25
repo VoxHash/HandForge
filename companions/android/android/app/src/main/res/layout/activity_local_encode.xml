@@ -15,6 +15,7 @@
         android:paddingBottom="32dp">
 
         <TextView
+            android:id="@+id/encodeTitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/local_encode_title"
@@ -23,12 +24,25 @@
             android:textStyle="bold" />
 
         <TextView
+            android:id="@+id/encodeBlurb"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:text="@string/local_encode_blurb"
             android:textColor="@color/hf_muted"
             android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/thermalNote"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@color/hf_panel"
+            android:padding="12dp"
+            android:text="@string/thermal_note_quest"
+            android:textColor="@color/hf_warn"
+            android:textSize="13sp"
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/backendStatus"

@@ -1,6 +1,7 @@
 package dev.voxhash.handforge.companion
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -23,9 +24,40 @@ class OnDeviceEncodeCommandTest {
     @Test
     fun parsesCuratedPresets() {
         val presets = OnDeviceEncodeCommand.parsePresetsJson(presetsJson())
-        assertEquals(4, presets.size)
+        assertTrue(presets.size >= 8)
         assertTrue(presets.any { it.id == "audio_mp3_192" })
         assertTrue(presets.any { it.id == "video_mp4_crf23" })
+        assertTrue(presets.any { it.id == "video_mp4_quest_1080" && it.tier == "heavy" })
+    }
+
+    @Test
+    fun filtersHeavyTier() {
+        val presets = OnDeviceEncodeCommand.parsePresetsJson(presetsJson())
+        val heavy = OnDeviceEncodeCommand.filterPresets(
+            presets,
+            tierFilter = OnDeviceEncodeCommand.TIER_HEAVY,
+        )
+        assertTrue(heavy.isNotEmpty())
+        assertTrue(heavy.all { it.tier == "heavy" })
+        val ordered = OnDeviceEncodeCommand.filterPresets(
+            presets,
+            tierFilter = OnDeviceEncodeCommand.TIER_ALL,
+            heavyFirst = true,
+        )
+        assertEquals("heavy", ordered.first().tier)
+        assertTrue(OnDeviceEncodeCommand.heavyPresetIds(presets).contains("video_mp4_quest_720_hq"))
+    }
+
+    @Test
+    fun heavyVideoPresetsCapThreads() {
+        val heavyVideo = OnDeviceEncodeCommand.parsePresetsJson(presetsJson())
+            .filter { it.tier == "heavy" && it.id.startsWith("video_") }
+        assertTrue(heavyVideo.isNotEmpty())
+        for (p in heavyVideo) {
+            assertTrue(p.args.contains("-threads"))
+            val idx = p.args.indexOf("-threads")
+            assertEquals("2", p.args[idx + 1])
+        }
     }
 
     @Test
@@ -53,5 +85,6 @@ class OnDeviceEncodeCommandTest {
             "My_Track_hf.mp3",
             OnDeviceEncodeCommand.outputNameFor("My Track.wav", preset),
         )
+        assertFalse(OnDeviceEncodeCommand.outputNameFor("a.wav", preset).contains(" "))
     }
 }
