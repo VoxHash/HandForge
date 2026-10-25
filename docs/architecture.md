@@ -73,6 +73,10 @@ Per-worker `ProgressTracker` keeps percent monotonic, computes wall-clock ETA fr
 
 Optional, **opt-in / local-only** collector (`BatchAnalyticsSession`) listens to the same Orchestrator signals as the GUI/CLI. When `performance_analytics` is enabled, it records real per-job speed samples, wall time, throughput, peak parallel, and ETA forecast error, then appends a batch summary to `~/.handforge/analytics/batches.jsonl`. Conversion paths are unchanged when the feature is off.
 
+### Companion remote monitor (`companion/`)
+
+Optional, **opt-in** HTTP server (`CompanionServer`) plus `QueueStatusHub` that serializes live Orchestrator `job_queue` / `workers` and progress signals into `GET /api/status`. A static mobile-friendly page under `companion/static/` polls that API. Default bind is localhost; LAN requires a shared token. This is the phase-1 “companion mobile app” surface (phone browser / PWA-friendly); native store shells remain future.
+
 ### Worker (`core/orchestrator.py`)
 
 Individual conversion worker:

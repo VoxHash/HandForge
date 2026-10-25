@@ -117,6 +117,29 @@ jobs = [Job(...), Job(...)]
 orch.enqueue(jobs)
 ```
 
+### handforge.companion
+
+Opt-in remote queue monitor (HTTP + mobile web UI).
+
+```python
+from handforge.companion import QueueStatusHub, CompanionServer, companion_url
+from handforge.core.orchestrator import Orchestrator
+
+orch = Orchestrator()
+hub = QueueStatusHub()
+hub.attach(orch)
+# Wire orch.sig_worker_* → hub.on_started / on_progress / on_done
+
+server = CompanionServer(hub, host="127.0.0.1", port=8765, token="secret")
+server.start()
+print(companion_url("127.0.0.1", 8765, "secret"))
+# GET /api/status?token=secret  → live queue JSON
+# GET /                         → mobile companion UI
+server.stop()
+```
+
+Status JSON includes `pending`, `queued`, `active` (with real progress/ETA/speed), and `recent` completions. Filenames are basenames only.
+
 ### handforge.util.errors
 
 Actionable conversion error mapping (shared by orchestrator, CLI, and GUI).

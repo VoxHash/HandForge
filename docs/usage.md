@@ -20,9 +20,19 @@ Access comprehensive settings via **Settings** → **Preferences**:
 - **Audio**: Loudness normalization, **EQ / compressor / limiter / noise reduction**, cover art preferences
 - **Video**: Default quality, codec, **hardware acceleration** (Auto / Software / NVENC / Quick Sync / VAAPI / VideoToolbox), size reduction settings
 - **Cloud**: Local sync roots (Dropbox / Google Drive / OneDrive / Nextcloud), optional rclone remote
-- **Advanced**: Auto-retry, progress smoothing, **optional local performance analytics** (off by default)
+- **Advanced**: Auto-retry, progress smoothing, **optional local performance analytics** (off by default), **Companion remote queue monitor** (off by default)
 
 Use **Detect Hardware Encoders…** on the Video tab to probe FFmpeg on this machine. Auto mode picks a working backend and falls back to software if encode fails.
+
+### Companion remote queue monitor (phone browser)
+
+1. Open **Settings** → **Preferences** → **Advanced** → **Companion**.
+2. Enable the companion server (off by default). Leave host at `127.0.0.1` for this machine only.
+3. For a phone on the same Wi‑Fi: set host to `0.0.0.0` (or use CLI `--lan`), click **Generate** for a token, save.
+4. Open the status-bar URL on the phone (includes `?token=…`). The page polls live queue / active progress from the desktop Orchestrator.
+5. This web UI is the mobile companion for now; native app-store clients are future work.
+
+LAN note: the token protects the API, but anyone with it can see job basenames. Prefer localhost when possible.
 
 ### Performance analytics (local only)
 

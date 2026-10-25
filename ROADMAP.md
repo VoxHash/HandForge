@@ -30,14 +30,14 @@ High-level milestones and planned features for HandForge.
 ## Future
 
 ### Platform Expansion
-- Companion mobile apps (remote queue monitoring)
-- Optional web-based interface for shared workstations
+- ✅ Companion mobile apps (remote queue monitoring) — phase 1: opt-in local HTTP status API + mobile-friendly companion web UI (phone browser on LAN); Preferences + `handforge serve` / `convert --companion`; native app-store clients remain future
+- Optional web-based interface for shared workstations (full shared-desktop control UI beyond status monitoring)
 
 #### Mobile & Headset Targets
-These are **not** near-term ports of the desktop PyQt6 UI. They depend on a shared conversion/queue core (and the native scheduler path) before any full client ships.
+These are **not** near-term ports of the desktop PyQt6 UI. They depend on a shared conversion/queue core (and the native scheduler path) before any full client ships. Phase-1 remote **queue monitoring** is covered by the companion web client above; the items below remain for native shells / on-device encode.
 
-- **Android / GrapheneOS app** — Remote queue control and lightweight convert/transcode on-device where FFmpeg and storage permissions allow. GrapheneOS is called out for privacy-hardened installs (no Google Play Services assumption); expect sideload/F-Droid-style distribution first. Rationale: HandForge users already batch on desktops; a locked-down phone client covers “send this recording home” without a full desktop rewrite.
-- **Meta Quest 3 app** — Queue monitoring and short media prep (trim/export) from a VR/MR headset, talking to a desktop or LAN HandForge instance. On-headset heavy encodes are a later stretch goal only. Rationale: creators already review media in Quest; a companion surface beats forcing ALT-TAB to a monitor mid-session.
+- **Android / GrapheneOS app** — Native shell (or Capacitor wrap of the companion UI) plus remote queue **control** and lightweight convert/transcode on-device where FFmpeg and storage permissions allow. GrapheneOS is called out for privacy-hardened installs (no Google Play Services assumption); expect sideload/F-Droid-style distribution first. Rationale: HandForge users already batch on desktops; a locked-down phone client covers “send this recording home” without a full desktop rewrite.
+- **Meta Quest 3 app** — Native VR/MR shell for queue monitoring and short media prep (trim/export) from a headset, talking to a desktop or LAN HandForge instance. On-headset heavy encodes are a later stretch goal only. Rationale: creators already review media in Quest; a companion surface beats forcing ALT-TAB to a monitor mid-session.
 
 ### Advanced Capabilities
 - Real-time preview of conversions
@@ -60,6 +60,7 @@ These are **not** near-term ports of the desktop PyQt6 UI. They depend on a shar
 - ✅ Plugin system (`handforge/plugins/`): directory + `handforge.plugins` entry-point discovery; extension points for presets and pre/post-convert hooks wired into Orchestrator workers and `all_presets()`; example `examples/plugins/archive_flac_sidecar/`; CLI `list-plugins`; see [docs/plugins.md](docs/plugins.md)
 - ✅ Cloud storage integration (`handforge/util/cloud.py`): local sync roots (Dropbox / Google Drive / OneDrive / Nextcloud + configured folders); optional rclone `remote:path` pick-up/save with graceful fallback when rclone is missing; Preferences → Cloud; CLI `list-cloud` / `convert --cloud-remote` / `--cloud-output`
 - ✅ Optional performance analytics (`handforge/util/analytics.py`): opt-in, **local-only** per-job/batch metrics (encode speed, duration, throughput, peak parallel, ETA MAE) under `~/.handforge/analytics/`; Preferences → Advanced (default OFF); CLI `convert --analytics` / `--no-analytics`, `list-analytics`; GUI status-bar summary after batches
+- ✅ Companion remote queue monitoring (`handforge/companion/`): opt-in HTTP `/api/status` + mobile web UI driven by live Orchestrator queue/active/progress; default off / localhost; shared token required for LAN (`0.0.0.0`); Preferences → Advanced → Companion; CLI `serve`, `convert --companion` / `--companion-lan`; phone browser is the mobile companion for now (store apps later)
 
 ### v1.3.2 (Q4 2026)
 - ✅ Permission-aware output directory handling and pre-conversion write checks

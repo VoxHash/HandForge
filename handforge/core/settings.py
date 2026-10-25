@@ -119,6 +119,11 @@ def load_settings() -> Dict[str, Any]:
         "rclone_binary": "",  # optional path to rclone; empty = PATH lookup
         # Opt-in local performance analytics (never uploaded)
         "performance_analytics": False,
+        # Opt-in companion remote queue monitor (HTTP + mobile web UI)
+        "companion_enabled": False,
+        "companion_host": "127.0.0.1",
+        "companion_port": 8765,
+        "companion_token": "",  # required when binding non-localhost
     }
     
     settings = load_json_file("settings.json", {})

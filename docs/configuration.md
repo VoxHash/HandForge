@@ -392,6 +392,34 @@ Opt-in metrics for long batch jobs. **Off by default.** When enabled, HandForge 
 
 **CLI**: `convert --analytics` / `--no-analytics`; `list-analytics` for recent history.
 
+### Companion (remote queue monitor)
+
+Opt-in HTTP status API + mobile-friendly web UI so you can watch the real Orchestrator queue from a phone browser. **Off by default.** Prefer localhost; LAN bind requires a shared token.
+
+```json
+{
+  "companion_enabled": false,
+  "companion_host": "127.0.0.1",
+  "companion_port": 8765,
+  "companion_token": ""
+}
+```
+
+| Key | Description | Default |
+|-----|-------------|---------|
+| `companion_enabled` | Start the companion HTTP server with the GUI (or use CLI) | `false` |
+| `companion_host` | Bind address (`127.0.0.1` = this machine only; `0.0.0.0` = LAN) | `127.0.0.1` |
+| `companion_port` | TCP port | `8765` |
+| `companion_token` | Shared secret (`?token=` or `Authorization: Bearer`); **required** when host is not localhost | `""` |
+
+**Security**: Anyone on the network who has the token can see queue filenames (basenames only). Do not expose beyond your LAN; use a firewall. Token is auto-minted when enabling a non-localhost bind without one.
+
+**UI**: Preferences → Advanced → **Companion**. Status bar shows the phone URL when enabled.
+
+**CLI**: `handforge serve [--lan]`; `convert … --companion` / `--companion-lan`.
+
+**Endpoints**: `GET /` (mobile UI), `GET /api/status` (JSON from live Orchestrator), `GET /api/health` (unauthenticated probe).
+
 ### Auto-Retry
 
 Automatic retry on errors:

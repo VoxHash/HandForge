@@ -283,10 +283,21 @@ def run_batch(
     *,
     quiet: bool = False,
     verbose: bool = False,
+    companion: bool = False,
+    companion_host: Optional[str] = None,
+    companion_port: Optional[int] = None,
+    companion_token: Optional[str] = None,
+    companion_lan: bool = False,
 ) -> Tuple[int, int]:
     """Run jobs through Orchestrator; return (succeeded, failed)."""
     from PyQt6.QtCore import QCoreApplication
 
+    from .companion import QueueStatusHub
+    from .companion.server import (
+        companion_url,
+        resolve_companion_bind,
+        start_companion_from_settings,
+    )
     from .util.analytics import (
         BatchAnalyticsSession,
         analytics_enabled,
@@ -310,6 +321,35 @@ def run_batch(
     analytics = (
         BatchAnalyticsSession.start(settings) if analytics_enabled(settings) else None
     )
+    hub = QueueStatusHub()
+    hub.attach(orch, app_label="HandForge CLI")
+    companion_server = None
+    if companion or settings.get("companion_enabled"):
+        try:
+            companion_server = start_companion_from_settings(
+                hub,
+                settings,
+                host=companion_host,
+                port=companion_port,
+                token=companion_token,
+                lan=companion_lan,
+                force=True,
+            )
+            if companion_server is not None and not quiet:
+                host, port, token = resolve_companion_bind(
+                    settings,
+                    host=companion_host,
+                    port=companion_port,
+                    token=companion_token,
+                    lan=companion_lan,
+                )
+                print(
+                    f"Companion monitor: {companion_url(host, port, token)}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+        except (OSError, ValueError) as exc:
+            print(f"Companion server failed: {exc}", file=sys.stderr)
 
     def on_started(wid: int, file_path: str) -> None:
         # Match label by src; fall back to completion order index
@@ -318,6 +358,7 @@ def run_batch(
             completed + 1,
         )
         job_labels[wid] = (label_idx, os.path.basename(file_path))
+        hub.on_started(wid, file_path)
         if analytics is not None:
             analytics.on_started(wid, file_path)
             analytics.note_parallel(len(orch.workers))
@@ -337,6 +378,7 @@ def run_batch(
         _peak: str,
         _true_peak: str,
     ) -> None:
+        hub.on_progress(wid, progress, elapsed, eta, speed, _peak, _true_peak)
         if analytics is not None:
             analytics.on_progress(wid, progress, elapsed, eta, speed)
         if quiet:
@@ -357,6 +399,7 @@ def run_batch(
     def on_done(wid: int, success: bool, message: str, output_path: str) -> None:
         nonlocal completed, succeeded, failed
         completed += 1
+        hub.on_done(wid, success, message, output_path)
         if analytics is not None:
             analytics.on_done(wid, success, message, output_path)
             analytics.note_parallel(len(orch.workers))
@@ -395,8 +438,12 @@ def run_batch(
 
     orch.enqueue(list(jobs))
     if total == 0:
+        if companion_server is not None:
+            companion_server.stop()
         return 0, 0
     app.exec()
+    if companion_server is not None:
+        companion_server.stop()
     if analytics is not None and not analytics.finished:
         summary = analytics.finish(persist=True)
         # Always print analytics summary when the feature is enabled (even with --quiet).
@@ -633,6 +680,68 @@ def cmd_list_analytics(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_serve(args: argparse.Namespace) -> int:
+    """Start the companion HTTP/status server (optionally run a convert batch)."""
+    import time
+
+    from .companion import QueueStatusHub
+    from .companion.server import (
+        CompanionServer,
+        companion_url,
+        format_companion_status,
+        resolve_companion_bind,
+    )
+
+    settings = load_settings()
+    settings["companion_enabled"] = True
+    if getattr(args, "host", None):
+        settings["companion_host"] = str(args.host).strip()
+    if getattr(args, "port", None) is not None:
+        settings["companion_port"] = int(args.port)
+    if getattr(args, "token", None) is not None:
+        settings["companion_token"] = str(args.token)
+    lan = bool(getattr(args, "lan", False))
+    if lan:
+        settings["companion_host"] = "0.0.0.0"
+
+    host, port, token = resolve_companion_bind(settings, lan=lan)
+    settings["companion_host"] = host
+    settings["companion_port"] = port
+    settings["companion_token"] = token
+
+    ensure_qt_app()
+    orch = Orchestrator(
+        threads_per_job=1,
+        max_parallel=int(settings.get("parallel", 2) or 1),
+    )
+    orch.set_settings(settings)
+    hub = QueueStatusHub()
+    hub.attach(orch, app_label="HandForge serve")
+
+    try:
+        server = CompanionServer(hub, host=host, port=port, token=token)
+        server.start()
+    except (OSError, ValueError) as exc:
+        print(f"Companion server failed: {exc}", file=sys.stderr)
+        return EXIT_FAIL
+
+    print(format_companion_status(settings))
+    print(f"Open on phone (same LAN if --lan): {companion_url(host, port, token)}")
+    print(
+        "Idle API/UI for smoke tests. For live queue monitoring during encodes, "
+        "enable Preferences → Companion or use: convert … --companion"
+    )
+    print("Press Ctrl+C to stop.")
+    try:
+        while True:
+            time.sleep(1.0)
+    except KeyboardInterrupt:
+        print("\nStopping companion…", file=sys.stderr)
+    finally:
+        server.stop()
+    return EXIT_OK
+
+
 def cmd_convert(args: argparse.Namespace) -> int:
     if not find_ffmpeg():
         print(
@@ -656,6 +765,16 @@ def cmd_convert(args: argparse.Namespace) -> int:
         settings["performance_analytics"] = True
     if getattr(args, "no_analytics", False):
         settings["performance_analytics"] = False
+    if getattr(args, "companion", False):
+        settings["companion_enabled"] = True
+    if getattr(args, "companion_host", None):
+        settings["companion_host"] = str(args.companion_host).strip()
+    if getattr(args, "companion_port", None) is not None:
+        settings["companion_port"] = int(args.companion_port)
+    if getattr(args, "companion_token", None) is not None:
+        settings["companion_token"] = str(args.companion_token)
+    if getattr(args, "companion_lan", False):
+        settings["companion_host"] = "0.0.0.0"
 
     staging_to_clean: List[str] = []
     try:
@@ -733,7 +852,15 @@ def cmd_convert(args: argparse.Namespace) -> int:
             )
 
         _ok, failed = run_batch(
-            jobs, settings, quiet=args.quiet, verbose=args.verbose
+            jobs,
+            settings,
+            quiet=args.quiet,
+            verbose=args.verbose,
+            companion=bool(getattr(args, "companion", False)),
+            companion_host=getattr(args, "companion_host", None),
+            companion_port=getattr(args, "companion_port", None),
+            companion_token=getattr(args, "companion_token", None),
+            companion_lan=bool(getattr(args, "companion_lan", False)),
         )
         if failed:
             print(f"Completed with {failed} failure(s).", file=sys.stderr)
@@ -911,6 +1038,36 @@ def build_parser() -> argparse.ArgumentParser:
         help="Include per-job lines in each summary",
     )
     p_analytics.set_defaults(func=cmd_list_analytics)
+
+    p_serve = sub.add_parser(
+        "serve",
+        help=(
+            "Start the companion remote queue-monitor HTTP server "
+            "(mobile web UI + /api/status; opt-in; default localhost)"
+        ),
+    )
+    p_serve.add_argument(
+        "--host",
+        default=None,
+        help="Bind address (default: settings or 127.0.0.1)",
+    )
+    p_serve.add_argument(
+        "--port",
+        type=int,
+        default=None,
+        help="TCP port (default: settings or 8765)",
+    )
+    p_serve.add_argument(
+        "--token",
+        default=None,
+        help="Shared token (required for non-localhost; query ?token=…)",
+    )
+    p_serve.add_argument(
+        "--lan",
+        action="store_true",
+        help="Bind 0.0.0.0 for phone-on-LAN access (auto-mints token if unset)",
+    )
+    p_serve.set_defaults(func=cmd_serve)
 
     p_conv = sub.add_parser(
         "convert",
@@ -1100,6 +1257,32 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-analytics",
         action="store_true",
         help="Disable performance analytics for this run (overrides settings)",
+    )
+    p_conv.add_argument(
+        "--companion",
+        action="store_true",
+        help=(
+            "Expose companion remote queue monitor during this convert "
+            "(HTTP + mobile web UI; see also `handforge serve`)"
+        ),
+    )
+    p_conv.add_argument(
+        "--companion-host",
+        help="Companion bind host (default: settings or 127.0.0.1)",
+    )
+    p_conv.add_argument(
+        "--companion-port",
+        type=int,
+        help="Companion TCP port (default: settings or 8765)",
+    )
+    p_conv.add_argument(
+        "--companion-token",
+        help="Companion shared token (required for LAN bind)",
+    )
+    p_conv.add_argument(
+        "--companion-lan",
+        action="store_true",
+        help="Bind companion on 0.0.0.0 for phone-on-LAN (auto-mints token if unset)",
     )
     p_conv.add_argument(
         "--on-exists",

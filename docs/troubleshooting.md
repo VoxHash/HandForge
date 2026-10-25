@@ -158,6 +158,28 @@ HandForge maps common failures to an actionable summary plus **What to try** ste
 2. Keep the Preferences toggle off (default) if you do not want local history
 3. Delete `~/.handforge/analytics/` to clear stored batches
 
+## Companion Remote Monitor
+
+### Phone Cannot Reach Companion
+
+**Problem**: Phone browser fails to load the companion URL.
+
+**Solutions**:
+1. Enable Companion in Preferences (or run `handforge serve` / `convert --companion`)
+2. For Wi‑Fi phones, bind `0.0.0.0` / use `--lan` and open the printed LAN IP URL (not `127.0.0.1` on the phone)
+3. Include `?token=…` from the desktop status bar / CLI output
+4. Confirm desktop firewall allows inbound TCP on the companion port
+5. Stay on the same LAN; do not port-forward to the public internet
+
+### Unauthorized (401)
+
+**Problem**: Companion page or `/api/status` returns unauthorized.
+
+**Solutions**:
+1. Copy the full URL including `?token=`
+2. Regenerate the token in Preferences if it changed
+3. Localhost binds may omit a token; LAN binds always require one
+
 ## Configuration Issues
 
 ### Settings Not Saving

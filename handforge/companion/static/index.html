@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a1a2e" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="HandForge" />
+  <title>HandForge Queue</title>
+  <style>
+    :root {
+      --bg: #12121c;
+      --panel: #1c1c2a;
+      --text: #f2f2f7;
+      --muted: #9a9ab0;
+      --accent: #5b8cff;
+      --ok: #3dd68c;
+      --fail: #ff6b6b;
+      --bar: #2a2a3d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: radial-gradient(1200px 600px at 10% -10%, #243056 0%, var(--bg) 55%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 16px;
+      padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 650;
+      margin: 0;
+      letter-spacing: 0.02em;
+    }
+    .pill {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--panel);
+      color: var(--muted);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .pill.running { color: var(--accent); border-color: rgba(91,140,255,0.35); }
+    .pill.queued { color: #f0c674; }
+    .pill.idle { color: var(--muted); }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .stat {
+      background: var(--panel);
+      border-radius: 12px;
+      padding: 10px 8px;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .stat b { display: block; font-size: 1.2rem; }
+    .stat span { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; }
+    section {
+      background: var(--panel);
+      border-radius: 14px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    section h2 {
+      margin: 0 0 10px;
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .job {
+      padding: 10px 0;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .job:first-of-type { border-top: none; }
+    .job-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 0.95rem;
+      word-break: break-word;
+    }
+    .meta { color: var(--muted); font-size: 0.8rem; margin-top: 4px; }
+    .bar {
+      margin-top: 8px;
+      height: 8px;
+      background: var(--bar);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .bar > i {
+      display: block;
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #4a7dff, #7aa2ff);
+      border-radius: 999px;
+      transition: width 0.35s ease;
+    }
+    .empty { color: var(--muted); font-size: 0.9rem; padding: 4px 0; }
+    .ok { color: var(--ok); }
+    .fail { color: var(--fail); }
+    footer {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.75rem;
+      text-align: center;
+    }
+    .err {
+      background: rgba(255,107,107,0.12);
+      border: 1px solid rgba(255,107,107,0.35);
+      color: #ffb4b4;
+      padding: 12px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+      display: none;
+    }
+    @media (max-width: 420px) {
+      .stats { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>HandForge</h1>
+    <span id="state" class="pill idle">idle</span>
+  </header>
+  <div id="error" class="err"></div>
+  <div class="stats">
+    <div class="stat"><b id="c-pending">0</b><span>Pending</span></div>
+    <div class="stat"><b id="c-queued">0</b><span>Queued</span></div>
+    <div class="stat"><b id="c-active">0</b><span>Active</span></div>
+    <div class="stat"><b id="c-agg">0%</b><span>Progress</span></div>
+  </div>
+
+  <section>
+    <h2>Active conversions</h2>
+    <div id="active"><div class="empty">No active jobs</div></div>
+  </section>
+  <section>
+    <h2>Orchestrator queue</h2>
+    <div id="queued"><div class="empty">Queue empty</div></div>
+  </section>
+  <section>
+    <h2>Pending (not started)</h2>
+    <div id="pending"><div class="empty">Nothing pending</div></div>
+  </section>
+  <section>
+    <h2>Recent</h2>
+    <div id="recent"><div class="empty">No recent jobs</div></div>
+  </section>
+  <footer id="footer">Polling every 1s · local companion</footer>
+
+  <script>
+    function tokenFromPage() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("token") || "";
+    }
+
+    function statusUrl() {
+      const t = tokenFromPage();
+      return t ? "/api/status?token=" + encodeURIComponent(t) : "/api/status";
+    }
+
+    function esc(s) {
+      return String(s || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function renderList(el, items, empty, renderOne) {
+      if (!items || !items.length) {
+        el.innerHTML = '<div class="empty">' + empty + '</div>';
+        return;
+      }
+      el.innerHTML = items.map(renderOne).join("");
+    }
+
+    function renderActive(job) {
+      const pct = Math.max(0, Math.min(100, Number(job.progress) || 0));
+      return (
+        '<div class="job">' +
+          '<div class="job-title"><span>' + esc(job.file) + '</span><span>' + pct.toFixed(1) + '%</span></div>' +
+          '<div class="meta">' + esc(job.format) +
+            (job.speed ? ' · ' + esc(job.speed) : '') +
+            (job.eta ? ' · ETA ' + Number(job.eta).toFixed(0) + 's' : '') +
+            (job.paused ? ' · paused' : '') +
+          '</div>' +
+          '<div class="bar"><i style="width:' + pct + '%"></i></div>' +
+        '</div>'
+      );
+    }
+
+    function renderQueued(job) {
+      return (
+        '<div class="job">' +
+          '<div class="job-title"><span>' + esc(job.file) + '</span><span>#' + esc(job.position || '') + '</span></div>' +
+          '<div class="meta">' + esc(job.format) + (job.mode ? ' · ' + esc(job.mode) : '') + '</div>' +
+        '</div>'
+      );
+    }
+
+    function renderRecent(job) {
+      const cls = job.success ? "ok" : "fail";
+      const label = job.success ? "ok" : "fail";
+      return (
+        '<div class="job">' +
+          '<div class="job-title"><span>' + esc(job.file) + '</span><span class="' + cls + '">' + label + '</span></div>' +
+          '<div class="meta">' + esc(job.message || job.output || '') + '</div>' +
+        '</div>'
+      );
+    }
+
+    async function tick() {
+      const err = document.getElementById("error");
+      try {
+        const res = await fetch(statusUrl(), { cache: "no-store" });
+        if (res.status === 401) {
+          err.style.display = "block";
+          err.textContent = "Unauthorized — open the URL that includes ?token=… from the desktop / CLI.";
+          return;
+        }
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        err.style.display = "none";
+
+        const state = data.state || "idle";
+        const pill = document.getElementById("state");
+        pill.textContent = state;
+        pill.className = "pill " + state;
+
+        const c = data.counts || {};
+        document.getElementById("c-pending").textContent = c.pending || 0;
+        document.getElementById("c-queued").textContent = c.queued || 0;
+        document.getElementById("c-active").textContent = c.active || 0;
+        document.getElementById("c-agg").textContent = (Number(data.aggregate_progress) || 0).toFixed(0) + "%";
+
+        renderList(document.getElementById("active"), data.active, "No active jobs", renderActive);
+        renderList(document.getElementById("queued"), data.queued, "Queue empty", renderQueued);
+        renderList(document.getElementById("pending"), data.pending, "Nothing pending", renderQueued);
+        renderList(document.getElementById("recent"), data.recent, "No recent jobs", renderRecent);
+
+        const when = data.updated_at ? new Date(data.updated_at * 1000).toLocaleTimeString() : "";
+        document.getElementById("footer").textContent =
+          "Updated " + when + " · parallel " + (data.parallel || "?") +
+          (data.adaptive_parallel ? " (adaptive)" : "") +
+          " · local companion (PWA-friendly; store apps later)";
+      } catch (e) {
+        err.style.display = "block";
+        err.textContent = "Cannot reach HandForge companion: " + e.message;
+      }
+    }
+
+    tick();
+    setInterval(tick, 1000);
+  </script>
+</body>
+</html>

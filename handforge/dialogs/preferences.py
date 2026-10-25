@@ -616,9 +616,76 @@ class PreferencesDialog(QDialog):
         perf_layout.addRow("", self.analytics_status_label)
         
         layout.addWidget(perf_group)
+
+        # Companion remote queue monitor (opt-in; localhost by default)
+        companion_group = QGroupBox("Companion (remote queue monitor)")
+        companion_layout = QFormLayout(companion_group)
+
+        self.companion_enabled_check = QCheckBox(
+            "Enable companion HTTP server (phone / LAN browser)"
+        )
+        self.companion_enabled_check.setToolTip(
+            "When on, HandForge serves a mobile-friendly queue status page and "
+            "JSON API from the desktop. Off by default. Prefer localhost; "
+            "LAN bind requires a shared token."
+        )
+        self.companion_enabled_check.stateChanged.connect(
+            lambda *_: self.refresh_companion_status()
+        )
+        companion_layout.addRow("", self.companion_enabled_check)
+
+        self.companion_host_edit = QLineEdit()
+        self.companion_host_edit.setPlaceholderText("127.0.0.1")
+        self.companion_host_edit.setToolTip(
+            "Bind address. Use 127.0.0.1 (default) for this machine only. "
+            "Use 0.0.0.0 to allow other devices on your LAN (requires token)."
+        )
+        self.companion_host_edit.textChanged.connect(
+            lambda *_: self.refresh_companion_status()
+        )
+        companion_layout.addRow("Bind host:", self.companion_host_edit)
+
+        self.companion_port_spin = QSpinBox()
+        self.companion_port_spin.setMinimum(1)
+        self.companion_port_spin.setMaximum(65535)
+        self.companion_port_spin.setToolTip("TCP port for the companion server")
+        self.companion_port_spin.valueChanged.connect(
+            lambda *_: self.refresh_companion_status()
+        )
+        companion_layout.addRow("Port:", self.companion_port_spin)
+
+        token_row = QHBoxLayout()
+        self.companion_token_edit = QLineEdit()
+        self.companion_token_edit.setPlaceholderText("optional on localhost; required for LAN")
+        self.companion_token_edit.setToolTip(
+            "Shared secret. Required when bind host is not localhost. "
+            "Pass as ?token=… in the phone URL or Authorization: Bearer."
+        )
+        self.companion_token_edit.textChanged.connect(
+            lambda *_: self.refresh_companion_status()
+        )
+        token_row.addWidget(self.companion_token_edit)
+        gen_token_btn = QPushButton("Generate")
+        gen_token_btn.setToolTip("Generate a new random shared token")
+        gen_token_btn.clicked.connect(self._generate_companion_token)
+        token_row.addWidget(gen_token_btn)
+        companion_layout.addRow("Token:", token_row)
+
+        self.companion_status_label = QLabel("")
+        self.companion_status_label.setWordWrap(True)
+        self.companion_status_label.setStyleSheet("color: #666; font-size: 11px;")
+        companion_layout.addRow("", self.companion_status_label)
+
+        layout.addWidget(companion_group)
         
         layout.addStretch()
         return widget
+
+    def _generate_companion_token(self) -> None:
+        from ..companion.server import generate_token
+
+        self.companion_token_edit.setText(generate_token())
+        self.refresh_companion_status()
     
     def browse_output_dir(self):
         """Browse for output directory."""
@@ -877,6 +944,22 @@ class PreferencesDialog(QDialog):
             bool(self.settings.get("performance_analytics", False))
         )
         self.refresh_analytics_status()
+        self.companion_enabled_check.setChecked(
+            bool(self.settings.get("companion_enabled", False))
+        )
+        self.companion_host_edit.setText(
+            str(self.settings.get("companion_host") or "127.0.0.1")
+        )
+        try:
+            self.companion_port_spin.setValue(
+                int(self.settings.get("companion_port") or 8765)
+            )
+        except (TypeError, ValueError):
+            self.companion_port_spin.setValue(8765)
+        self.companion_token_edit.setText(
+            str(self.settings.get("companion_token") or "")
+        )
+        self.refresh_companion_status()
     
     def get_settings(self) -> Dict[str, Any]:
         """Get settings from UI."""
@@ -959,6 +1042,22 @@ class PreferencesDialog(QDialog):
         settings["auto_retry_enabled"] = self.auto_retry_check.isChecked()
         settings["ewma_alpha"] = self.ewma_alpha_spin.value()
         settings["performance_analytics"] = self.performance_analytics_check.isChecked()
+        settings["companion_enabled"] = self.companion_enabled_check.isChecked()
+        host = self.companion_host_edit.text().strip() or "127.0.0.1"
+        settings["companion_host"] = host
+        settings["companion_port"] = int(self.companion_port_spin.value())
+        token = self.companion_token_edit.text().strip()
+        # Auto-mint a token when enabling a non-localhost bind without one
+        from ..companion.server import generate_token, is_loopback_host
+
+        if (
+            settings["companion_enabled"]
+            and not is_loopback_host(host)
+            and not token
+        ):
+            token = generate_token()
+            self.companion_token_edit.setText(token)
+        settings["companion_token"] = token
         
         return settings
 
@@ -973,6 +1072,36 @@ class PreferencesDialog(QDialog):
         except Exception:
             self.analytics_status_label.setText(
                 "Performance analytics: LOCAL ONLY under ~/.handforge/analytics/"
+            )
+
+    def refresh_companion_status(self) -> None:
+        """Update companion bind / URL hint label."""
+        try:
+            from ..companion.server import (
+                companion_url,
+                format_companion_status,
+                is_loopback_host,
+                resolve_companion_bind,
+            )
+
+            probe = dict(self.settings)
+            probe["companion_enabled"] = self.companion_enabled_check.isChecked()
+            probe["companion_host"] = self.companion_host_edit.text().strip() or "127.0.0.1"
+            probe["companion_port"] = int(self.companion_port_spin.value())
+            probe["companion_token"] = self.companion_token_edit.text().strip()
+            host, port, token = resolve_companion_bind(probe)
+            lines = format_companion_status(probe).splitlines()
+            if probe["companion_enabled"]:
+                lines.append(f"  URL: {companion_url(host, port, token)}")
+            if not is_loopback_host(host):
+                lines.append(
+                    "  LAN exposure: anyone on the network with the token can "
+                    "see queue filenames. Keep the token private."
+                )
+            self.companion_status_label.setText("\n".join(lines))
+        except Exception:
+            self.companion_status_label.setText(
+                "Companion: opt-in HTTP status API + mobile web UI (default off / localhost)."
             )
     
     def restore_defaults(self):
@@ -1029,6 +1158,10 @@ class PreferencesDialog(QDialog):
                 "auto_retry_enabled": True,
                 "ewma_alpha": 0.3,
                 "performance_analytics": False,
+                "companion_enabled": False,
+                "companion_host": "127.0.0.1",
+                "companion_port": 8765,
+                "companion_token": "",
                 "cloud_roots": [],
                 "cloud_input_root": None,
                 "rclone_enabled": True,

@@ -22,6 +22,10 @@ def test_load_settings_merges_defaults(isolated_config_dir):
     assert loaded["video_saturation"] == 1.0
     assert loaded["plugins_enabled"] is True
     assert loaded["plugin_dirs"] == []
+    assert loaded["companion_enabled"] is False
+    assert loaded["companion_host"] == "127.0.0.1"
+    assert loaded["companion_port"] == 8765
+    assert loaded["companion_token"] == ""
     assert "auto_retry_patterns" in loaded
     assert (isolated_config_dir / "settings.json").exists() is False  # not written yet
 

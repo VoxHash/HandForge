@@ -94,6 +94,17 @@ class MainWindow(QMainWindow):
 
         # Opt-in local performance analytics session (None when disabled)
         self._analytics_session = None
+
+        # Opt-in companion remote queue monitor (HTTP + mobile web UI)
+        from ..companion import QueueStatusHub
+
+        self._companion_hub = QueueStatusHub()
+        self._companion_hub.attach(
+            self.orchestrator,
+            pending_provider=lambda: list(self.queue),
+            app_label="HandForge",
+        )
+        self._companion_server = None
         
         # System tray icon
         self.tray_icon = None
@@ -111,6 +122,7 @@ class MainWindow(QMainWindow):
         
         self.init_ui()
         self.apply_settings()
+        self._sync_companion_server()
         self.load_window_state()
     
     def init_ui(self):
@@ -719,6 +731,51 @@ class MainWindow(QMainWindow):
         self.settings["win_state"] = self.saveState().toHex().data().decode()
         save_settings(self.settings)
     
+    def _sync_companion_server(self) -> None:
+        """Start/stop the companion HTTP server from Preferences settings."""
+        from ..companion.server import (
+            companion_enabled,
+            companion_url,
+            resolve_companion_bind,
+            start_companion_from_settings,
+        )
+
+        # Always tear down first so host/port/token changes apply cleanly
+        if self._companion_server is not None:
+            try:
+                self._companion_server.stop()
+            except Exception:
+                pass
+            self._companion_server = None
+
+        if not companion_enabled(self.settings):
+            return
+        try:
+            server = start_companion_from_settings(
+                self._companion_hub, self.settings, force=True
+            )
+            self._companion_server = server
+            if server is not None:
+                host, port, token = resolve_companion_bind(self.settings)
+                url = companion_url(host, port, token)
+                self.statusBar().showMessage(
+                    f"Companion monitor: {url}", 8000
+                )
+        except OSError as exc:
+            self.statusBar().showMessage(
+                f"Companion server failed to bind: {exc}", 8000
+            )
+        except ValueError as exc:
+            self.statusBar().showMessage(str(exc), 8000)
+
+    def _stop_companion_server(self) -> None:
+        if self._companion_server is not None:
+            try:
+                self._companion_server.stop()
+            except Exception:
+                pass
+            self._companion_server = None
+
     def closeEvent(self, event):
         """Handle window close event."""
         self.save_window_state()
@@ -733,6 +790,7 @@ class MainWindow(QMainWindow):
             )
             if reply == QMessageBox.StandardButton.Yes:
                 self.orchestrator.stop_all()
+                self._stop_companion_server()
                 event.accept()
             else:
                 event.ignore()
@@ -741,7 +799,7 @@ class MainWindow(QMainWindow):
         # Check if minimize to tray is enabled
         minimize_to_tray = self.settings.get("minimize_to_tray", True)
         if minimize_to_tray and self.tray_icon and self.tray_icon.isVisible():
-            # Hide to tray instead of closing
+            # Hide to tray instead of closing (companion keeps running)
             event.ignore()
             self.hide()
             if self.tray_icon:
@@ -752,6 +810,7 @@ class MainWindow(QMainWindow):
                     2000
                 )
         else:
+            self._stop_companion_server()
             event.accept()
     
     
@@ -1130,6 +1189,8 @@ class MainWindow(QMainWindow):
         if self._analytics_session is not None:
             self._analytics_session.on_done(wid, success, message, output_path)
             self._analytics_session.note_parallel(len(self.orchestrator.workers))
+        if self._companion_hub is not None:
+            self._companion_hub.on_done(wid, success, message, output_path)
 
         if wid in self.workers_data:
             self.workers_data[wid]["status"] = "Done" if success else "Failed"
@@ -1240,6 +1301,8 @@ class MainWindow(QMainWindow):
         if self._analytics_session is not None:
             self._analytics_session.on_started(wid, file_path)
             self._analytics_session.note_parallel(len(self.orchestrator.workers))
+        if self._companion_hub is not None:
+            self._companion_hub.on_started(wid, file_path)
 
         # Store input file path for reference
         file_name = os.path.basename(file_path)
@@ -1260,6 +1323,10 @@ class MainWindow(QMainWindow):
         """Handle worker progress (coalesced UI refresh under parallel load)."""
         if self._analytics_session is not None:
             self._analytics_session.on_progress(wid, progress, elapsed, eta, speed)
+        if self._companion_hub is not None:
+            self._companion_hub.on_progress(
+                wid, progress, elapsed, eta, speed, peak, true_peak
+            )
 
         if wid not in self.workers_data:
             # Get file name from orchestrator if available
@@ -1662,6 +1729,7 @@ class MainWindow(QMainWindow):
                 self.init_ui()
             # Update UI elements that depend on settings
             self.checkbox_delete_original.setChecked(self.settings.get("delete_original", False))
+            self._sync_companion_server()
             t = self.translator
             self.statusBar().showMessage("✅ Preferences saved successfully", 3000)
     

@@ -93,6 +93,18 @@ python -m handforge list-analytics
 python -m handforge list-analytics --limit 10 -v
 ```
 
+### `serve`
+
+Start the companion remote queue-monitor HTTP server (mobile web UI + `GET /api/status`). Default bind is localhost; use `--lan` for phone-on-LAN (auto-mints a token if unset).
+
+```bash
+python -m handforge serve
+python -m handforge serve --lan --port 8765
+# Open the printed URL on your phone (includes ?token=…)
+```
+
+For live progress during a headless batch, prefer `convert --companion` (below). GUI users enable Preferences → Companion instead.
+
 ### `convert`
 
 Convert one or more files or directories (directories are scanned recursively for audio/video).
@@ -131,6 +143,10 @@ python -m handforge convert ./batch -f flac --mode Lossless --parallel 4 --no-ad
 # Local performance analytics for this batch (opt-in; stored under ~/.handforge/analytics/)
 python -m handforge convert ./batch -f mp3 --bitrate 192 --analytics
 
+# Companion monitor during convert (phone can open the printed URL)
+python -m handforge convert ./batch -f mp3 --bitrate 192 --companion
+python -m handforge convert ./batch -f mp3 --bitrate 192 --companion --companion-lan
+
 # Local cloud sync folder (Dropbox / Drive / OneDrive / …)
 python -m handforge convert ~/Dropbox/Inbox -f mp3 --bitrate 192 -o ~/Dropbox/HandForge_Out
 
@@ -164,6 +180,9 @@ python -m handforge convert ./local -f flac --cloud-remote gdrive --cloud-output
 | `--no-adaptive` | Disable RAM/load-aware concurrency |
 | `--analytics` | Enable local performance analytics for this run (summary on stderr after batch) |
 | `--no-analytics` | Disable analytics for this run (overrides Preferences) |
+| `--companion` | Expose companion HTTP + mobile web UI during this convert |
+| `--companion-host` / `--companion-port` / `--companion-token` | Companion bind / shared token |
+| `--companion-lan` | Bind companion on `0.0.0.0` (auto-mints token if unset) |
 | `--on-exists` | `overwrite`, `skip`, or `rename` |
 | `--title` / `--artist` / `--album` / `--year` / `--genre` / `--track` | Metadata |
 | `-q`, `--quiet` | Print only output paths on stdout; errors on stderr |
