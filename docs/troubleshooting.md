@@ -137,6 +137,27 @@ HandForge maps common failures to an actionable summary plus **What to try** ste
 2. Re-run upload manually: `rclone copy /path/to/local/out remote:path`
 3. Prefer writing directly to a mounted sync folder if rclone auth is unreliable
 
+## Performance Analytics
+
+### No Analytics Summary After a Batch
+
+**Problem**: Batch finishes but no analytics line appears.
+
+**Solutions**:
+1. Enable **Preferences → Advanced → Enable performance analytics (local only)** (default is off)
+2. Or pass `convert --analytics` for a one-off CLI run
+3. Confirm `~/.handforge/analytics/batches.jsonl` is writable
+4. Run `python -m handforge list-analytics` to inspect stored history
+
+### Privacy / Uploads
+
+**Problem**: Concern that analytics leave the machine.
+
+**Solutions**:
+1. Analytics are **local only** — HandForge does not upload them
+2. Keep the Preferences toggle off (default) if you do not want local history
+3. Delete `~/.handforge/analytics/` to clear stored batches
+
 ## Configuration Issues
 
 ### Settings Not Saving

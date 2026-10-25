@@ -287,6 +287,12 @@ def run_batch(
     """Run jobs through Orchestrator; return (succeeded, failed)."""
     from PyQt6.QtCore import QCoreApplication
 
+    from .util.analytics import (
+        BatchAnalyticsSession,
+        analytics_enabled,
+        format_batch_summary,
+    )
+
     app = ensure_qt_app()
     orch = Orchestrator(
         threads_per_job=1,
@@ -301,6 +307,9 @@ def run_batch(
     # Map worker id -> (index, basename) once started
     job_labels: Dict[int, Tuple[int, str]] = {}
     start_order = {id(job): i for i, job in enumerate(jobs, start=1)}
+    analytics = (
+        BatchAnalyticsSession.start(settings) if analytics_enabled(settings) else None
+    )
 
     def on_started(wid: int, file_path: str) -> None:
         # Match label by src; fall back to completion order index
@@ -309,6 +318,9 @@ def run_batch(
             completed + 1,
         )
         job_labels[wid] = (label_idx, os.path.basename(file_path))
+        if analytics is not None:
+            analytics.on_started(wid, file_path)
+            analytics.note_parallel(len(orch.workers))
         if not quiet:
             print(
                 f"[{label_idx}/{total}] {os.path.basename(file_path)}  started",
@@ -325,6 +337,8 @@ def run_batch(
         _peak: str,
         _true_peak: str,
     ) -> None:
+        if analytics is not None:
+            analytics.on_progress(wid, progress, elapsed, eta, speed)
         if quiet:
             return
         idx, name = job_labels.get(wid, (wid, f"job-{wid}"))
@@ -343,6 +357,9 @@ def run_batch(
     def on_done(wid: int, success: bool, message: str, output_path: str) -> None:
         nonlocal completed, succeeded, failed
         completed += 1
+        if analytics is not None:
+            analytics.on_done(wid, success, message, output_path)
+            analytics.note_parallel(len(orch.workers))
         idx, name = job_labels.get(wid, (wid, f"job-{wid}"))
         if success:
             succeeded += 1
@@ -380,6 +397,10 @@ def run_batch(
     if total == 0:
         return 0, 0
     app.exec()
+    if analytics is not None and not analytics.finished:
+        summary = analytics.finish(persist=True)
+        # Always print analytics summary when the feature is enabled (even with --quiet).
+        print(format_batch_summary(summary, detailed=verbose), file=sys.stderr)
     return succeeded, failed
 
 
@@ -568,6 +589,50 @@ def cmd_list_cloud(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_list_analytics(args: argparse.Namespace) -> int:
+    """Show local performance-analytics status and recent batches."""
+    from .util.analytics import (
+        BatchSummary,
+        format_analytics_status,
+        format_batch_summary,
+        load_recent_batches,
+    )
+
+    settings = load_settings()
+    print(format_analytics_status(settings))
+    recent = load_recent_batches(limit=int(getattr(args, "limit", 5) or 5))
+    if not recent:
+        return EXIT_OK
+    print()
+    for raw in reversed(recent):
+        try:
+            summary = BatchSummary(
+                batch_id=str(raw.get("batch_id") or "?"),
+                started_at=float(raw.get("started_at") or 0),
+                ended_at=float(raw.get("ended_at") or 0),
+                job_count=int(raw.get("job_count") or 0),
+                succeeded=int(raw.get("succeeded") or 0),
+                failed=int(raw.get("failed") or 0),
+                wall_seconds=float(raw.get("wall_seconds") or 0),
+                peak_parallel=int(raw.get("peak_parallel") or 0),
+                parallel_setting=int(raw.get("parallel_setting") or 0),
+                adaptive_parallel=bool(raw.get("adaptive_parallel", True)),
+                total_bytes_in=int(raw.get("total_bytes_in") or 0),
+                total_bytes_out=int(raw.get("total_bytes_out") or 0),
+                mean_job_seconds=float(raw.get("mean_job_seconds") or 0),
+                mean_speed_x=raw.get("mean_speed_x"),
+                peak_speed_x=raw.get("peak_speed_x"),
+                throughput_bps=raw.get("throughput_bps"),
+                eta_mae_seconds=raw.get("eta_mae_seconds"),
+                jobs=list(raw.get("jobs") or []),
+            )
+            print(format_batch_summary(summary, detailed=bool(args.verbose)))
+            print()
+        except (TypeError, ValueError):
+            continue
+    return EXIT_OK
+
+
 def cmd_convert(args: argparse.Namespace) -> int:
     if not find_ffmpeg():
         print(
@@ -587,6 +652,10 @@ def cmd_convert(args: argparse.Namespace) -> int:
         settings["rclone_remote"] = str(args.cloud_remote).strip()
     if getattr(args, "no_rclone", False):
         settings["rclone_enabled"] = False
+    if getattr(args, "analytics", False):
+        settings["performance_analytics"] = True
+    if getattr(args, "no_analytics", False):
+        settings["performance_analytics"] = False
 
     staging_to_clean: List[str] = []
     try:
@@ -822,6 +891,27 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_cloud.set_defaults(func=cmd_list_cloud)
 
+    p_analytics = sub.add_parser(
+        "list-analytics",
+        help=(
+            "Show local performance-analytics status and recent batch summaries "
+            "(~/.handforge/analytics/; never uploaded)"
+        ),
+    )
+    p_analytics.add_argument(
+        "--limit",
+        type=int,
+        default=5,
+        help="Number of recent batches to show (default: 5)",
+    )
+    p_analytics.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Include per-job lines in each summary",
+    )
+    p_analytics.set_defaults(func=cmd_list_analytics)
+
     p_conv = sub.add_parser(
         "convert",
         help="Convert one or more media files or directories",
@@ -996,6 +1086,20 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-adaptive",
         action="store_true",
         help="Disable adaptive parallel scheduling",
+    )
+    p_conv.add_argument(
+        "--analytics",
+        action="store_true",
+        help=(
+            "Enable local performance analytics for this run "
+            "(speed, duration, throughput, peak parallel, ETA accuracy; "
+            "stored under ~/.handforge/analytics/)"
+        ),
+    )
+    p_conv.add_argument(
+        "--no-analytics",
+        action="store_true",
+        help="Disable performance analytics for this run (overrides settings)",
     )
     p_conv.add_argument(
         "--on-exists",

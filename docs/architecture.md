@@ -69,6 +69,10 @@ Optional Rust `cdylib` that recommends concurrent job slots from available memor
 
 Per-worker `ProgressTracker` keeps percent monotonic, computes wall-clock ETA from FFmpeg `speed=`, applies Preferences `ewma_alpha`, and throttles signal emits so many parallel jobs do not flood the Qt event loop. The main window coalesces Active Conversions table redraws (~150 ms) and shows aggregate batch progress in the status bar.
 
+### Performance analytics (`util/analytics.py`)
+
+Optional, **opt-in / local-only** collector (`BatchAnalyticsSession`) listens to the same Orchestrator signals as the GUI/CLI. When `performance_analytics` is enabled, it records real per-job speed samples, wall time, throughput, peak parallel, and ETA forecast error, then appends a batch summary to `~/.handforge/analytics/batches.jsonl`. Conversion paths are unchanged when the feature is off.
+
 ### Worker (`core/orchestrator.py`)
 
 Individual conversion worker:

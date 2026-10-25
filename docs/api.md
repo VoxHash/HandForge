@@ -269,6 +269,28 @@ for root in all_cloud_roots(settings):
     print(root.kind, root.path)
 ```
 
+### handforge.util.analytics
+
+Opt-in, local-only batch performance metrics (never uploaded).
+
+```python
+from handforge.util.analytics import (
+    BatchAnalyticsSession,
+    analytics_enabled,
+    format_analytics_status,
+    format_batch_summary,
+    load_recent_batches,
+)
+
+print(format_analytics_status(settings))
+if analytics_enabled(settings):
+    session = BatchAnalyticsSession.start(settings)
+    # connect session.on_started / on_progress / on_done to Orchestrator signals
+    summary = session.finish(persist=True)
+    print(format_batch_summary(summary))
+print(load_recent_batches(limit=5))
+```
+
 ## Example: Programmatic Usage
 
 ```python

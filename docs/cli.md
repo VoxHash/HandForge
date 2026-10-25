@@ -84,6 +84,15 @@ Show rclone availability/remotes and local cloud sync roots (detected + configur
 python -m handforge list-cloud
 ```
 
+### `list-analytics`
+
+Show whether local performance analytics is enabled and print recent batch summaries from `~/.handforge/analytics/batches.jsonl`. Nothing is uploaded.
+
+```bash
+python -m handforge list-analytics
+python -m handforge list-analytics --limit 10 -v
+```
+
 ### `convert`
 
 Convert one or more files or directories (directories are scanned recursively for audio/video).
@@ -119,6 +128,9 @@ python -m handforge convert input.mp3 --preset "MP3 192k" \
 # Parallelism
 python -m handforge convert ./batch -f flac --mode Lossless --parallel 4 --no-adaptive
 
+# Local performance analytics for this batch (opt-in; stored under ~/.handforge/analytics/)
+python -m handforge convert ./batch -f mp3 --bitrate 192 --analytics
+
 # Local cloud sync folder (Dropbox / Drive / OneDrive / …)
 python -m handforge convert ~/Dropbox/Inbox -f mp3 --bitrate 192 -o ~/Dropbox/HandForge_Out
 
@@ -150,6 +162,8 @@ python -m handforge convert ./local -f flac --cloud-remote gdrive --cloud-output
 | `--stabilize` / `--stabilize-rx` / `--stabilize-ry` | Single-pass stabilization (`deshake`; rx/ry snapped to multiples of 16) |
 | `--parallel` | Max concurrent jobs (hard ceiling) |
 | `--no-adaptive` | Disable RAM/load-aware concurrency |
+| `--analytics` | Enable local performance analytics for this run (summary on stderr after batch) |
+| `--no-analytics` | Disable analytics for this run (overrides Preferences) |
 | `--on-exists` | `overwrite`, `skip`, or `rename` |
 | `--title` / `--artist` / `--album` / `--year` / `--genre` / `--track` | Metadata |
 | `-q`, `--quiet` | Print only output paths on stdout; errors on stderr |

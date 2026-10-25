@@ -25,7 +25,7 @@ High-level milestones and planned features for HandForge.
 
 ### Platform & Integration
 - ✅ Cloud storage integration (pick up / save to remote folders)
-- Optional performance analytics for long batch jobs
+- ✅ Optional performance analytics for long batch jobs
 
 ## Future
 
@@ -59,6 +59,7 @@ These are **not** near-term ports of the desktop PyQt6 UI. They depend on a shar
 - ✅ Video filters (`handforge/util/video_filters.py`): FFmpeg `eq` (brightness / contrast / saturation) and single-pass `deshake` stabilization; Preferences Video tab + CLI `--video-color` / `--brightness` / `--contrast` / `--saturation` / `--stabilize`; off by default; CPU filters before HW upload
 - ✅ Plugin system (`handforge/plugins/`): directory + `handforge.plugins` entry-point discovery; extension points for presets and pre/post-convert hooks wired into Orchestrator workers and `all_presets()`; example `examples/plugins/archive_flac_sidecar/`; CLI `list-plugins`; see [docs/plugins.md](docs/plugins.md)
 - ✅ Cloud storage integration (`handforge/util/cloud.py`): local sync roots (Dropbox / Google Drive / OneDrive / Nextcloud + configured folders); optional rclone `remote:path` pick-up/save with graceful fallback when rclone is missing; Preferences → Cloud; CLI `list-cloud` / `convert --cloud-remote` / `--cloud-output`
+- ✅ Optional performance analytics (`handforge/util/analytics.py`): opt-in, **local-only** per-job/batch metrics (encode speed, duration, throughput, peak parallel, ETA MAE) under `~/.handforge/analytics/`; Preferences → Advanced (default OFF); CLI `convert --analytics` / `--no-analytics`, `list-analytics`; GUI status-bar summary after batches
 
 ### v1.3.2 (Q4 2026)
 - ✅ Permission-aware output directory handling and pre-conversion write checks

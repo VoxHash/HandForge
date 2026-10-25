@@ -117,6 +117,8 @@ def load_settings() -> Dict[str, Any]:
         "rclone_enabled": True,  # allow remote:path when rclone is installed
         "rclone_remote": "",  # default remote name (e.g. "gdrive")
         "rclone_binary": "",  # optional path to rclone; empty = PATH lookup
+        # Opt-in local performance analytics (never uploaded)
+        "performance_analytics": False,
     }
     
     settings = load_json_file("settings.json", {})

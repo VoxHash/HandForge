@@ -20,9 +20,16 @@ Access comprehensive settings via **Settings** → **Preferences**:
 - **Audio**: Loudness normalization, **EQ / compressor / limiter / noise reduction**, cover art preferences
 - **Video**: Default quality, codec, **hardware acceleration** (Auto / Software / NVENC / Quick Sync / VAAPI / VideoToolbox), size reduction settings
 - **Cloud**: Local sync roots (Dropbox / Google Drive / OneDrive / Nextcloud), optional rclone remote
-- **Advanced**: Auto-retry, performance tuning
+- **Advanced**: Auto-retry, progress smoothing, **optional local performance analytics** (off by default)
 
 Use **Detect Hardware Encoders…** on the Video tab to probe FFmpeg on this machine. Auto mode picks a working backend and falls back to software if encode fails.
+
+### Performance analytics (local only)
+
+1. Open **Settings** → **Preferences** → **Advanced**.
+2. Enable **Enable performance analytics (local only)** (off by default).
+3. Run a batch as usual. When it finishes, the status bar shows a one-line summary (jobs ok, wall time, peak parallel, mean speed, throughput, ETA error).
+4. History is stored only under `~/.handforge/analytics/` — nothing is uploaded. Use CLI `list-analytics` to review recent batches.
 
 On the **Audio** tab, enable advanced filters only when needed (all off by default). EQ uses three bands; compressor/limiter use FFmpeg `acompressor` / `alimiter`; noise reduction uses `afftdn`.
 

@@ -91,6 +91,7 @@ Key settings (full reference: [docs/configuration.md](docs/configuration.md)):
 | `output_dir` | Default output directory (may be a local cloud sync folder) | ~/HandForge_Output |
 | `cloud_roots` | Local sync / mount folders for pick-up and save | `[]` |
 | `rclone_remote` | Optional default rclone remote name | `""` |
+| `performance_analytics` | Opt-in local batch metrics (`~/.handforge/analytics/`) | false |
 | `default_video_quality` | Default video quality preset | medium |
 | `default_video_codec` | Default video codec | libx264 |
 | `language` | Interface language (None = auto-detect) | None |

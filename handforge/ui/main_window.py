@@ -91,6 +91,9 @@ class MainWindow(QMainWindow):
         self._progress_ui_timer = QTimer(self)
         self._progress_ui_timer.setInterval(150)
         self._progress_ui_timer.timeout.connect(self._flush_workers_table)
+
+        # Opt-in local performance analytics session (None when disabled)
+        self._analytics_session = None
         
         # System tray icon
         self.tray_icon = None
@@ -1042,6 +1045,13 @@ class MainWindow(QMainWindow):
         # Remove only the files that are starting conversion
         # The queue will be updated as files are processed
         
+        # Opt-in local performance analytics for this batch
+        self._analytics_session = None
+        if self.settings.get("performance_analytics"):
+            from ..util.analytics import BatchAnalyticsSession
+
+            self._analytics_session = BatchAnalyticsSession.start(self.settings)
+
         # Start conversion
         self.orchestrator.enqueue(jobs)
         
@@ -1117,6 +1127,10 @@ class MainWindow(QMainWindow):
     
     def _on_worker_done(self, wid: int, success: bool, message: str, output_path: str):
         """Handle worker completion."""
+        if self._analytics_session is not None:
+            self._analytics_session.on_done(wid, success, message, output_path)
+            self._analytics_session.note_parallel(len(self.orchestrator.workers))
+
         if wid in self.workers_data:
             self.workers_data[wid]["status"] = "Done" if success else "Failed"
             self.workers_data[wid]["message"] = message
@@ -1163,10 +1177,15 @@ class MainWindow(QMainWindow):
             # Check if there are any failed conversions
             failed_count = sum(1 for data in self.workers_data.values() if data.get("status") == "Failed")
             total_count = len(self.workers_data)
+
+            analytics_line = self._finish_analytics_session()
             
             if failed_count > 0:
                 # Some conversions failed
-                self.statusBar().showMessage(f"⚠️ Completed: {total_count - failed_count} succeeded, {failed_count} failed")
+                msg = f"⚠️ Completed: {total_count - failed_count} succeeded, {failed_count} failed"
+                if analytics_line:
+                    msg = f"{msg} — {analytics_line}"
+                self.statusBar().showMessage(msg)
                 if self.tray_icon:
                     self.tray_icon.showMessage(
                         "Conversions Complete",
@@ -1176,17 +1195,37 @@ class MainWindow(QMainWindow):
                     )
             else:
                 # All succeeded
-                self.statusBar().showMessage(t.tr("msg_all_complete"))
+                msg = t.tr("msg_all_complete")
+                if analytics_line:
+                    msg = f"{msg} — {analytics_line}"
+                self.statusBar().showMessage(msg)
                 if self.tray_icon:
+                    tray_body = "All files have been converted successfully"
+                    if analytics_line:
+                        tray_body = f"{tray_body}\n{analytics_line}"
                     self.tray_icon.showMessage(
                         "All Conversions Complete",
-                        "All files have been converted successfully",
+                        tray_body,
                         QSystemTrayIcon.MessageIcon.Information,
                         5000
                     )
             
             self.btn_start.setEnabled(True)
             self.btn_stop.setEnabled(False)
+
+    def _finish_analytics_session(self) -> Optional[str]:
+        """Persist local batch analytics (if enabled) and return a one-line summary."""
+        session = self._analytics_session
+        self._analytics_session = None
+        if session is None or session.finished:
+            return None
+        try:
+            from ..util.analytics import format_summary_oneline
+
+            summary = session.finish(persist=True)
+            return format_summary_oneline(summary)
+        except Exception:
+            return None
     
     def _on_tray_activated(self, reason):
         """Handle system tray icon activation."""
@@ -1198,6 +1237,10 @@ class MainWindow(QMainWindow):
     
     def _on_worker_started(self, wid: int, file_path: str):
         """Handle worker started - initialize worker data with file name."""
+        if self._analytics_session is not None:
+            self._analytics_session.on_started(wid, file_path)
+            self._analytics_session.note_parallel(len(self.orchestrator.workers))
+
         # Store input file path for reference
         file_name = os.path.basename(file_path)
         self.workers_data[wid] = {
@@ -1215,6 +1258,9 @@ class MainWindow(QMainWindow):
     
     def _on_worker_progress(self, wid: int, progress: float, elapsed: float, eta: float, speed: str, peak: str, true_peak: str):
         """Handle worker progress (coalesced UI refresh under parallel load)."""
+        if self._analytics_session is not None:
+            self._analytics_session.on_progress(wid, progress, elapsed, eta, speed)
+
         if wid not in self.workers_data:
             # Get file name from orchestrator if available
             file_name = ""

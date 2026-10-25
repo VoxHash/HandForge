@@ -9,6 +9,7 @@ HandForge stores its configuration in JSON files located in `~/.handforge/` (or 
 - `patterns.json` - Filename patterns for metadata parsing
 - `autoretry.json` - Auto-retry rules
 - `seen_files.json` - Cache of processed files
+- `analytics/batches.jsonl` - Optional local performance analytics history (only when enabled)
 
 ## Application Settings
 
@@ -368,6 +369,28 @@ Exponential Weighted Moving Average for per-worker progress percent and ETA unde
 **Default**: 0.3
 
 ETA is also speed-aware: remaining media time ÷ FFmpeg `speed=` (falls back to remaining media time when speed is unknown).
+
+### Performance Analytics (local only)
+
+Opt-in metrics for long batch jobs. **Off by default.** When enabled, HandForge records real encode/batch stats locally and never uploads them.
+
+```json
+{
+  "performance_analytics": false
+}
+```
+
+| Key | Description | Default |
+|-----|-------------|---------|
+| `performance_analytics` | Collect per-job and batch metrics during conversions | `false` |
+
+**Metrics** (from actual job runs): wall duration, FFmpeg `speed=` mean/peak, output throughput (bytes/s), peak parallel workers, ETA mean absolute error, success/fail counts, input/output sizes.
+
+**Storage**: `~/.handforge/analytics/batches.jsonl` (trimmed to the last 200 batches).
+
+**UI**: Preferences → Advanced → **Enable performance analytics (local only)**. After a batch finishes, the status bar shows a one-line summary.
+
+**CLI**: `convert --analytics` / `--no-analytics`; `list-analytics` for recent history.
 
 ### Auto-Retry
 

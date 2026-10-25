@@ -596,6 +596,24 @@ class PreferencesDialog(QDialog):
         self.ewma_alpha_spin.setSingleStep(0.1)
         self.ewma_alpha_spin.setToolTip("Exponentially weighted moving average alpha for progress smoothing")
         perf_layout.addRow("Progress Smoothing (α):", self.ewma_alpha_spin)
+
+        self.performance_analytics_check = QCheckBox(
+            "Enable performance analytics (local only)"
+        )
+        self.performance_analytics_check.setToolTip(
+            "When on, record per-job and batch metrics (encode speed, duration, "
+            "throughput, peak parallel, ETA accuracy) under ~/.handforge/analytics/. "
+            "Nothing is uploaded. Off by default."
+        )
+        self.performance_analytics_check.stateChanged.connect(
+            lambda *_: self.refresh_analytics_status()
+        )
+        perf_layout.addRow("", self.performance_analytics_check)
+
+        self.analytics_status_label = QLabel("")
+        self.analytics_status_label.setWordWrap(True)
+        self.analytics_status_label.setStyleSheet("color: #666; font-size: 11px;")
+        perf_layout.addRow("", self.analytics_status_label)
         
         layout.addWidget(perf_group)
         
@@ -855,6 +873,10 @@ class PreferencesDialog(QDialog):
         # Advanced
         self.auto_retry_check.setChecked(self.settings.get("auto_retry_enabled", True))
         self.ewma_alpha_spin.setValue(self.settings.get("ewma_alpha", 0.3))
+        self.performance_analytics_check.setChecked(
+            bool(self.settings.get("performance_analytics", False))
+        )
+        self.refresh_analytics_status()
     
     def get_settings(self) -> Dict[str, Any]:
         """Get settings from UI."""
@@ -936,8 +958,22 @@ class PreferencesDialog(QDialog):
         # Advanced
         settings["auto_retry_enabled"] = self.auto_retry_check.isChecked()
         settings["ewma_alpha"] = self.ewma_alpha_spin.value()
+        settings["performance_analytics"] = self.performance_analytics_check.isChecked()
         
         return settings
+
+    def refresh_analytics_status(self) -> None:
+        """Update the local-only analytics status label."""
+        try:
+            from ..util.analytics import format_analytics_status
+
+            probe = dict(self.settings)
+            probe["performance_analytics"] = self.performance_analytics_check.isChecked()
+            self.analytics_status_label.setText(format_analytics_status(probe))
+        except Exception:
+            self.analytics_status_label.setText(
+                "Performance analytics: LOCAL ONLY under ~/.handforge/analytics/"
+            )
     
     def restore_defaults(self):
         """Restore default settings."""
@@ -992,6 +1028,7 @@ class PreferencesDialog(QDialog):
                 "video_stabilize_edge": "mirror",
                 "auto_retry_enabled": True,
                 "ewma_alpha": 0.3,
+                "performance_analytics": False,
                 "cloud_roots": [],
                 "cloud_input_root": None,
                 "rclone_enabled": True,
