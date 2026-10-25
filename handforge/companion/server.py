@@ -1,7 +1,8 @@
-"""Local HTTP companion server for remote queue monitoring.
+"""Local HTTP companion server for remote queue monitoring and shared control.
 
 Default-safe: opt-in, localhost bind, shared token required for LAN binds.
-Uses stdlib only (no extra deps). Clients poll ``GET /api/status``.
+Mutating control endpoints always require a configured shared token (even on
+localhost). Uses stdlib only (no extra deps). Clients poll ``GET /api/status``.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 from urllib.parse import parse_qs, urlparse
 
+from .control import SessionController
 from .status import QueueStatusHub
 
 SETTING_ENABLED = "companion_enabled"
@@ -98,23 +100,29 @@ def format_companion_status(settings: Optional[Dict[str, Any]] = None) -> str:
     enabled = companion_enabled(cfg)
     host, port, token = resolve_companion_bind(cfg)
     lines = [
-        "Companion remote queue monitor:",
+        "Companion remote queue monitor / shared workstation UI:",
         f"  enabled: {'yes' if enabled else 'no (opt-in; default off)'}",
         f"  bind: {host}:{port}",
-        f"  token: {'set' if token else 'none (ok for localhost)'}",
+        f"  token: {'set' if token else 'none (ok for localhost status; required for control writes)'}",
     ]
     if not is_loopback_host(host):
         lines.append(
-            "  warning: LAN bind exposes queue filenames to anyone with the token "
-            "on your network. Prefer localhost or a firewall."
+            "  warning: LAN bind exposes queue filenames and (with token) start/stop/"
+            "enqueue control to anyone with the token on your network. "
+            "Prefer localhost or a firewall."
+        )
+    else:
+        lines.append(
+            "  note: mutating /api/control/* always requires companion_token, "
+            "even on localhost."
         )
     if enabled:
-        lines.append(f"  open on phone: {companion_url(host, port, token)}")
+        lines.append(f"  open on phone / shared UI: {companion_url(host, port, token)}")
     return "\n".join(lines)
 
 
 class CompanionServer:
-    """Background ThreadingHTTPServer exposing status JSON + mobile web UI."""
+    """Background ThreadingHTTPServer exposing status JSON + shared workstation UI."""
 
     def __init__(
         self,
@@ -123,6 +131,7 @@ class CompanionServer:
         host: str = DEFAULT_HOST,
         port: int = DEFAULT_PORT,
         token: str = "",
+        controller: Optional[SessionController] = None,
     ) -> None:
         if not is_loopback_host(host) and not (token or "").strip():
             raise ValueError(
@@ -130,6 +139,7 @@ class CompanionServer:
                 "(set companion_token or pass --token)"
             )
         self.hub = hub
+        self.controller = controller
         self.host = host
         self.port = int(port)
         self.token = (token or "").strip()
@@ -149,15 +159,32 @@ class CompanionServer:
         if self._started:
             return self
         hub = self.hub
+        controller = self.controller
         expected_token = self.token
 
         class Handler(BaseHTTPRequestHandler):
             def log_message(self, fmt: str, *args: Any) -> None:  # noqa: A003
                 return  # quiet by default
 
-            def _unauthorized(self) -> None:
-                body = b'{"error":"unauthorized"}'
+            def _unauthorized(self, *, reason: str = "unauthorized") -> None:
+                body = json.dumps({"error": reason}).encode("utf-8")
                 self.send_response(401)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def _forbidden_writes(self) -> None:
+                body = json.dumps(
+                    {
+                        "error": "write_token_required",
+                        "message": (
+                            "Set companion_token (Preferences or --token) to enable "
+                            "shared workstation control writes."
+                        ),
+                    }
+                ).encode("utf-8")
+                self.send_response(403)
                 self.send_header("Content-Type", "application/json; charset=utf-8")
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
@@ -177,6 +204,14 @@ class CompanionServer:
                     return True
                 return False
 
+            def _check_write_auth(self) -> str:
+                """Return '' if OK, else an error token: 'no_token' | 'unauthorized'."""
+                if not expected_token:
+                    return "no_token"
+                if not self._check_auth():
+                    return "unauthorized"
+                return ""
+
             def _send_bytes(
                 self,
                 data: bytes,
@@ -191,24 +226,61 @@ class CompanionServer:
                 self.end_headers()
                 self.wfile.write(data)
 
+            def _send_json(self, payload: Any, *, status: int = 200) -> None:
+                data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+                self._send_bytes(
+                    data, content_type="application/json; charset=utf-8", status=status
+                )
+
+            def _read_json_body(self) -> Dict[str, Any]:
+                length = int(self.headers.get("Content-Length") or 0)
+                if length <= 0:
+                    return {}
+                if length > 1_000_000:
+                    raise ValueError("body_too_large")
+                raw = self.rfile.read(length)
+                if not raw:
+                    return {}
+                data = json.loads(raw.decode("utf-8"))
+                if not isinstance(data, dict):
+                    raise ValueError("body_must_be_object")
+                return data
+
             def do_GET(self) -> None:  # noqa: N802
                 parsed = urlparse(self.path)
                 path = parsed.path or "/"
 
                 if path == "/api/health":
                     # Health is unauthenticated so operators can probe bind without leaking jobs.
-                    payload = json.dumps(
-                        {"ok": True, "auth_required": bool(expected_token)}
-                    ).encode("utf-8")
-                    self._send_bytes(payload, content_type="application/json; charset=utf-8")
+                    payload = {
+                        "ok": True,
+                        "auth_required": bool(expected_token),
+                        "control": controller is not None,
+                        "writes_require_token": True,
+                    }
+                    self._send_json(payload)
                     return
 
                 if path in {"/api/status", "/api/status/"}:
                     if not self._check_auth():
                         self._unauthorized()
                         return
-                    payload = json.dumps(hub.snapshot(), ensure_ascii=False).encode("utf-8")
-                    self._send_bytes(payload, content_type="application/json; charset=utf-8")
+                    snap = hub.snapshot()
+                    snap["control_available"] = controller is not None
+                    self._send_json(snap)
+                    return
+
+                if path in {"/api/control", "/api/control/"}:
+                    if not self._check_auth():
+                        self._unauthorized()
+                        return
+                    if controller is None:
+                        self._send_json(
+                            {"control": False, "error": "control_unavailable"},
+                            status=404,
+                        )
+                        return
+                    self._send_json(controller.control_snapshot())
                     return
 
                 if path in {"/", "/index.html"}:
@@ -246,6 +318,89 @@ class CompanionServer:
 
                 self._send_bytes(b"Not found", content_type="text/plain", status=404)
 
+            def do_POST(self) -> None:  # noqa: N802
+                parsed = urlparse(self.path)
+                path = (parsed.path or "/").rstrip("/") or "/"
+
+                write_err = self._check_write_auth()
+                if write_err == "no_token":
+                    self._forbidden_writes()
+                    return
+                if write_err == "unauthorized":
+                    self._unauthorized()
+                    return
+
+                if controller is None:
+                    self._send_json(
+                        {"ok": False, "error": "control_unavailable"},
+                        status=404,
+                    )
+                    return
+
+                try:
+                    body = self._read_json_body()
+                except Exception as exc:  # noqa: BLE001
+                    self._send_json(
+                        {"ok": False, "error": "invalid_json", "detail": str(exc)},
+                        status=400,
+                    )
+                    return
+
+                try:
+                    if path == "/api/control/start":
+                        self._send_json(controller.start())
+                        return
+                    if path == "/api/control/stop":
+                        self._send_json(controller.stop())
+                        return
+                    if path == "/api/control/jobs":
+                        paths = body.get("paths") or body.get("files") or []
+                        if not isinstance(paths, list):
+                            self._send_json(
+                                {"ok": False, "error": "paths_must_be_list"},
+                                status=400,
+                            )
+                            return
+                        self._send_json(controller.add_paths([str(p) for p in paths]))
+                        return
+                    if path == "/api/control/jobs/remove":
+                        scope = str(body.get("scope") or "pending").strip().lower()
+                        try:
+                            index = int(body.get("index"))
+                        except (TypeError, ValueError):
+                            self._send_json(
+                                {"ok": False, "error": "index_required"},
+                                status=400,
+                            )
+                            return
+                        if scope == "queued":
+                            self._send_json(controller.remove_queued(index))
+                        else:
+                            self._send_json(controller.remove_pending(index))
+                        return
+                    if path == "/api/control/jobs/clear":
+                        self._send_json(controller.clear_pending())
+                        return
+                    if path == "/api/control/options":
+                        self._send_json(
+                            controller.set_options(
+                                output_dir=body.get("output_dir"),
+                                preset=body.get("preset"),
+                                format=body.get("format"),
+                                mode=body.get("mode"),
+                                bitrate=body.get("bitrate"),
+                            )
+                        )
+                        return
+                except Exception as exc:  # noqa: BLE001 — never crash the server thread
+                    self._send_json(
+                        {"ok": False, "error": "control_failed", "detail": str(exc)},
+                        status=500,
+                    )
+                    return
+
+                self._send_json({"ok": False, "error": "not_found"}, status=404)
+
         httpd = ThreadingHTTPServer((self.host, self.port), Handler)
         httpd.daemon_threads = True
         self._httpd = httpd
@@ -280,6 +435,7 @@ def start_companion_from_settings(
     token: Optional[str] = None,
     lan: bool = False,
     force: bool = False,
+    controller: Optional[SessionController] = None,
 ) -> Optional[CompanionServer]:
     """Start companion if enabled (or ``force``). Returns None when disabled."""
     if not force and not companion_enabled(settings):
@@ -287,6 +443,12 @@ def start_companion_from_settings(
     bind_host, bind_port, bind_token = resolve_companion_bind(
         settings, host=host, port=port, token=token, lan=lan
     )
-    server = CompanionServer(hub, host=bind_host, port=bind_port, token=bind_token)
+    server = CompanionServer(
+        hub,
+        host=bind_host,
+        port=bind_port,
+        token=bind_token,
+        controller=controller,
+    )
     server.start()
     return server

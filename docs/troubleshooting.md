@@ -158,7 +158,7 @@ HandForge maps common failures to an actionable summary plus **What to try** ste
 2. Keep the Preferences toggle off (default) if you do not want local history
 3. Delete `~/.handforge/analytics/` to clear stored batches
 
-## Companion Remote Monitor
+## Companion Remote Monitor / Shared Workstation
 
 ### Phone Cannot Reach Companion
 
@@ -178,7 +178,25 @@ HandForge maps common failures to an actionable summary plus **What to try** ste
 **Solutions**:
 1. Copy the full URL including `?token=`
 2. Regenerate the token in Preferences if it changed
-3. Localhost binds may omit a token; LAN binds always require one
+3. Localhost binds may omit a token for status reads; LAN binds always require one
+
+### Control actions return 403 write_token_required
+
+**Problem**: Start / Stop / Add jobs fail with `write_token_required`.
+
+**Solutions**:
+1. Set **Companion → Token** in Preferences (or `--token` / let `serve` mint one)
+2. Reload the page using the URL that includes `?token=…`
+3. Status monitoring can work without a token on localhost; **mutating control never does**
+
+### Add jobs skips files
+
+**Problem**: Paths added from the web UI are skipped.
+
+**Solutions**:
+1. Paths must exist as files **on the HandForge host** (not on the phone)
+2. Use absolute paths to supported audio/video extensions
+3. Duplicates already in pending are skipped
 
 ## Configuration Issues
 

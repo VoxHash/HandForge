@@ -119,26 +119,35 @@ orch.enqueue(jobs)
 
 ### handforge.companion
 
-Opt-in remote queue monitor (HTTP + mobile web UI).
+Opt-in remote queue monitor + shared-workstation control (same HTTP server + web UI).
 
 ```python
-from handforge.companion import QueueStatusHub, CompanionServer, companion_url
+from handforge.companion import QueueStatusHub, SessionController, CompanionServer, companion_url
 from handforge.core.orchestrator import Orchestrator
 
 orch = Orchestrator()
 hub = QueueStatusHub()
 hub.attach(orch)
+controller = SessionController()
+controller.attach(orch, orch.settings, pending=[])
 # Wire orch.sig_worker_* → hub.on_started / on_progress / on_done
 
-server = CompanionServer(hub, host="127.0.0.1", port=8765, token="secret")
+server = CompanionServer(
+    hub, host="127.0.0.1", port=8765, token="secret", controller=controller
+)
 server.start()
 print(companion_url("127.0.0.1", 8765, "secret"))
-# GET /api/status?token=secret  → live queue JSON
-# GET /                         → mobile companion UI
+# GET  /api/status?token=secret     → live queue JSON
+# GET  /api/control?token=secret    → presets / output / control snapshot
+# POST /api/control/start|stop      → Orchestrator start/stop (token required)
+# POST /api/control/jobs            → {"paths":["/media/a.wav"]} add pending
+# POST /api/control/jobs/remove     → {"scope":"pending"|"queued","index":0}
+# POST /api/control/options         → output_dir / preset / format / mode / bitrate
+# GET  /                            → shared workstation web UI
 server.stop()
 ```
 
-Status JSON includes `pending`, `queued`, `active` (with real progress/ETA/speed), and `recent` completions. Filenames are basenames only.
+Status JSON includes `pending`, `queued`, `active` (with real progress/ETA/speed), and `recent` completions. Filenames are basenames only. **Mutating control endpoints always require `companion_token`** (even on localhost). Anyone with the token can enqueue existing media files on the host — keep the token private and prefer localhost or a firewall on LAN binds.
 
 ### handforge.util.errors
 

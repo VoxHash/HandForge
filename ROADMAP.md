@@ -31,7 +31,7 @@ High-level milestones and planned features for HandForge.
 
 ### Platform Expansion
 - ✅ Companion mobile apps (remote queue monitoring) — phase 1: opt-in local HTTP status API + mobile-friendly companion web UI (phone browser on LAN); Preferences + `handforge serve` / `convert --companion`; native app-store clients remain future
-- Optional web-based interface for shared workstations (full shared-desktop control UI beyond status monitoring)
+- ✅ Optional web-based interface for shared workstations — same companion server with shared-control UI + mutating `/api/control/*` (view queue, add/remove jobs, start/stop, output/preset); wired to live Orchestrator; writes always require `companion_token`; documented LAN risks; opt-in
 
 #### Mobile & Headset Targets
 These are **not** near-term ports of the desktop PyQt6 UI. They depend on a shared conversion/queue core (and the native scheduler path) before any full client ships. Phase-1 remote **queue monitoring** is covered by the companion web client above; the items below remain for native shells / on-device encode.
@@ -61,6 +61,7 @@ These are **not** near-term ports of the desktop PyQt6 UI. They depend on a shar
 - ✅ Cloud storage integration (`handforge/util/cloud.py`): local sync roots (Dropbox / Google Drive / OneDrive / Nextcloud + configured folders); optional rclone `remote:path` pick-up/save with graceful fallback when rclone is missing; Preferences → Cloud; CLI `list-cloud` / `convert --cloud-remote` / `--cloud-output`
 - ✅ Optional performance analytics (`handforge/util/analytics.py`): opt-in, **local-only** per-job/batch metrics (encode speed, duration, throughput, peak parallel, ETA MAE) under `~/.handforge/analytics/`; Preferences → Advanced (default OFF); CLI `convert --analytics` / `--no-analytics`, `list-analytics`; GUI status-bar summary after batches
 - ✅ Companion remote queue monitoring (`handforge/companion/`): opt-in HTTP `/api/status` + mobile web UI driven by live Orchestrator queue/active/progress; default off / localhost; shared token required for LAN (`0.0.0.0`); Preferences → Advanced → Companion; CLI `serve`, `convert --companion` / `--companion-lan`; phone browser is the mobile companion for now (store apps later)
+- ✅ Shared workstation web UI (`handforge/companion/` control): `SessionController` + `/api/control` routes on the same companion server; start/stop Orchestrator, add/remove pending or queued jobs, change output dir / preset / format basics; token required for all writes; GUI + `handforge serve` wire real Orchestrator (no mock queue)
 
 ### v1.3.2 (Q4 2026)
 - ✅ Permission-aware output directory handling and pre-conversion write checks

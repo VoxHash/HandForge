@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#1a1a2e" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="HandForge" />
-  <title>HandForge Queue</title>
+  <title>HandForge Workstation</title>
   <style>
     :root {
       --bg: #12121c;
@@ -17,6 +17,7 @@
       --ok: #3dd68c;
       --fail: #ff6b6b;
       --bar: #2a2a3d;
+      --warn: #f0c674;
     }
     * { box-sizing: border-box; }
     body {
@@ -34,6 +35,7 @@
       align-items: baseline;
       gap: 12px;
       margin-bottom: 16px;
+      flex-wrap: wrap;
     }
     h1 {
       font-size: 1.25rem;
@@ -52,7 +54,7 @@
       border: 1px solid rgba(255,255,255,0.08);
     }
     .pill.running { color: var(--accent); border-color: rgba(91,140,255,0.35); }
-    .pill.queued { color: #f0c674; }
+    .pill.queued { color: var(--warn); }
     .pill.idle { color: var(--muted); }
     .stats {
       display: grid;
@@ -93,6 +95,7 @@
       display: flex;
       justify-content: space-between;
       gap: 8px;
+      align-items: center;
       font-size: 0.95rem;
       word-break: break-word;
     }
@@ -130,8 +133,78 @@
       margin-bottom: 12px;
       display: none;
     }
-    @media (max-width: 420px) {
+    .msg {
+      background: rgba(91,140,255,0.12);
+      border: 1px solid rgba(91,140,255,0.35);
+      color: #c9d8ff;
+      padding: 10px 12px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+      display: none;
+      font-size: 0.9rem;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    button, .btn {
+      appearance: none;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: #2a3350;
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      min-height: 44px;
+    }
+    button.primary { background: var(--accent); border-color: transparent; color: #fff; }
+    button.danger { background: rgba(255,107,107,0.2); border-color: rgba(255,107,107,0.4); color: #ffb4b4; }
+    button.ghost { background: transparent; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    button.tiny {
+      padding: 6px 10px;
+      min-height: 32px;
+      font-size: 0.75rem;
+      flex-shrink: 0;
+    }
+    label.field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 10px;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    input, select, textarea {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: #151522;
+      color: var(--text);
+      padding: 10px 12px;
+      font-size: 0.95rem;
+      min-height: 44px;
+    }
+    textarea { min-height: 88px; resize: vertical; font-family: inherit; }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .risk {
+      font-size: 0.75rem;
+      color: var(--warn);
+      line-height: 1.35;
+      margin-top: 8px;
+    }
+    #control-panel[hidden] { display: none !important; }
+    @media (max-width: 560px) {
       .stats { grid-template-columns: repeat(2, 1fr); }
+      .grid-2 { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -141,12 +214,52 @@
     <span id="state" class="pill idle">idle</span>
   </header>
   <div id="error" class="err"></div>
+  <div id="flash" class="msg"></div>
   <div class="stats">
     <div class="stat"><b id="c-pending">0</b><span>Pending</span></div>
     <div class="stat"><b id="c-queued">0</b><span>Queued</span></div>
     <div class="stat"><b id="c-active">0</b><span>Active</span></div>
     <div class="stat"><b id="c-agg">0%</b><span>Progress</span></div>
   </div>
+
+  <section id="control-panel" hidden>
+    <h2>Shared workstation</h2>
+    <div class="controls">
+      <button type="button" class="primary" id="btn-start">Start</button>
+      <button type="button" class="danger" id="btn-stop">Stop</button>
+      <button type="button" class="ghost" id="btn-refresh">Refresh</button>
+    </div>
+    <div class="grid-2">
+      <label class="field">Preset
+        <select id="preset"></select>
+      </label>
+      <label class="field">Format
+        <input id="format" placeholder="mp3" autocomplete="off" />
+      </label>
+    </div>
+    <div class="grid-2">
+      <label class="field">Mode
+        <input id="mode" placeholder="CBR" autocomplete="off" />
+      </label>
+      <label class="field">Bitrate
+        <input id="bitrate" placeholder="192" autocomplete="off" />
+      </label>
+    </div>
+    <label class="field">Output directory (on this workstation)
+      <input id="output-dir" placeholder="/path/on/host" autocomplete="off" />
+    </label>
+    <div class="controls">
+      <button type="button" id="btn-apply-options">Apply options</button>
+    </div>
+    <label class="field">Add media paths (one per line; must exist on this host)
+      <textarea id="paths" placeholder="/media/episode.wav&#10;/media/clip.mp4"></textarea>
+    </label>
+    <div class="controls">
+      <button type="button" id="btn-add">Add to pending</button>
+      <button type="button" class="ghost" id="btn-clear-pending">Clear pending</button>
+    </div>
+    <p class="risk" id="risk-note"></p>
+  </section>
 
   <section>
     <h2>Active conversions</h2>
@@ -164,7 +277,7 @@
     <h2>Recent</h2>
     <div id="recent"><div class="empty">No recent jobs</div></div>
   </section>
-  <footer id="footer">Polling every 1s · local companion</footer>
+  <footer id="footer">Polling every 1s · shared workstation companion</footer>
 
   <script>
     function tokenFromPage() {
@@ -172,9 +285,11 @@
       return params.get("token") || "";
     }
 
-    function statusUrl() {
+    function withToken(path) {
       const t = tokenFromPage();
-      return t ? "/api/status?token=" + encodeURIComponent(t) : "/api/status";
+      if (!t) return path;
+      const join = path.indexOf("?") >= 0 ? "&" : "?";
+      return path + join + "token=" + encodeURIComponent(t);
     }
 
     function esc(s) {
@@ -183,6 +298,37 @@
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;");
+    }
+
+    function showFlash(text, isError) {
+      const el = document.getElementById("flash");
+      el.style.display = "block";
+      el.style.background = isError ? "rgba(255,107,107,0.12)" : "rgba(91,140,255,0.12)";
+      el.style.borderColor = isError ? "rgba(255,107,107,0.35)" : "rgba(91,140,255,0.35)";
+      el.style.color = isError ? "#ffb4b4" : "#c9d8ff";
+      el.textContent = text;
+      clearTimeout(showFlash._t);
+      showFlash._t = setTimeout(function () { el.style.display = "none"; }, 5000);
+    }
+
+    async function api(path, opts) {
+      const res = await fetch(withToken(path), Object.assign({
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" }
+      }, opts || {}));
+      let data = null;
+      try { data = await res.json(); } catch (e) { data = null; }
+      if (res.status === 401) {
+        throw new Error("Unauthorized — open the URL that includes ?token=…");
+      }
+      if (res.status === 403 && data && data.error === "write_token_required") {
+        throw new Error(data.message || "Set companion_token to enable control writes.");
+      }
+      if (!res.ok) {
+        const msg = (data && (data.error || data.message)) || ("HTTP " + res.status);
+        throw new Error(msg);
+      }
+      return data;
     }
 
     function renderList(el, items, empty, renderOne) {
@@ -208,11 +354,21 @@
       );
     }
 
-    function renderQueued(job) {
+    function removeBtn(scope, index) {
+      return (
+        '<button type="button" class="tiny danger" data-remove-scope="' +
+        esc(scope) + '" data-remove-index="' + esc(String(index)) + '">Remove</button>'
+      );
+    }
+
+    function renderQueued(job, scope) {
+      const idx = (Number(job.position) || 1) - 1;
       return (
         '<div class="job">' +
-          '<div class="job-title"><span>' + esc(job.file) + '</span><span>#' + esc(job.position || '') + '</span></div>' +
-          '<div class="meta">' + esc(job.format) + (job.mode ? ' · ' + esc(job.mode) : '') + '</div>' +
+          '<div class="job-title"><span>' + esc(job.file) + '</span>' +
+            removeBtn(scope, idx) + '</div>' +
+          '<div class="meta">' + esc(job.format) + (job.mode ? ' · ' + esc(job.mode) : '') +
+            ' · #' + esc(job.position || '') + '</div>' +
         '</div>'
       );
     }
@@ -228,17 +384,47 @@
       );
     }
 
+    let controlLoaded = false;
+
+    async function loadControl() {
+      try {
+        const data = await api("/api/control");
+        if (!data || !data.control) {
+          document.getElementById("control-panel").hidden = true;
+          return;
+        }
+        document.getElementById("control-panel").hidden = false;
+        const sel = document.getElementById("preset");
+        const presets = data.presets || [];
+        const current = data.preset || "";
+        if (!controlLoaded || sel.options.length !== presets.length) {
+          sel.innerHTML = presets.map(function (p) {
+            return '<option value="' + esc(p) + '"' +
+              (p === current ? " selected" : "") + ">" + esc(p) + "</option>";
+          }).join("");
+        } else if (current && sel.value !== current) {
+          sel.value = current;
+        }
+        if (!controlLoaded) {
+          document.getElementById("format").value = data.format || "";
+          document.getElementById("mode").value = data.mode || "";
+          document.getElementById("bitrate").value = data.bitrate || "";
+          document.getElementById("output-dir").value = data.output_dir || "";
+        }
+        document.getElementById("risk-note").textContent = data.risks || "";
+        controlLoaded = true;
+      } catch (e) {
+        // Status-only mode or auth issue — keep panel hidden if never loaded
+        if (!controlLoaded) {
+          document.getElementById("control-panel").hidden = true;
+        }
+      }
+    }
+
     async function tick() {
       const err = document.getElementById("error");
       try {
-        const res = await fetch(statusUrl(), { cache: "no-store" });
-        if (res.status === 401) {
-          err.style.display = "block";
-          err.textContent = "Unauthorized — open the URL that includes ?token=… from the desktop / CLI.";
-          return;
-        }
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        const data = await res.json();
+        const data = await api("/api/status");
         err.style.display = "none";
 
         const state = data.state || "idle";
@@ -253,20 +439,112 @@
         document.getElementById("c-agg").textContent = (Number(data.aggregate_progress) || 0).toFixed(0) + "%";
 
         renderList(document.getElementById("active"), data.active, "No active jobs", renderActive);
-        renderList(document.getElementById("queued"), data.queued, "Queue empty", renderQueued);
-        renderList(document.getElementById("pending"), data.pending, "Nothing pending", renderQueued);
+        renderList(
+          document.getElementById("queued"),
+          data.queued,
+          "Queue empty",
+          function (j) { return renderQueued(j, "queued"); }
+        );
+        renderList(
+          document.getElementById("pending"),
+          data.pending,
+          "Nothing pending",
+          function (j) { return renderQueued(j, "pending"); }
+        );
         renderList(document.getElementById("recent"), data.recent, "No recent jobs", renderRecent);
+
+        if (data.control_available) {
+          await loadControl();
+        } else {
+          document.getElementById("control-panel").hidden = true;
+        }
 
         const when = data.updated_at ? new Date(data.updated_at * 1000).toLocaleTimeString() : "";
         document.getElementById("footer").textContent =
           "Updated " + when + " · parallel " + (data.parallel || "?") +
           (data.adaptive_parallel ? " (adaptive)" : "") +
-          " · local companion (PWA-friendly; store apps later)";
+          (data.control_available ? " · shared control on" : " · status only") +
+          " · local companion";
       } catch (e) {
         err.style.display = "block";
         err.textContent = "Cannot reach HandForge companion: " + e.message;
       }
     }
+
+    document.getElementById("btn-start").addEventListener("click", async function () {
+      try {
+        const r = await api("/api/control/start", { method: "POST", body: "{}" });
+        showFlash(r.ok ? ("Started (" + (r.mode || "ok") + ")") : (r.error || "Start failed"), !r.ok);
+        tick();
+      } catch (e) { showFlash(e.message, true); }
+    });
+    document.getElementById("btn-stop").addEventListener("click", async function () {
+      try {
+        const r = await api("/api/control/stop", { method: "POST", body: "{}" });
+        showFlash(r.ok ? "Stop requested" : (r.error || "Stop failed"), !r.ok);
+        tick();
+      } catch (e) { showFlash(e.message, true); }
+    });
+    document.getElementById("btn-refresh").addEventListener("click", function () {
+      controlLoaded = false;
+      tick();
+    });
+    document.getElementById("btn-apply-options").addEventListener("click", async function () {
+      try {
+        const body = {
+          preset: document.getElementById("preset").value,
+          format: document.getElementById("format").value,
+          mode: document.getElementById("mode").value,
+          bitrate: document.getElementById("bitrate").value,
+          output_dir: document.getElementById("output-dir").value
+        };
+        const r = await api("/api/control/options", { method: "POST", body: JSON.stringify(body) });
+        showFlash(r.ok ? "Options applied" : (r.error || "Options failed"), !r.ok);
+        controlLoaded = false;
+        tick();
+      } catch (e) { showFlash(e.message, true); }
+    });
+    document.getElementById("btn-add").addEventListener("click", async function () {
+      try {
+        const raw = document.getElementById("paths").value || "";
+        const paths = raw.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
+        if (!paths.length) {
+          showFlash("Enter at least one path on this workstation", true);
+          return;
+        }
+        const r = await api("/api/control/jobs", {
+          method: "POST",
+          body: JSON.stringify({ paths: paths })
+        });
+        const n = (r.added || []).length;
+        const skip = (r.skipped || []).length;
+        showFlash("Added " + n + (skip ? (", skipped " + skip) : ""), !r.ok);
+        if (r.ok) document.getElementById("paths").value = "";
+        tick();
+      } catch (e) { showFlash(e.message, true); }
+    });
+    document.getElementById("btn-clear-pending").addEventListener("click", async function () {
+      try {
+        const r = await api("/api/control/jobs/clear", { method: "POST", body: "{}" });
+        showFlash(r.ok ? ("Cleared " + (r.cleared || 0) + " pending") : (r.error || "Clear failed"), !r.ok);
+        tick();
+      } catch (e) { showFlash(e.message, true); }
+    });
+
+    document.body.addEventListener("click", async function (ev) {
+      const btn = ev.target.closest("[data-remove-scope]");
+      if (!btn) return;
+      const scope = btn.getAttribute("data-remove-scope");
+      const index = Number(btn.getAttribute("data-remove-index"));
+      try {
+        const r = await api("/api/control/jobs/remove", {
+          method: "POST",
+          body: JSON.stringify({ scope: scope, index: index })
+        });
+        showFlash(r.ok ? ("Removed " + (r.removed || "")) : (r.error || "Remove failed"), !r.ok);
+        tick();
+      } catch (e) { showFlash(e.message, true); }
+    });
 
     tick();
     setInterval(tick, 1000);

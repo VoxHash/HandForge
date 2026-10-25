@@ -617,17 +617,18 @@ class PreferencesDialog(QDialog):
         
         layout.addWidget(perf_group)
 
-        # Companion remote queue monitor (opt-in; localhost by default)
-        companion_group = QGroupBox("Companion (remote queue monitor)")
+        # Companion remote monitor + shared workstation control (opt-in)
+        companion_group = QGroupBox("Companion (monitor + shared workstation)")
         companion_layout = QFormLayout(companion_group)
 
         self.companion_enabled_check = QCheckBox(
-            "Enable companion HTTP server (phone / LAN browser)"
+            "Enable companion HTTP server (phone / LAN / shared UI)"
         )
         self.companion_enabled_check.setToolTip(
-            "When on, HandForge serves a mobile-friendly queue status page and "
-            "JSON API from the desktop. Off by default. Prefer localhost; "
-            "LAN bind requires a shared token."
+            "When on, HandForge serves a mobile/desktop web UI with live queue "
+            "status and shared-workstation controls (start/stop, add/remove jobs, "
+            "output/preset). Off by default. Prefer localhost; LAN bind and all "
+            "control writes require a shared token."
         )
         self.companion_enabled_check.stateChanged.connect(
             lambda *_: self.refresh_companion_status()
@@ -656,10 +657,10 @@ class PreferencesDialog(QDialog):
 
         token_row = QHBoxLayout()
         self.companion_token_edit = QLineEdit()
-        self.companion_token_edit.setPlaceholderText("optional on localhost; required for LAN")
+        self.companion_token_edit.setPlaceholderText("required for control; required for LAN")
         self.companion_token_edit.setToolTip(
-            "Shared secret. Required when bind host is not localhost. "
-            "Pass as ?token=… in the phone URL or Authorization: Bearer."
+            "Shared secret. Required for LAN binds and for all mutating control "
+            "API calls (start/stop/add jobs). Pass as ?token=… or Authorization: Bearer."
         )
         self.companion_token_edit.textChanged.connect(
             lambda *_: self.refresh_companion_status()
@@ -1047,14 +1048,10 @@ class PreferencesDialog(QDialog):
         settings["companion_host"] = host
         settings["companion_port"] = int(self.companion_port_spin.value())
         token = self.companion_token_edit.text().strip()
-        # Auto-mint a token when enabling a non-localhost bind without one
-        from ..companion.server import generate_token, is_loopback_host
+        # Auto-mint when enabling companion without a token (control writes need one)
+        from ..companion.server import generate_token
 
-        if (
-            settings["companion_enabled"]
-            and not is_loopback_host(host)
-            and not token
-        ):
+        if settings["companion_enabled"] and not token:
             token = generate_token()
             self.companion_token_edit.setText(token)
         settings["companion_token"] = token

@@ -95,8 +95,8 @@ class MainWindow(QMainWindow):
         # Opt-in local performance analytics session (None when disabled)
         self._analytics_session = None
 
-        # Opt-in companion remote queue monitor (HTTP + mobile web UI)
-        from ..companion import QueueStatusHub
+        # Opt-in companion remote queue monitor + shared workstation control
+        from ..companion import QueueStatusHub, SessionController
 
         self._companion_hub = QueueStatusHub()
         self._companion_hub.attach(
@@ -104,6 +104,7 @@ class MainWindow(QMainWindow):
             pending_provider=lambda: list(self.queue),
             app_label="HandForge",
         )
+        self._companion_controller = SessionController()
         self._companion_server = None
         
         # System tray icon
@@ -731,11 +732,84 @@ class MainWindow(QMainWindow):
         self.settings["win_state"] = self.saveState().toHex().data().decode()
         save_settings(self.settings)
     
+    def _companion_remote_start(self) -> None:
+        """Start conversion from companion HTTP (no dialogs; Qt main thread)."""
+        from PyQt6.QtCore import QTimer
+
+        QTimer.singleShot(0, self.start_conversion)
+
+    def _companion_remote_stop(self) -> None:
+        """Stop conversion from companion HTTP without a confirmation dialog."""
+        from PyQt6.QtCore import QTimer
+
+        def _stop() -> None:
+            self.orchestrator.stop_all()
+            self.statusBar().showMessage("⏹️ Conversion stopped (companion)")
+            self.btn_start.setEnabled(True)
+            self.btn_stop.setEnabled(False)
+
+        QTimer.singleShot(0, _stop)
+
+    def _companion_remote_add_paths(self, paths):
+        from PyQt6.QtCore import QTimer
+
+        QTimer.singleShot(0, lambda: self.add_files_to_queue(list(paths)))
+        return {
+            "ok": True,
+            "added": [os.path.basename(str(p)) for p in paths],
+            "skipped": [],
+            "pending_count": len(self.queue) + len(list(paths)),
+            "mode": "delegated",
+        }
+
+    def _companion_remote_remove_pending(self, index: int):
+        from PyQt6.QtCore import QTimer
+
+        idx = int(index)
+
+        def _rm() -> None:
+            if 0 <= idx < len(self.queue):
+                self.queue.pop(idx)
+                self.update_queue_table()
+
+        QTimer.singleShot(0, _rm)
+        return {"ok": True, "scope": "pending", "index": idx, "mode": "delegated"}
+
+    def _companion_remote_options(self, payload: dict):
+        from PyQt6.QtCore import QTimer
+
+        def _apply() -> None:
+            if payload.get("output_dir"):
+                path = os.path.expanduser(str(payload["output_dir"]).strip())
+                try:
+                    os.makedirs(path, exist_ok=True)
+                except OSError:
+                    return
+                self.settings["output_dir"] = path
+                for job in self.queue:
+                    job.dst_dir = path
+            if payload.get("preset"):
+                name = str(payload["preset"]).strip()
+                for i in range(self.combo_preset.count()):
+                    text = self.combo_preset.itemText(i)
+                    clean = text
+                    if " " in text:
+                        parts = text.split(" ", 1)
+                        if parts[0] and not parts[0].isascii():
+                            clean = parts[1]
+                    if clean == name or text == name:
+                        self.combo_preset.setCurrentIndex(i)
+                        break
+
+        QTimer.singleShot(0, _apply)
+        return {"ok": True, "mode": "delegated"}
+
     def _sync_companion_server(self) -> None:
         """Start/stop the companion HTTP server from Preferences settings."""
         from ..companion.server import (
             companion_enabled,
             companion_url,
+            generate_token,
             resolve_companion_bind,
             start_companion_from_settings,
         )
@@ -750,16 +824,45 @@ class MainWindow(QMainWindow):
 
         if not companion_enabled(self.settings):
             return
+
+        # Control writes require a token; mint one if Preferences left it blank.
+        token = str(self.settings.get("companion_token") or "").strip()
+        if not token:
+            token = generate_token()
+            self.settings["companion_token"] = token
+
+        preset_name = self.combo_preset.currentText() if hasattr(self, "combo_preset") else "MP3 192k"
+        if " " in preset_name:
+            parts = preset_name.split(" ", 1)
+            if parts[0] and not parts[0].isascii():
+                preset_name = parts[1]
+
+        self._companion_controller.attach(
+            self.orchestrator,
+            self.settings,
+            pending_provider=lambda: list(self.queue),
+            preset_name=preset_name,
+            start_handler=self._companion_remote_start,
+            stop_handler=self._companion_remote_stop,
+            add_paths_handler=self._companion_remote_add_paths,
+            remove_pending_handler=self._companion_remote_remove_pending,
+            options_handler=self._companion_remote_options,
+            notify=lambda: None,
+        )
+
         try:
             server = start_companion_from_settings(
-                self._companion_hub, self.settings, force=True
+                self._companion_hub,
+                self.settings,
+                force=True,
+                controller=self._companion_controller,
             )
             self._companion_server = server
             if server is not None:
                 host, port, token = resolve_companion_bind(self.settings)
                 url = companion_url(host, port, token)
                 self.statusBar().showMessage(
-                    f"Companion monitor: {url}", 8000
+                    f"Companion workstation: {url}", 8000
                 )
         except OSError as exc:
             self.statusBar().showMessage(

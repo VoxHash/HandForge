@@ -681,14 +681,17 @@ def cmd_list_analytics(args: argparse.Namespace) -> int:
 
 
 def cmd_serve(args: argparse.Namespace) -> int:
-    """Start the companion HTTP/status server (optionally run a convert batch)."""
+    """Start the companion HTTP server with shared-workstation control."""
     import time
 
-    from .companion import QueueStatusHub
+    from PyQt6.QtCore import QCoreApplication
+
+    from .companion import QueueStatusHub, SessionController
     from .companion.server import (
         CompanionServer,
         companion_url,
         format_companion_status,
+        generate_token,
         resolve_companion_bind,
     )
 
@@ -705,40 +708,85 @@ def cmd_serve(args: argparse.Namespace) -> int:
         settings["companion_host"] = "0.0.0.0"
 
     host, port, token = resolve_companion_bind(settings, lan=lan)
+    # Shared control writes always need a token; mint one for localhost serve.
+    if not token:
+        token = generate_token()
     settings["companion_host"] = host
     settings["companion_port"] = port
     settings["companion_token"] = token
 
-    ensure_qt_app()
+    app = ensure_qt_app()
     orch = Orchestrator(
         threads_per_job=1,
         max_parallel=int(settings.get("parallel", 2) or 1),
     )
     orch.set_settings(settings)
     hub = QueueStatusHub()
-    hub.attach(orch, app_label="HandForge serve")
+    controller = SessionController()
+    pending: list = []
+    hub.attach(
+        orch,
+        pending_provider=lambda: list(pending),
+        app_label="HandForge serve",
+    )
+    controller.attach(
+        orch,
+        settings,
+        pending=pending,
+        preset_name="MP3 192k",
+    )
+
+    def on_started(wid: int, file_path: str) -> None:
+        hub.on_started(wid, file_path)
+
+    def on_progress(
+        wid: int,
+        progress: float,
+        elapsed: float,
+        eta: float,
+        speed: str,
+        *_rest,
+    ) -> None:
+        hub.on_progress(wid, progress, elapsed, eta, speed)
+
+    def on_done(wid: int, success: bool, message: str, output_path: str) -> None:
+        hub.on_done(wid, success, message, output_path)
+
+    orch.sig_worker_started.connect(on_started)
+    orch.sig_worker_progress.connect(on_progress)
+    orch.sig_worker_done.connect(on_done)
 
     try:
-        server = CompanionServer(hub, host=host, port=port, token=token)
+        server = CompanionServer(
+            hub, host=host, port=port, token=token, controller=controller
+        )
         server.start()
     except (OSError, ValueError) as exc:
         print(f"Companion server failed: {exc}", file=sys.stderr)
         return EXIT_FAIL
 
     print(format_companion_status(settings))
-    print(f"Open on phone (same LAN if --lan): {companion_url(host, port, token)}")
+    print(f"Shared workstation UI: {companion_url(host, port, token)}")
     print(
-        "Idle API/UI for smoke tests. For live queue monitoring during encodes, "
-        "enable Preferences → Companion or use: convert … --companion"
+        "Control API (token required): POST /api/control/start|stop|jobs|options"
+    )
+    print(
+        "Add absolute media paths on this host via the web UI, then Start. "
+        "Anyone with the token can control this session — keep it private."
     )
     print("Press Ctrl+C to stop.")
     try:
         while True:
-            time.sleep(1.0)
+            app.processEvents()
+            time.sleep(0.05)
     except KeyboardInterrupt:
         print("\nStopping companion…", file=sys.stderr)
+        orch.stop_all()
     finally:
         server.stop()
+        # Drain Qt events after stop
+        if QCoreApplication.instance() is not None:
+            app.processEvents()
     return EXIT_OK
 
 

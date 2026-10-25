@@ -21,7 +21,7 @@
 - **System Tray**: Minimize to tray with conversion notifications
 - **Real-time Progress**: Progress tracking with elapsed/ETA/speed and visual progress bars
 - **Headless CLI**: Batch convert from the terminal (`python -m handforge`) without a GUI or display
-- **Companion monitor**: Opt-in local HTTP + mobile web UI to watch queue/active progress from a phone on the LAN (`handforge serve` / Preferences → Companion)
+- **Companion / shared workstation**: Opt-in local HTTP + mobile/desktop web UI to monitor and control queue/active jobs on the LAN (`handforge serve` / Preferences → Companion); control writes require a shared token
 
 ## 🧭 Table of Contents
 
@@ -93,8 +93,8 @@ Key settings (full reference: [docs/configuration.md](docs/configuration.md)):
 | `cloud_roots` | Local sync / mount folders for pick-up and save | `[]` |
 | `rclone_remote` | Optional default rclone remote name | `""` |
 | `performance_analytics` | Opt-in local batch metrics (`~/.handforge/analytics/`) | false |
-| `companion_enabled` | Opt-in remote queue monitor HTTP + mobile web UI | false |
-| `companion_host` / `companion_port` | Companion bind (default localhost:8765; LAN needs token) | `127.0.0.1` / `8765` |
+| `companion_enabled` | Opt-in companion HTTP + shared workstation web UI | false |
+| `companion_host` / `companion_port` | Companion bind (default localhost:8765; LAN + control writes need token) | `127.0.0.1` / `8765` |
 | `default_video_quality` | Default video quality preset | medium |
 | `default_video_codec` | Default video codec | libx264 |
 | `language` | Interface language (None = auto-detect) | None |

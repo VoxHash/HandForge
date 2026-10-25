@@ -95,7 +95,7 @@ python -m handforge list-analytics --limit 10 -v
 
 ### `serve`
 
-Start the companion remote queue-monitor HTTP server (mobile web UI + `GET /api/status`). Default bind is localhost; use `--lan` for phone-on-LAN (auto-mints a token if unset).
+Start the companion HTTP server with shared-workstation control (web UI + `GET /api/status` + mutating `/api/control/*` wired to a live Orchestrator). Default bind is localhost; use `--lan` for phone-on-LAN. A token is always minted for `serve` so control writes work; keep it private.
 
 ```bash
 python -m handforge serve
@@ -103,7 +103,7 @@ python -m handforge serve --lan --port 8765
 # Open the printed URL on your phone (includes ?token=…)
 ```
 
-For live progress during a headless batch, prefer `convert --companion` (below). GUI users enable Preferences → Companion instead.
+Open the printed URL to add host media paths, set output/preset, and Start/Stop. For monitor-only during a one-shot headless batch, prefer `convert --companion` (below). GUI users enable Preferences → Companion for the same UI against the desktop session.
 
 ### `convert`
 

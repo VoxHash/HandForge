@@ -392,9 +392,9 @@ Opt-in metrics for long batch jobs. **Off by default.** When enabled, HandForge 
 
 **CLI**: `convert --analytics` / `--no-analytics`; `list-analytics` for recent history.
 
-### Companion (remote queue monitor)
+### Companion (monitor + shared workstation)
 
-Opt-in HTTP status API + mobile-friendly web UI so you can watch the real Orchestrator queue from a phone browser. **Off by default.** Prefer localhost; LAN bind requires a shared token.
+Opt-in HTTP status API + shared-workstation web UI so you can watch and control the real Orchestrator queue from a phone or another desktop browser. **Off by default.** Prefer localhost; LAN bind requires a shared token. **All mutating `/api/control/*` writes require a token** even on localhost.
 
 ```json
 {
@@ -410,15 +410,15 @@ Opt-in HTTP status API + mobile-friendly web UI so you can watch the real Orches
 | `companion_enabled` | Start the companion HTTP server with the GUI (or use CLI) | `false` |
 | `companion_host` | Bind address (`127.0.0.1` = this machine only; `0.0.0.0` = LAN) | `127.0.0.1` |
 | `companion_port` | TCP port | `8765` |
-| `companion_token` | Shared secret (`?token=` or `Authorization: Bearer`); **required** when host is not localhost | `""` |
+| `companion_token` | Shared secret (`?token=` or `Authorization: Bearer`); **required** for LAN binds and for all control writes | `""` |
 
-**Security**: Anyone on the network who has the token can see queue filenames (basenames only). Do not expose beyond your LAN; use a firewall. Token is auto-minted when enabling a non-localhost bind without one.
+**Security**: Anyone with the token can see queue basenames and start/stop/enqueue existing media on this host. Do not expose beyond your LAN; use a firewall. Token is auto-minted when enabling Companion without one.
 
-**UI**: Preferences → Advanced → **Companion**. Status bar shows the phone URL when enabled.
+**UI**: Preferences → Advanced → **Companion**. Status bar shows the workstation URL when enabled.
 
-**CLI**: `handforge serve [--lan]`; `convert … --companion` / `--companion-lan`.
+**CLI**: `handforge serve [--lan]` (controllable session); `convert … --companion` / `--companion-lan` (monitor during batch).
 
-**Endpoints**: `GET /` (mobile UI), `GET /api/status` (JSON from live Orchestrator), `GET /api/health` (unauthenticated probe).
+**Endpoints**: `GET /` (shared UI), `GET /api/status`, `GET /api/control`, `POST /api/control/start|stop|jobs|options|…`, `GET /api/health` (unauthenticated probe).
 
 ### Auto-Retry
 
