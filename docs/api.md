@@ -248,6 +248,27 @@ plan = resolve_hw_encode("auto", software_codec="libx264", detection=info)
 print(plan.backend, plan.encoder, plan.used_hw)
 ```
 
+### handforge.util.cloud
+
+Local cloud sync roots and optional rclone helpers (no API keys stored).
+
+```python
+from handforge.util.cloud import (
+    all_cloud_roots,
+    format_cloud_status,
+    list_rclone_remotes,
+    prepare_inputs,
+    prepare_output,
+    push_output,
+    rclone_available,
+)
+
+print(format_cloud_status(settings))
+print(rclone_available(settings), list_rclone_remotes(settings))
+for root in all_cloud_roots(settings):
+    print(root.kind, root.path)
+```
+
 ## Example: Programmatic Usage
 
 ```python

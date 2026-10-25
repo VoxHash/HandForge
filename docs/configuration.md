@@ -95,6 +95,34 @@ Default output directory for converted files:
 
 **Default**: `~/HandForge_Output` (Linux/macOS) or `%USERPROFILE%\HandForge_Output` (Windows)
 
+You can set `output_dir` to a **local cloud sync folder** (Dropbox, Google Drive, OneDrive, Nextcloud, etc.). The GUI and local CLI encode there; the sync client uploads in the background.
+
+For **rclone** `remote:path` outputs, prefer the CLI (`--cloud-output` or `-o remote:path`). HandForge stages locally, encodes with FFmpeg, then runs `rclone copy` — no API keys are stored in HandForge.
+
+### Cloud Storage
+
+```json
+{
+  "cloud_roots": ["/home/you/Dropbox/HandForge", "/home/you/OneDrive/Media"],
+  "cloud_input_root": "/home/you/Dropbox/HandForge/In",
+  "rclone_enabled": true,
+  "rclone_remote": "gdrive",
+  "rclone_binary": ""
+}
+```
+
+| Key | Description | Default |
+|-----|-------------|---------|
+| `cloud_roots` | User-configured local sync / mount folders (existing paths only) | `[]` |
+| `cloud_input_root` | Preferred start directory for Add Files / Add Folder | `null` (first cloud root or home) |
+| `rclone_enabled` | Allow `remote:path` inputs/outputs when rclone is installed | `true` |
+| `rclone_remote` | Default rclone remote name (without required trailing colon) | `""` |
+| `rclone_binary` | Optional path to the rclone binary; empty uses `PATH` | `""` |
+
+HandForge also **auto-detects** common sync client folders (e.g. `~/Dropbox`, `~/OneDrive`, macOS `~/Library/CloudStorage/…`) and merges them with `cloud_roots` for browsing and `list-cloud`.
+
+Configure remotes with the real rclone CLI (`rclone config`). HandForge never invents credentials.
+
 ### Default Video Quality
 
 Default video quality preset:

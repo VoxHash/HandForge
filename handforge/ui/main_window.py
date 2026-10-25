@@ -759,8 +759,11 @@ class MainWindow(QMainWindow):
     
     def add_files(self):
         """Add files dialog."""
+        from ..util.cloud import default_browse_dir
+
+        start = default_browse_dir(self.settings)
         files, _ = QFileDialog.getOpenFileNames(
-            self, "Add Media Files", "",
+            self, "Add Media Files", start,
             "Media Files (*.mp3 *.aac *.m4a *.flac *.wav *.ogg *.opus *.wma *.ac3 *.eac3 *.ape *.tta *.wv *.mp2 *.amr *.caf *.au *.mka *.aiff *.mp4 *.mkv *.avi *.mov *.wmv *.flv *.webm *.m4v *.3gp *.ogv);;Audio Files (*.mp3 *.aac *.m4a *.flac *.wav *.ogg *.opus *.wma *.ac3 *.eac3 *.ape *.tta *.wv *.mp2 *.amr *.caf *.au *.mka *.aiff);;Video Files (*.mp4 *.mkv *.avi *.mov *.wmv *.flv *.webm *.m4v *.3gp *.ogv);;All Files (*)"
         )
         if files:
@@ -768,7 +771,10 @@ class MainWindow(QMainWindow):
     
     def add_folder(self):
         """Add folder dialog."""
-        folder = QFileDialog.getExistingDirectory(self, "Add Folder")
+        from ..util.cloud import default_browse_dir
+
+        start = default_browse_dir(self.settings)
+        folder = QFileDialog.getExistingDirectory(self, "Add Folder", start)
         if folder:
             files = []
             for root, dirs, filenames in os.walk(folder):
@@ -809,11 +815,18 @@ class MainWindow(QMainWindow):
         self.update_queue_table()
     
     def get_output_dir(self) -> str:
-        """Get output directory."""
+        """Get output directory (settings, including local cloud sync roots)."""
+        from ..util.cloud import expand_local_path, is_rclone_path
+
+        configured = self.settings.get("output_dir")
+        if configured:
+            path = expand_local_path(str(configured))
+            # GUI encodes to local/synced folders; rclone remote:path is CLI (--cloud-output)
+            if not is_rclone_path(path):
+                return path
         if os.name == "nt":  # Windows
             return os.path.join(os.environ.get("USERPROFILE", ""), "HandForge_Output")
-        else:  # Linux/macOS
-            return os.path.expanduser("~/HandForge_Output")
+        return os.path.expanduser("~/HandForge_Output")
     
     def update_queue_table(self):
         """Update the queue table."""

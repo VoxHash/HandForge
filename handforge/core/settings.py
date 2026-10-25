@@ -111,6 +111,12 @@ def load_settings() -> Dict[str, Any]:
         # Plugins: ~/.handforge/plugins + HANDFORGE_PLUGIN_DIRS + plugin_dirs
         "plugins_enabled": True,
         "plugin_dirs": [],
+        # Cloud storage: local sync folders + optional rclone (no API keys stored)
+        "cloud_roots": [],  # user-configured local sync / mount paths
+        "cloud_input_root": None,  # preferred start dir for Add Folder / browse
+        "rclone_enabled": True,  # allow remote:path when rclone is installed
+        "rclone_remote": "",  # default remote name (e.g. "gdrive")
+        "rclone_binary": "",  # optional path to rclone; empty = PATH lookup
     }
     
     settings = load_json_file("settings.json", {})

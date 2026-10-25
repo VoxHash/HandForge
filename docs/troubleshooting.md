@@ -98,6 +98,45 @@ HandForge maps common failures to an actionable summary plus **What to try** ste
 3. Try pausing and resuming
 4. Check workers table for status
 
+## Cloud Storage / rclone
+
+### rclone Not Found
+
+**Problem**: `list-cloud` says rclone is missing, or convert fails on `remote:path`.
+
+**Solutions**:
+1. Install rclone from https://rclone.org/install/ and ensure it is on `PATH` (`rclone version`)
+2. Or set Preferences → Cloud → **rclone binary** to the full path
+3. Or skip rclone and use a **local sync folder** (Dropbox / Google Drive / OneDrive / Nextcloud) as input/output — no rclone required
+4. Use `--no-rclone` only when you intend local paths only
+
+### No Remotes Listed
+
+**Problem**: rclone is installed but `list-cloud` shows no remotes.
+
+**Solutions**:
+1. Run `rclone config` and create at least one remote
+2. Confirm `rclone listremotes` prints names ending in `:`
+3. Click **Refresh remotes** in Preferences → Cloud
+
+### Sync Folder Not Detected
+
+**Problem**: Detect Sync Folders finds nothing.
+
+**Solutions**:
+1. Confirm the client folder exists (e.g. `~/Dropbox`, `~/OneDrive`, macOS `~/Library/CloudStorage/…`)
+2. Use **Add Folder…** to point at your synced directory manually
+3. Set `cloud_roots` in `~/.handforge/settings.json`
+
+### Upload After Convert Failed
+
+**Problem**: Encode succeeded but rclone upload failed.
+
+**Solutions**:
+1. Check network and remote credentials (`rclone lsd remote:`)
+2. Re-run upload manually: `rclone copy /path/to/local/out remote:path`
+3. Prefer writing directly to a mounted sync folder if rclone auth is unreliable
+
 ## Configuration Issues
 
 ### Settings Not Saving

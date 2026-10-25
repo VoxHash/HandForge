@@ -29,6 +29,13 @@ from .core.presets import (
     list_templates,
 )
 from .core.settings import load_settings
+from .util.cloud import (
+    cleanup_staging,
+    format_cloud_status,
+    prepare_inputs,
+    prepare_output,
+    push_output,
+)
 from .util.errors import format_actionable_error
 from .util.ffmpeg import find_ffmpeg, is_audio_file, is_video_file
 from .util.hwaccel import (
@@ -554,6 +561,13 @@ def cmd_list_hw_accel(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_list_cloud(args: argparse.Namespace) -> int:
+    """Show rclone availability/remotes and local cloud sync roots."""
+    settings = load_settings()
+    print(format_cloud_status(settings))
+    return EXIT_OK
+
+
 def cmd_convert(args: argparse.Namespace) -> int:
     if not find_ffmpeg():
         print(
@@ -562,22 +576,6 @@ def cmd_convert(args: argparse.Namespace) -> int:
         )
         return EXIT_FAIL
 
-    try:
-        inputs = collect_inputs(args.inputs)
-    except FileNotFoundError as exc:
-        print(format_actionable_error(str(exc), exc=exc), file=sys.stderr)
-        return EXIT_USAGE
-
-    if not inputs:
-        print("No supported media files found in the given paths.", file=sys.stderr)
-        return EXIT_USAGE
-
-    try:
-        options = resolve_conversion_options(args)
-    except ValueError as exc:
-        print(str(exc), file=sys.stderr)
-        return EXIT_USAGE
-
     settings = load_settings()
     if args.parallel is not None:
         settings["parallel"] = max(1, int(args.parallel))
@@ -585,58 +583,123 @@ def cmd_convert(args: argparse.Namespace) -> int:
         settings["adaptive_parallel"] = False
     if getattr(args, "hw_accel", None):
         settings["hw_accel"] = normalize_hw_preference(args.hw_accel)
+    if getattr(args, "cloud_remote", None):
+        settings["rclone_remote"] = str(args.cloud_remote).strip()
+    if getattr(args, "no_rclone", False):
+        settings["rclone_enabled"] = False
 
-    out_dir = args.output_dir or settings.get("output_dir") or _default_output_dir()
-    out_dir = os.path.expanduser(str(out_dir))
+    staging_to_clean: List[str] = []
     try:
-        os.makedirs(out_dir, mode=0o755, exist_ok=True)
-        probe = os.path.join(out_dir, f".handforge_cli_write_{os.getpid()}")
-        with open(probe, "w", encoding="utf-8") as fh:
-            fh.write("ok")
-        os.remove(probe)
-    except OSError as exc:
-        print(
-            format_actionable_error(
-                f"Cannot write to output directory '{out_dir}': {exc}",
-                exc=exc,
-            ),
-            file=sys.stderr,
+        prepared_in = prepare_inputs(args.inputs, settings=settings)
+        staging_to_clean.extend(prepared_in.staging_dirs)
+        try:
+            inputs = collect_inputs(prepared_in.paths)
+        except FileNotFoundError as exc:
+            print(format_actionable_error(str(exc), exc=exc), file=sys.stderr)
+            return EXIT_USAGE
+
+        if not inputs:
+            print("No supported media files found in the given paths.", file=sys.stderr)
+            return EXIT_USAGE
+
+        try:
+            options = resolve_conversion_options(args)
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return EXIT_USAGE
+
+        out_spec = (
+            args.cloud_output
+            or args.output_dir
+            or settings.get("output_dir")
+            or _default_output_dir()
         )
-        return EXIT_FAIL
+        try:
+            resolved_out = prepare_output(str(out_spec), settings=settings)
+        except (FileNotFoundError, RuntimeError, ValueError) as exc:
+            print(format_actionable_error(str(exc), exc=exc), file=sys.stderr)
+            return EXIT_FAIL
+        if resolved_out.staging:
+            staging_to_clean.append(resolved_out.local_dir)
+        out_dir = resolved_out.local_dir
 
-    if args.on_exists:
-        settings["on_exists"] = args.on_exists
+        try:
+            probe = os.path.join(out_dir, f".handforge_cli_write_{os.getpid()}")
+            with open(probe, "w", encoding="utf-8") as fh:
+                fh.write("ok")
+            os.remove(probe)
+        except OSError as exc:
+            print(
+                format_actionable_error(
+                    f"Cannot write to output directory '{out_dir}': {exc}",
+                    exc=exc,
+                ),
+                file=sys.stderr,
+            )
+            return EXIT_FAIL
 
-    meta = {
-        "title": args.title,
-        "artist": args.artist,
-        "album": args.album,
-        "year": args.year,
-        "genre": args.genre,
-        "track": args.track,
-    }
+        if args.on_exists:
+            settings["on_exists"] = args.on_exists
 
-    jobs = [
-        build_job(src, out_dir, options, settings, meta=meta) for src in inputs
-    ]
+        meta = {
+            "title": args.title,
+            "artist": args.artist,
+            "album": args.album,
+            "year": args.year,
+            "genre": args.genre,
+            "track": args.track,
+        }
 
-    if not args.quiet:
-        print(
-            f"HandForge CLI {__version__}: {len(jobs)} job(s) → {out_dir} "
-            f"(format={options.get('format')}, parallel={settings.get('parallel')})",
-            file=sys.stderr,
-            flush=True,
+        jobs = [
+            build_job(src, out_dir, options, settings, meta=meta) for src in inputs
+        ]
+
+        dest_label = resolved_out.rclone_dest or out_dir
+        if not args.quiet:
+            print(
+                f"HandForge CLI {__version__}: {len(jobs)} job(s) → {dest_label} "
+                f"(format={options.get('format')}, parallel={settings.get('parallel')})",
+                file=sys.stderr,
+                flush=True,
+            )
+
+        _ok, failed = run_batch(
+            jobs, settings, quiet=args.quiet, verbose=args.verbose
         )
+        if failed:
+            print(f"Completed with {failed} failure(s).", file=sys.stderr)
+            return EXIT_FAIL
 
-    _ok, failed = run_batch(
-        jobs, settings, quiet=args.quiet, verbose=args.verbose
-    )
-    if failed:
-        print(f"Completed with {failed} failure(s).", file=sys.stderr)
+        if resolved_out.rclone_dest:
+            try:
+                if not args.quiet:
+                    print(
+                        f"Uploading outputs to {resolved_out.rclone_dest} via rclone…",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                push_output(resolved_out, settings=settings)
+            except (FileNotFoundError, RuntimeError, OSError) as exc:
+                print(
+                    format_actionable_error(
+                        f"Conversion succeeded locally but rclone upload failed: {exc}",
+                        exc=exc,
+                    ),
+                    file=sys.stderr,
+                )
+                return EXIT_FAIL
+
+        if not args.quiet:
+            print(f"Completed {len(jobs)} conversion(s) successfully.", file=sys.stderr)
+        return EXIT_OK
+    except FileNotFoundError as exc:
+        print(format_actionable_error(str(exc), exc=exc), file=sys.stderr)
         return EXIT_FAIL
-    if not args.quiet:
-        print(f"Completed {len(jobs)} conversion(s) successfully.", file=sys.stderr)
-    return EXIT_OK
+    except RuntimeError as exc:
+        print(format_actionable_error(str(exc), exc=exc), file=sys.stderr)
+        return EXIT_FAIL
+    finally:
+        cleanup_staging(staging_to_clean)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -750,6 +813,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_plugins.set_defaults(func=cmd_list_plugins)
 
+    p_cloud = sub.add_parser(
+        "list-cloud",
+        help=(
+            "Show rclone availability/remotes and local cloud sync roots "
+            "(Dropbox / Google Drive / OneDrive / Nextcloud / configured)"
+        ),
+    )
+    p_cloud.set_defaults(func=cmd_list_cloud)
+
     p_conv = sub.add_parser(
         "convert",
         help="Convert one or more media files or directories",
@@ -757,12 +829,31 @@ def build_parser() -> argparse.ArgumentParser:
     p_conv.add_argument(
         "inputs",
         nargs="+",
-        help="Input file(s) and/or directories (directories are scanned recursively)",
+        help=(
+            "Input file(s) and/or directories (directories are scanned recursively). "
+            "rclone paths use remote:path (requires rclone on PATH)"
+        ),
     )
     p_conv.add_argument(
         "-o",
         "--output-dir",
-        help="Output directory (default: settings or ~/HandForge_Output)",
+        help=(
+            "Output directory (default: settings or ~/HandForge_Output). "
+            "May be a local sync folder or rclone remote:path"
+        ),
+    )
+    p_conv.add_argument(
+        "--cloud-remote",
+        help="Default rclone remote name (e.g. gdrive); stored for this run only",
+    )
+    p_conv.add_argument(
+        "--cloud-output",
+        help="rclone remote:path for outputs (stages locally, then rclone copy)",
+    )
+    p_conv.add_argument(
+        "--no-rclone",
+        action="store_true",
+        help="Disable rclone remote:path handling for this run",
     )
     p_conv.add_argument(
         "-p",

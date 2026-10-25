@@ -88,7 +88,9 @@ Key settings (full reference: [docs/configuration.md](docs/configuration.md)):
 |---------|-------------|---------|
 | `parallel` | Max parallel encodes (hard ceiling) | 2 |
 | `adaptive_parallel` | Lower concurrency from free RAM/load | true |
-| `output_dir` | Default output directory | ~/HandForge_Output |
+| `output_dir` | Default output directory (may be a local cloud sync folder) | ~/HandForge_Output |
+| `cloud_roots` | Local sync / mount folders for pick-up and save | `[]` |
+| `rclone_remote` | Optional default rclone remote name | `""` |
 | `default_video_quality` | Default video quality preset | medium |
 | `default_video_codec` | Default video codec | libx264 |
 | `language` | Interface language (None = auto-detect) | None |

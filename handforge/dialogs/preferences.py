@@ -4,10 +4,10 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QDialogButtonBox, QComboBox, QCheckBox,
     QSpinBox, QDoubleSpinBox, QGroupBox, QTabWidget, QWidget,
-    QFormLayout, QMessageBox, QFileDialog
+    QFormLayout, QMessageBox, QFileDialog, QListWidget, QListWidgetItem,
 )
 from PyQt6.QtCore import Qt
-from typing import Dict, Any, Optional
+from typing import Dict, Any, List, Optional
 from ..core.settings import load_settings, save_settings
 
 
@@ -46,6 +46,10 @@ class PreferencesDialog(QDialog):
         video_tab = self.create_video_tab()
         tabs.addTab(video_tab, "Video")
         
+        # Cloud tab (local sync folders + optional rclone)
+        cloud_tab = self.create_cloud_tab()
+        tabs.addTab(cloud_tab, "Cloud")
+
         # Advanced tab
         advanced_tab = self.create_advanced_tab()
         tabs.addTab(advanced_tab, "Advanced")
@@ -483,6 +487,89 @@ class PreferencesDialog(QDialog):
         layout.addStretch()
         return widget
     
+    def create_cloud_tab(self) -> QWidget:
+        """Create cloud storage settings tab (sync folders + optional rclone)."""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setSpacing(15)
+
+        roots_group = QGroupBox("Cloud Roots (local sync folders)")
+        roots_layout = QVBoxLayout(roots_group)
+        roots_hint = QLabel(
+            "Point HandForge at Dropbox, Google Drive, OneDrive, Nextcloud, "
+            "or any mounted sync folder. FFmpeg reads/writes these paths "
+            "locally; your sync client uploads in the background. No API keys."
+        )
+        roots_hint.setWordWrap(True)
+        roots_layout.addWidget(roots_hint)
+
+        self.cloud_roots_list = QListWidget()
+        self.cloud_roots_list.setMinimumHeight(120)
+        roots_layout.addWidget(self.cloud_roots_list)
+
+        roots_btn_row = QHBoxLayout()
+        add_root_btn = QPushButton("Add Folder…")
+        add_root_btn.clicked.connect(self.add_cloud_root)
+        remove_root_btn = QPushButton("Remove")
+        remove_root_btn.clicked.connect(self.remove_cloud_root)
+        detect_btn = QPushButton("Detect Sync Folders")
+        detect_btn.setToolTip(
+            "Scan common Dropbox / Google Drive / OneDrive / Nextcloud locations"
+        )
+        detect_btn.clicked.connect(self.detect_cloud_roots)
+        use_out_btn = QPushButton("Use as Output Dir")
+        use_out_btn.setToolTip("Set Conversion → Output Directory to the selected root")
+        use_out_btn.clicked.connect(self.use_cloud_root_as_output)
+        use_in_btn = QPushButton("Use as Input Browse Start")
+        use_in_btn.setToolTip("Start Add Folder / file dialogs in the selected root")
+        use_in_btn.clicked.connect(self.use_cloud_root_as_input)
+        roots_btn_row.addWidget(add_root_btn)
+        roots_btn_row.addWidget(remove_root_btn)
+        roots_btn_row.addWidget(detect_btn)
+        roots_btn_row.addWidget(use_out_btn)
+        roots_btn_row.addWidget(use_in_btn)
+        roots_layout.addLayout(roots_btn_row)
+
+        self.cloud_input_root_edit = QLineEdit()
+        self.cloud_input_root_edit.setReadOnly(True)
+        self.cloud_input_root_edit.setPlaceholderText("(optional — defaults to first cloud root)")
+        roots_layout.addWidget(QLabel("Input browse start:"))
+        roots_layout.addWidget(self.cloud_input_root_edit)
+
+        layout.addWidget(roots_group)
+
+        rclone_group = QGroupBox("rclone (optional)")
+        rclone_layout = QFormLayout(rclone_group)
+        self.rclone_enabled_check = QCheckBox("Enable rclone remote:path support")
+        self.rclone_enabled_check.setToolTip(
+            "When rclone is installed, allow remote:path inputs/outputs "
+            "(staged locally for FFmpeg, then uploaded)"
+        )
+        rclone_layout.addRow("", self.rclone_enabled_check)
+
+        self.rclone_status_label = QLabel("")
+        self.rclone_status_label.setWordWrap(True)
+        rclone_layout.addRow("Status:", self.rclone_status_label)
+
+        self.rclone_remote_combo = QComboBox()
+        self.rclone_remote_combo.setEditable(True)
+        self.rclone_remote_combo.setToolTip(
+            "Default rclone remote from `rclone listremotes` (empty = none)"
+        )
+        rclone_layout.addRow("Default remote:", self.rclone_remote_combo)
+
+        self.rclone_binary_edit = QLineEdit()
+        self.rclone_binary_edit.setPlaceholderText("rclone (PATH) or full path")
+        rclone_layout.addRow("rclone binary:", self.rclone_binary_edit)
+
+        refresh_rclone_btn = QPushButton("Refresh remotes")
+        refresh_rclone_btn.clicked.connect(self.refresh_rclone_status)
+        rclone_layout.addRow("", refresh_rclone_btn)
+
+        layout.addWidget(rclone_group)
+        layout.addStretch()
+        return widget
+
     def create_advanced_tab(self) -> QWidget:
         """Create advanced settings tab."""
         widget = QWidget()
@@ -517,7 +604,13 @@ class PreferencesDialog(QDialog):
     
     def browse_output_dir(self):
         """Browse for output directory."""
-        current_dir = self.output_dir_edit.text() or self.get_default_output_dir()
+        from ..util.cloud import default_browse_dir
+
+        current_dir = (
+            self.output_dir_edit.text()
+            or default_browse_dir(self.settings)
+            or self.get_default_output_dir()
+        )
         dir_path = QFileDialog.getExistingDirectory(
             self, "Select Output Directory", current_dir
         )
@@ -531,6 +624,113 @@ class PreferencesDialog(QDialog):
             return os.path.join(os.environ.get("USERPROFILE", ""), "HandForge_Output")
         else:  # Linux/macOS
             return os.path.expanduser("~/HandForge_Output")
+
+    def _cloud_roots_from_list(self) -> List[str]:
+        roots: List[str] = []
+        for i in range(self.cloud_roots_list.count()):
+            item = self.cloud_roots_list.item(i)
+            path = item.data(Qt.ItemDataRole.UserRole) or item.text()
+            if path:
+                roots.append(str(path))
+        return roots
+
+    def _set_cloud_roots_list(self, paths: List[str]) -> None:
+        self.cloud_roots_list.clear()
+        seen = set()
+        for path in paths:
+            if not path or path in seen:
+                continue
+            seen.add(path)
+            item = QListWidgetItem(path)
+            item.setData(Qt.ItemDataRole.UserRole, path)
+            self.cloud_roots_list.addItem(item)
+
+    def add_cloud_root(self):
+        """Browse and add a cloud sync / mount folder."""
+        from ..util.cloud import default_browse_dir
+
+        start = default_browse_dir(self.settings)
+        dir_path = QFileDialog.getExistingDirectory(
+            self, "Add Cloud Root Folder", start
+        )
+        if dir_path:
+            roots = self._cloud_roots_from_list()
+            if dir_path not in roots:
+                roots.append(dir_path)
+                self._set_cloud_roots_list(roots)
+
+    def remove_cloud_root(self):
+        """Remove the selected cloud root."""
+        row = self.cloud_roots_list.currentRow()
+        if row >= 0:
+            self.cloud_roots_list.takeItem(row)
+
+    def detect_cloud_roots(self):
+        """Merge detected sync client folders into the cloud roots list."""
+        from ..util.cloud import detect_sync_mounts
+
+        roots = self._cloud_roots_from_list()
+        for mount in detect_sync_mounts():
+            if mount.path not in roots:
+                roots.append(mount.path)
+        self._set_cloud_roots_list(roots)
+        if not roots:
+            QMessageBox.information(
+                self,
+                "Cloud Roots",
+                "No Dropbox / Google Drive / OneDrive / Nextcloud folders were found.\n"
+                "Add a synced folder manually, or install/configure rclone for remote:path.",
+            )
+
+    def use_cloud_root_as_output(self):
+        """Set Conversion output directory to the selected cloud root."""
+        item = self.cloud_roots_list.currentItem()
+        if not item:
+            QMessageBox.information(self, "Cloud Roots", "Select a cloud root first.")
+            return
+        path = item.data(Qt.ItemDataRole.UserRole) or item.text()
+        self.output_dir_edit.setText(str(path))
+
+    def use_cloud_root_as_input(self):
+        """Set preferred browse start to the selected cloud root."""
+        item = self.cloud_roots_list.currentItem()
+        if not item:
+            QMessageBox.information(self, "Cloud Roots", "Select a cloud root first.")
+            return
+        path = item.data(Qt.ItemDataRole.UserRole) or item.text()
+        self.cloud_input_root_edit.setText(str(path))
+
+    def refresh_rclone_status(self):
+        """Update rclone availability and remote combo from the real CLI."""
+        from ..util.cloud import find_rclone, list_rclone_remotes
+
+        binary_override = self.rclone_binary_edit.text().strip() or None
+        rclone = find_rclone(binary_override)
+        current = self.rclone_remote_combo.currentText().strip()
+        self.rclone_remote_combo.blockSignals(True)
+        self.rclone_remote_combo.clear()
+        self.rclone_remote_combo.addItem("")  # none
+        if rclone:
+            remotes = list_rclone_remotes(binary=binary_override)
+            for name in remotes:
+                bare = name.rstrip(":")
+                self.rclone_remote_combo.addItem(bare)
+            self.rclone_status_label.setText(
+                f"rclone found: {rclone}"
+                + (f" — {len(remotes)} remote(s)" if remotes else " — no remotes (run `rclone config`)")
+            )
+        else:
+            self.rclone_status_label.setText(
+                "rclone not found — install from https://rclone.org/install/ "
+                "or use local sync folders above. Local workflows stay unchanged."
+            )
+        if current:
+            idx = self.rclone_remote_combo.findText(current)
+            if idx >= 0:
+                self.rclone_remote_combo.setCurrentIndex(idx)
+            else:
+                self.rclone_remote_combo.setEditText(current)
+        self.rclone_remote_combo.blockSignals(False)
     
     def load_settings(self):
         """Load settings into UI."""
@@ -634,6 +834,23 @@ class PreferencesDialog(QDialog):
         edge_index = self.video_stabilize_edge_combo.findText(edge)
         if edge_index >= 0:
             self.video_stabilize_edge_combo.setCurrentIndex(edge_index)
+
+        # Cloud
+        self._set_cloud_roots_list(list(self.settings.get("cloud_roots") or []))
+        input_root = self.settings.get("cloud_input_root") or ""
+        self.cloud_input_root_edit.setText(str(input_root) if input_root else "")
+        self.rclone_enabled_check.setChecked(
+            bool(self.settings.get("rclone_enabled", True))
+        )
+        self.rclone_binary_edit.setText(str(self.settings.get("rclone_binary") or ""))
+        self.refresh_rclone_status()
+        remote = str(self.settings.get("rclone_remote") or "").strip()
+        if remote:
+            idx = self.rclone_remote_combo.findText(remote.rstrip(":"))
+            if idx >= 0:
+                self.rclone_remote_combo.setCurrentIndex(idx)
+            else:
+                self.rclone_remote_combo.setEditText(remote.rstrip(":"))
         
         # Advanced
         self.auto_retry_check.setChecked(self.settings.get("auto_retry_enabled", True))
@@ -707,6 +924,14 @@ class PreferencesDialog(QDialog):
         settings["video_stabilize_rx"] = self.video_stabilize_rx_spin.value()
         settings["video_stabilize_ry"] = self.video_stabilize_ry_spin.value()
         settings["video_stabilize_edge"] = self.video_stabilize_edge_combo.currentText()
+
+        # Cloud
+        settings["cloud_roots"] = self._cloud_roots_from_list()
+        input_root = self.cloud_input_root_edit.text().strip()
+        settings["cloud_input_root"] = input_root or None
+        settings["rclone_enabled"] = self.rclone_enabled_check.isChecked()
+        settings["rclone_binary"] = self.rclone_binary_edit.text().strip()
+        settings["rclone_remote"] = self.rclone_remote_combo.currentText().strip()
         
         # Advanced
         settings["auto_retry_enabled"] = self.auto_retry_check.isChecked()
@@ -767,6 +992,11 @@ class PreferencesDialog(QDialog):
                 "video_stabilize_edge": "mirror",
                 "auto_retry_enabled": True,
                 "ewma_alpha": 0.3,
+                "cloud_roots": [],
+                "cloud_input_root": None,
+                "rclone_enabled": True,
+                "rclone_remote": "",
+                "rclone_binary": "",
             }
             self.load_settings()
 

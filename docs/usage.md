@@ -19,11 +19,22 @@ Access comprehensive settings via **Settings** → **Preferences**:
 - **Conversion**: Output directory, codec thread counts
 - **Audio**: Loudness normalization, **EQ / compressor / limiter / noise reduction**, cover art preferences
 - **Video**: Default quality, codec, **hardware acceleration** (Auto / Software / NVENC / Quick Sync / VAAPI / VideoToolbox), size reduction settings
+- **Cloud**: Local sync roots (Dropbox / Google Drive / OneDrive / Nextcloud), optional rclone remote
 - **Advanced**: Auto-retry, performance tuning
 
 Use **Detect Hardware Encoders…** on the Video tab to probe FFmpeg on this machine. Auto mode picks a working backend and falls back to software if encode fails.
 
 On the **Audio** tab, enable advanced filters only when needed (all off by default). EQ uses three bands; compressor/limiter use FFmpeg `acompressor` / `alimiter`; noise reduction uses `afftdn`.
+
+### Cloud storage (pick up / save)
+
+1. Open **Settings** → **Preferences** → **Cloud**.
+2. **Detect Sync Folders** or **Add Folder…** to register a Dropbox / Drive / OneDrive / Nextcloud (or any synced) path.
+3. Select a root → **Use as Output Dir** (also updates Conversion → Output Directory) and/or **Use as Input Browse Start**.
+4. Add media with **Add Files** / **Add Folder** — dialogs open in your cloud input root when set.
+5. Convert as usual; files written into a sync folder are uploaded by the sync client.
+
+**Optional rclone**: if `rclone` is on `PATH` (or you set the binary path), enable rclone support, pick a default remote from `rclone listremotes`, and use the CLI for `remote:path` pick-up/save (`list-cloud`, `convert --cloud-output`). Without rclone, local sync folders still work; remote paths are refused with a clear message.
 
 Settings are saved automatically and persist between sessions.
 

@@ -76,6 +76,14 @@ python -m handforge list-hw-accel
 python -m handforge list-hw-accel --no-probe   # compiled encoders only
 ```
 
+### `list-cloud`
+
+Show rclone availability/remotes and local cloud sync roots (detected + configured). Safe when rclone is missing — prints install guidance and still lists local roots.
+
+```bash
+python -m handforge list-cloud
+```
+
 ### `convert`
 
 Convert one or more files or directories (directories are scanned recursively for audio/video).
@@ -110,13 +118,23 @@ python -m handforge convert input.mp3 --preset "MP3 192k" \
 
 # Parallelism
 python -m handforge convert ./batch -f flac --mode Lossless --parallel 4 --no-adaptive
+
+# Local cloud sync folder (Dropbox / Drive / OneDrive / …)
+python -m handforge convert ~/Dropbox/Inbox -f mp3 --bitrate 192 -o ~/Dropbox/HandForge_Out
+
+# rclone remote:path (requires rclone on PATH; stages locally then uploads)
+python -m handforge convert gdrive:Media/In -f mp3 --bitrate 192 --cloud-output gdrive:Media/Out
+python -m handforge convert ./local -f flac --cloud-remote gdrive --cloud-output gdrive:Archive
 ```
 
 #### Options
 
 | Option | Description |
 |--------|-------------|
-| `-o`, `--output-dir` | Output directory (default: settings `output_dir` or `~/HandForge_Output`) |
+| `-o`, `--output-dir` | Output directory (default: settings `output_dir` or `~/HandForge_Output`); may be a local sync path or `remote:path` |
+| `--cloud-remote` | Default rclone remote name for this run |
+| `--cloud-output` | rclone `remote:path` for outputs (local stage → `rclone copy`) |
+| `--no-rclone` | Disable `remote:path` handling for this run |
 | `-p`, `--preset` | Named preset or template id/name (see `list-presets` / `list-templates`) |
 | `-f`, `--format` | Output format (overrides preset) |
 | `--mode` | `CBR`, `VBR`, or `Lossless` |
