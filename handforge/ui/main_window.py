@@ -197,13 +197,17 @@ class MainWindow(QMainWindow):
     def init_ui(self):
         """Initialize the modern media desktop shell (sidebar + main stage)."""
         self.setWindowTitle("HandForge - Audio & Video Converter")
-        self.setMinimumSize(1280, 820)
+        # Compact-friendly floor; default open size is larger via resize().
+        # No maximum — user can grow to any display size.
+        self.setMinimumSize(720, 480)
+        self.resize(1280, 820)
         self.setFont(application_font(10))
 
         t = self.translator
 
         # --- Convert workspace body (controls + options + queue | active) ---
         workspace = QWidget()
+        workspace.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         layout = QVBoxLayout(workspace)
         layout.setSpacing(12)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -344,8 +348,12 @@ class MainWindow(QMainWindow):
         layout.addWidget(options_group)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.setChildrenCollapsible(True)
+        splitter.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         queue_group = QGroupBox("Conversion Queue")
+        queue_group.setMinimumWidth(160)
+        queue_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         queue_layout = QVBoxLayout(queue_group)
 
         self.queue_table = QTableWidget()
@@ -370,6 +378,8 @@ class MainWindow(QMainWindow):
         splitter.addWidget(queue_group)
 
         workers_group = QGroupBox("Active Conversions")
+        workers_group.setMinimumWidth(160)
+        workers_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         workers_layout = QVBoxLayout(workers_group)
 
         self.workers_table = QTableWidget()
@@ -403,6 +413,7 @@ class MainWindow(QMainWindow):
 
         # --- Library stage (presets / patterns hub) ---
         library_body = QWidget()
+        library_body.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         lib_layout = QVBoxLayout(library_body)
         lib_layout.setSpacing(12)
         lib_layout.setContentsMargins(0, 0, 0, 0)

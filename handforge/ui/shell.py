@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QStackedWidget,
     QVBoxLayout,
@@ -161,6 +162,7 @@ class StageStack(QStackedWidget):
 
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self._fade_group: Optional[QParallelAnimationGroup] = None
         self._effects: Dict[int, QGraphicsOpacityEffect] = {}
 
@@ -213,6 +215,7 @@ def wrap_stage_header(title: str, subtitle: str, body: QWidget) -> QWidget:
     """Title + calm subtitle above a dense content region."""
     page = QWidget()
     page.setObjectName("hfStagePage")
+    page.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
     layout = QVBoxLayout(page)
     layout.setContentsMargins(20, 16, 20, 16)
     layout.setSpacing(12)
@@ -227,7 +230,19 @@ def wrap_stage_header(title: str, subtitle: str, body: QWidget) -> QWidget:
     head.addWidget(t)
     head.addWidget(s)
     layout.addLayout(head)
-    layout.addWidget(body, 1)
+
+    # Scroll so Convert / Library reflow at compact heights and widths
+    # without locking the main window to a large fixed footprint.
+    scroll = QScrollArea()
+    scroll.setObjectName("hfStageScroll")
+    scroll.setWidgetResizable(True)
+    scroll.setFrameShape(QFrame.Shape.NoFrame)
+    scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+    scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+    scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+    body.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+    scroll.setWidget(body)
+    layout.addWidget(scroll, 1)
     return page
 
 
@@ -257,9 +272,10 @@ def build_shell(
     """Compose sidebar + main stage into one shell root."""
     root = QWidget(parent)
     root.setObjectName("hfShellRoot")
+    root.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
     row = QHBoxLayout(root)
     row.setContentsMargins(0, 0, 0, 0)
     row.setSpacing(0)
-    row.addWidget(sidebar)
+    row.addWidget(sidebar, 0)
     row.addWidget(stage, 1)
     return root

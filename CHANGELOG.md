@@ -43,6 +43,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Keyboard shortcuts for common GUI actions (add files/folder, start/stop, clear queue, preferences, presets, focus queue/active conversions, quit); **Help → Keyboard Shortcuts** (`F1`); documented in [docs/usage.md](docs/usage.md); tests in `tests/test_shortcuts.py`
 
 ### Changed
+- Desktop main window allows free resizing: lower minimum (720×480), no maximum, expanding stage/scroll layout so Convert and Library reflow at compact sizes
 - Orchestrator respects `adaptive_parallel`: user `parallel` setting is a hard ceiling; effective concurrency can be lower under memory/load pressure
 - Conversion failures in the orchestrator are enriched before GUI/CLI display; Active Conversions log dialog and status tooltips show solutions; CLI prints multi-line guidance on FAIL and pre-flight write checks use the same mapper
 
